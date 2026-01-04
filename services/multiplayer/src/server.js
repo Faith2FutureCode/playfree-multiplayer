@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import http from "http";
 import { WebSocketServer } from "ws";
 
 const PORT = Number(process.env.PORT || 3001);
@@ -27,7 +28,18 @@ function broadcast(roomId, msg, except) {
   }
 }
 
-const wss = new WebSocketServer({ port: PORT });
+// Basic HTTP server for health checks / Render port detection
+const server = http.createServer((req, res) => {
+  if (req.url === "/healthz") {
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end("ok");
+    return;
+  }
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("ws relay");
+});
+
+const wss = new WebSocketServer({ server });
 
 wss.on("connection", (ws) => {
   let roomId = null;
@@ -124,4 +136,6 @@ setInterval(() => {
   }
 }, 10000);
 
-console.log(`Multiplayer relay listening on ws://localhost:${PORT}`);
+server.listen(PORT, () => {
+  console.log(`Multiplayer relay listening on ws://localhost:${PORT}`);
+});
