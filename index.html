@@ -470,11 +470,9 @@
   };
 
   const applyScale = () => {
-    const maxScale = Math.max(
-      1,
-      Math.floor(Math.min(window.innerWidth / BASE_W, window.innerHeight / BASE_H))
-    );
-    SCALE = maxScale;
+    // Scale to the available body height; maintain aspect ratio to fit height exactly
+    const scaleFromHeight = Math.max(1, Math.floor(window.innerHeight / BASE_H));
+    SCALE = scaleFromHeight;
     canvas.width = BASE_W * SCALE;
     canvas.height = BASE_H * SCALE;
     applyLayoutVars();
