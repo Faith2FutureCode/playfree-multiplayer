@@ -3035,22 +3035,19 @@
       el.style.position = "absolute";
       el.style.left = `${Math.round(rect.left + screenX - 40)}px`;
       el.style.top = `${Math.round(rect.top + screenY)}px`;
-      el.style.font = "10px 'Press Start 2P', 'VT323', monospace";
+      el.style.font = "16px 'Press Start 2P', 'VT323', monospace";
       el.style.color = color;
       el.style.textShadow = "1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000";
       el.style.pointerEvents = "none";
       tagLayer.appendChild(el);
     };
     // self
-    addTag(`${PLAYER_NAME} C${coinCount} L${lives} T${Math.max(0, Math.floor(levelTimer))}`, player.x + player.w / 2, player.y - 14, "#f6d341");
+    addTag(`${PLAYER_NAME}`, player.x + player.w / 2, player.y - 14, "#f6d341");
     // peers
     for (const peer of peers.values()) {
       const px = peer.x ?? peer.targetX ?? 0;
       const py = peer.y ?? peer.targetY ?? 0;
-      const coins = peer.coins ?? 0;
-      const lives = peer.lives ?? 0;
-      const timer = peer.timer ?? 0;
-      addTag(`${peer.name || "P"} C${coins} L${lives} T${Math.max(0, Math.floor(timer))}`, px + 6, py - 10, "#f2f5ff");
+      addTag(`${peer.name || "P"}`, px + 6, py - 10, "#f2f5ff");
     }
   }
 
