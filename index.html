@@ -854,6 +854,7 @@
       const nextLabel = labelInput.value.trim();
       if (prevLabel === nextLabel) return;
       setLabel(selectedCell.tx, selectedCell.ty, nextLabel);
+      broadcastEditChange(selectedCell.tx, selectedCell.ty, prevTile, nextLabel);
       recordAction([{
         tx: selectedCell.tx, ty: selectedCell.ty,
         prevTile, prevLabel,
@@ -896,9 +897,11 @@
       if (useNext) {
         if (c.nextTile !== undefined) setTileRaw(c.tx, c.ty, c.nextTile);
         if (c.nextLabel !== undefined) setLabelRaw(c.tx, c.ty, c.nextLabel);
+        broadcastEditChange(c.tx, c.ty, c.nextTile, c.nextLabel);
       } else {
         if (c.prevTile !== undefined) setTileRaw(c.tx, c.ty, c.prevTile);
         if (c.prevLabel !== undefined) setLabelRaw(c.tx, c.ty, c.prevLabel);
+        broadcastEditChange(c.tx, c.ty, c.prevTile, c.prevLabel);
       }
     }
   }
@@ -1071,6 +1074,7 @@
     const nextTile = remove ? "." : editorTile;
     if (prevTile === nextTile) return;
     setTile(cell.tx, cell.ty, nextTile);
+    broadcastEditChange(cell.tx, cell.ty, nextTile, prevLabel);
     recordAction([{
       tx: cell.tx, ty: cell.ty,
       prevTile, prevLabel,
@@ -1417,6 +1421,13 @@
           }
         }
       }
+      if (Array.isArray(msg.labels)) {
+        for (const t of msg.labels) {
+          if (typeof t.tx === "number" && typeof t.ty === "number") {
+            setLabel(t.tx, t.ty, t.label ?? "");
+          }
+        }
+      }
       return;
     }
     if (msg.type === "state" && msg.id && msg.state) {
@@ -1429,6 +1440,10 @@
     }
     if (msg.type === "tile" && typeof msg.tx === "number" && typeof msg.ty === "number") {
       setTile(msg.tx, msg.ty, msg.value ?? ".");
+    }
+    if (msg.type === "edit" && typeof msg.tx === "number" && typeof msg.ty === "number") {
+      if (msg.value !== undefined) setTile(msg.tx, msg.ty, msg.value ?? ".");
+      if (msg.label !== undefined) setLabel(msg.tx, msg.ty, msg.label ?? "");
     }
   }
 
@@ -1466,9 +1481,12 @@
     if (peer.y === undefined) peer.y = peer.targetY;
   }
 
-  function broadcastTileChange(tx, ty, value) {
+  function broadcastEditChange(tx, ty, value, label) {
     if (!MP_ENABLED || !netSocket || netSocket.readyState !== WebSocket.OPEN) return;
-    netSocket.send(JSON.stringify({ type: "tile", room: MP_ROOM, tx, ty, value }));
+    const msg = { type: "edit", room: MP_ROOM, tx, ty };
+    if (value !== undefined) msg.value = value;
+    if (label !== undefined) msg.label = label;
+    netSocket.send(JSON.stringify(msg));
   }
 
   function sendPlayerState() {
@@ -1707,7 +1725,7 @@
 
   function bumpQuestionBlock(tx, ty) {
     setTile(tx, ty, "u");
-    broadcastTileChange(tx, ty, "u");
+    broadcastEditChange(tx, ty, "u");
     questionHits++;
     const cx = tx * TILE + TILE/2;
     const cy = ty * TILE;
@@ -1723,7 +1741,7 @@
 
   function breakBrick(tx, ty) {
     setTile(tx, ty, ".");
-    broadcastTileChange(tx, ty, ".");
+    broadcastEditChange(tx, ty, ".");
     const cx = tx * TILE + TILE / 2;
     const cy = ty * TILE + TILE / 2;
     for (let i = 0; i < 6; i++) {
@@ -1741,7 +1759,7 @@
 
   function breakIce(tx, ty) {
     setTile(tx, ty, ".");
-    broadcastTileChange(tx, ty, ".");
+    broadcastEditChange(tx, ty, ".");
     const cx = tx * TILE + TILE / 2;
     const cy = ty * TILE + TILE / 2;
     for (let i = 0; i < 4; i++) {
@@ -1774,7 +1792,7 @@
         for (let tx = x0; tx <= x1; tx++) {
           if (getTile(tx, ty) === "C") {
             setTile(tx, ty, ".");
-            broadcastTileChange(tx, ty, ".");
+            broadcastEditChange(tx, ty, ".");
             coinCount++;
             score += 100;
             spawnCoinBurst(tx*TILE + TILE/2, ty*TILE + TILE/2);

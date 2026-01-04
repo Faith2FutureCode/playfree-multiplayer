@@ -11,6 +11,7 @@ function getRoom(roomId) {
       clients: new Map(), // ws -> clientId
       states: new Map(),  // clientId -> state payload
       tiles: new Map(),   // "x,y" -> value
+      labels: new Map(),  // "x,y" -> string
     });
   }
   return rooms.get(roomId);
@@ -58,8 +59,12 @@ wss.on("connection", (ws) => {
         const [tx, ty] = key.split(",").map(Number);
         return { tx, ty, value };
       });
+      const labels = Array.from(room.labels.entries()).map(([key, value]) => {
+        const [tx, ty] = key.split(",").map(Number);
+        return { tx, ty, label: value };
+      });
 
-      send({ type: "welcome", id: clientId, players, tiles });
+      send({ type: "welcome", id: clientId, players, tiles, labels });
       broadcast(roomId, { type: "join", id: clientId, name: msg.name }, ws);
       return;
     }
@@ -77,6 +82,17 @@ wss.on("connection", (ws) => {
       const key = `${msg.tx},${msg.ty}`;
       room.tiles.set(key, msg.value ?? ".");
       broadcast(roomId, { type: "tile", tx: msg.tx, ty: msg.ty, value: msg.value }, ws);
+      return;
+    }
+
+    if (msg.type === "edit" && typeof msg.tx === "number" && typeof msg.ty === "number") {
+      const key = `${msg.tx},${msg.ty}`;
+      if (msg.value !== undefined) room.tiles.set(key, msg.value ?? ".");
+      if (msg.label !== undefined) {
+        if (msg.label === null || msg.label === "") room.labels.delete(key);
+        else room.labels.set(key, String(msg.label));
+      }
+      broadcast(roomId, { type: "edit", tx: msg.tx, ty: msg.ty, value: msg.value, label: msg.label }, ws);
     }
   });
 
