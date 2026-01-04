@@ -1452,6 +1452,10 @@
     const now = performance.now();
     const incomingForm = isValidForm(state.form) ? state.form : null;
     const incomingBig = incomingForm ? formIsBig(incomingForm) : !!state.big;
+    const incomingCoins = Number.isFinite(state.coins) ? state.coins : 0;
+    const incomingScore = Number.isFinite(state.score) ? state.score : 0;
+    const incomingLives = Number.isFinite(state.lives) ? state.lives : 3;
+    const incomingTimer = Number.isFinite(state.timer) ? state.timer : HUD_TIMER_START;
     let peer = peers.get(id);
     if (!peer) {
       peer = {
@@ -1464,6 +1468,10 @@
         big: incomingBig,
         name: name || `P-${String(id).slice(0, 4)}`,
         state: state.state || "ground",
+        coins: incomingCoins,
+        score: incomingScore,
+        lives: incomingLives,
+        timer: incomingTimer,
         lastSeen: now,
       };
       peers.set(id, peer);
@@ -1475,6 +1483,10 @@
       if (!peer.form) peer.form = incomingBig ? PowerUpForm.Super : PowerUpForm.Small;
       peer.big = incomingForm ? formIsBig(incomingForm) : (incomingBig || peer.big);
       peer.state = state.state || peer.state || "ground";
+      peer.coins = incomingCoins;
+      peer.score = incomingScore;
+      peer.lives = incomingLives;
+      peer.timer = incomingTimer;
       peer.lastSeen = now;
     }
     if (peer.x === undefined) peer.x = peer.targetX;
@@ -1505,6 +1517,8 @@
         form: player.form,
         state: player.state,
         coins: coinCount,
+        score: score,
+        lives: lives,
         timer: levelTimer,
       },
     };
@@ -2837,6 +2851,22 @@
         g.fillStyle = "#0002";
         g.fillRect(sx, sy, w, h);
       }
+      // tiny HUD badge above remote players
+      const badgeY = sy - 10;
+      const coins = peer.coins ?? 0;
+      const lives = peer.lives ?? 0;
+      const timer = peer.timer ?? 0;
+      const label = `${peer.name || "P"} C${coins} L${lives} T${Math.max(0, Math.floor(timer))}`;
+      g.save();
+      g.fillStyle = "rgba(0,0,0,0.5)";
+      const textX = sx + w / 2;
+      g.fillRect(textX - label.length * 3, badgeY - 9, label.length * 6, 12);
+      g.fillStyle = "#f2f5ff";
+      g.font = "7px 'Press Start 2P', 'VT323', monospace";
+      g.textAlign = "center";
+      g.textBaseline = "middle";
+      g.fillText(label, textX, badgeY - 3);
+      g.restore();
     }
 
     // player
