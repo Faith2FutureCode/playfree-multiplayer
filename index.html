@@ -3041,12 +3041,12 @@
       tagLayer.appendChild(el);
     };
     // self
-    addTag(`${PLAYER_NAME}`, player.x + player.w / 2, player.y - 14, "#f6d341");
+    addTag(`${PLAYER_NAME}`, player.x + player.w / 2, player.y - 4, "#f6d341");
     // peers
     for (const peer of peers.values()) {
       const px = peer.x ?? peer.targetX ?? 0;
       const py = peer.y ?? peer.targetY ?? 0;
-      addTag(`${peer.name || "P"}`, px + 6, py - 10, "#f2f5ff");
+      addTag(`${peer.name || "P"}`, px + 6, py - 4, "#f2f5ff");
     }
   }
 
