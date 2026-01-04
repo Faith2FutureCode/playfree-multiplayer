@@ -1542,6 +1542,7 @@
       if (!peer.form) peer.form = incomingBig ? PowerUpForm.Super : PowerUpForm.Small;
       peer.big = incomingForm ? formIsBig(incomingForm) : (incomingBig || peer.big);
       peer.state = state.state || peer.state || "ground";
+      if (name) peer.name = name;
       peer.coins = incomingCoins;
       peer.score = incomingScore;
       peer.lives = incomingLives;
