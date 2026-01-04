@@ -314,7 +314,7 @@
     <div class="editor-hint">Left click paint · Right click erase · E to toggle</div>
   </div>
   <div class="game-shell">
-    <canvas id="c" width="912" height="144"></canvas>
+    <canvas id="c" width="912" height="672"></canvas>
     <div class="hud" aria-label="HUD">
   <div class="hud-bar">
     <div class="hud-section hud-left">
@@ -407,7 +407,7 @@
 
   // Pixel-art vibe: render at low-res then scale up
   const BASE_W = 304; // 19 tiles wide
-  const BASE_H = 48;  // 3 tiles tall
+  const BASE_H = 224; // 14 tiles tall
   let SCALE = 3; // integer-only scaling for crisp pixels
   let showGrid = true;
   let editorOpen = false;
