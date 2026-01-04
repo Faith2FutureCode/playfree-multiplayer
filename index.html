@@ -2978,6 +2978,19 @@
             g.fillRect(tx + (dir > 0 ? 2 : 0), ty + 2, TAIL_RANGE_X - 4, TAIL_RANGE_Y - 4);
           }
         }
+        // self badge: name + stats
+        const badgeY = sy - 12;
+        const label = `${PLAYER_NAME} C${coinCount} L${lives} T${Math.max(0, Math.floor(levelTimer))}`;
+        g.save();
+        g.fillStyle = "rgba(0,0,0,0.5)";
+        const textX = sx + player.w / 2;
+        g.fillRect(textX - label.length * 3, badgeY - 9, label.length * 6, 12);
+        g.fillStyle = "#f6d341";
+        g.font = "7px 'Press Start 2P', 'VT323', monospace";
+        g.textAlign = "center";
+        g.textBaseline = "middle";
+        g.fillText(label, textX, badgeY - 3);
+        g.restore();
       }
     }
 
