@@ -798,8 +798,8 @@
       }
       return;
     }
-    // Open chat with T (keeps Enter free for inventory actions)
-    if (e.code === "KeyT") {
+    // Open chat with Enter only if inventory is closed
+    if (e.code === "Enter" && !inventoryOpen) {
       toggleChatInput(chatInput.style.display === "none");
       e.preventDefault();
       return;
