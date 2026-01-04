@@ -516,7 +516,7 @@
   const params = new URLSearchParams(location.search);
   const MP_ENABLED = params.get("mp") !== "0";
   // Default to shared lobby relay; override via ?mpUrl=ws://localhost:3001 for local dev
-  const MP_SERVER = params.get("mpUrl") || "wss://playfree-multiplayer.onrender.com";
+  const MP_SERVER = params.get("mpUrl") || "wss://ws.playfree.dev";
   const MP_ROOM = params.get("room") || "lobby";
   const PLAYER_NAME = params.get("name") || `P${Math.floor(Math.random() * 900 + 100)}`;
   const STATE_SEND_INTERVAL = 0.05; // seconds
