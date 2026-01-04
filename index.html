@@ -466,10 +466,6 @@
   off.width = BASE_W;
   off.height = BASE_H;
   const g = off.getContext("2d", { alpha: false });
-  // Offscreen badge canvas to keep text crisp
-  const badgeCanvas = document.createElement("canvas");
-  const badgeCtx = badgeCanvas.getContext("2d", { alpha: true });
-  badgeCtx.imageSmoothingEnabled = false;
 
   const applyLayoutVars = () => {
     const targetWidth = Math.round(canvas.height * (16 / 9));
@@ -1334,6 +1330,15 @@
   const chatLog = [];
   const chatMax = 30;
   let chatVisibleTime = 0;
+  const tagLayer = document.createElement("div");
+  tagLayer.style.position = "fixed";
+  tagLayer.style.left = "0";
+  tagLayer.style.top = "0";
+  tagLayer.style.width = "100%";
+  tagLayer.style.height = "100%";
+  tagLayer.style.pointerEvents = "none";
+  tagLayer.style.zIndex = "400";
+  document.body.appendChild(tagLayer);
   let netSocket = null;
   let clientId = null;
   let reconnectTimer = 0;
@@ -2922,13 +2927,6 @@
         g.fillStyle = "#0002";
         g.fillRect(sx, sy, w, h);
       }
-      // tiny HUD badge above remote players (snap to integers to reduce blur)
-      const badgeY = Math.round(sy - 10);
-      const coins = peer.coins ?? 0;
-      const lives = peer.lives ?? 0;
-      const timer = peer.timer ?? 0;
-      const label = `${peer.name || "P"} C${coins} L${lives} T${Math.max(0, Math.floor(timer))}`;
-      drawBadge(label, sx + w / 2, badgeY, "#f2f5ff");
     }
 
     // player
@@ -2974,10 +2972,6 @@
             g.fillRect(tx + (dir > 0 ? 2 : 0), ty + 2, TAIL_RANGE_X - 4, TAIL_RANGE_Y - 4);
           }
         }
-        // self badge: name + stats (snap to integers to reduce blur)
-        const badgeY = Math.round(sy - 12);
-        const label = `${PLAYER_NAME} C${coinCount} L${lives} T${Math.max(0, Math.floor(levelTimer))}`;
-        drawBadge(label, sx + player.w / 2, badgeY, "#f6d341");
       }
     }
 
@@ -3027,6 +3021,31 @@
     // blit scaled to main canvas
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(off, 0, 0, canvas.width, canvas.height);
+
+    // Update DOM name tags (self + peers)
+    tagLayer.innerHTML = "";
+    const addTag = (label, worldX, worldY, color = "#f2f5ff") => {
+      const el = document.createElement("div");
+      el.textContent = label;
+      el.style.position = "absolute";
+      el.style.transform = `translate(${Math.round(worldX)}px, ${Math.round(worldY)}px)`;
+      el.style.font = "10px 'Press Start 2P', 'VT323', monospace";
+      el.style.color = color;
+      el.style.textShadow = "1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000";
+      el.style.pointerEvents = "none";
+      tagLayer.appendChild(el);
+    };
+    // self
+    addTag(`${PLAYER_NAME} C${coinCount} L${lives} T${Math.max(0, Math.floor(levelTimer))}`, player.x * (SCALE) - cam.x * (SCALE) + (player.w * SCALE) / 2 - 36, (player.y - 14) * SCALE - cam.y * (SCALE), "#f6d341");
+    // peers
+    for (const peer of peers.values()) {
+      const sx = (peer.x ?? peer.targetX ?? 0) - cam.x;
+      const sy = (peer.y ?? peer.targetY ?? 0) - cam.y;
+      const coins = peer.coins ?? 0;
+      const lives = peer.lives ?? 0;
+      const timer = peer.timer ?? 0;
+      addTag(`${peer.name || "P"} C${coins} L${lives} T${Math.max(0, Math.floor(timer))}`, sx * SCALE + (12 * SCALE) / 2 - 36, (sy - 10) * SCALE - 4, "#f2f5ff");
+    }
   }
 
   function updateHudDom() {
