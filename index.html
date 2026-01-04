@@ -466,6 +466,10 @@
   off.width = BASE_W;
   off.height = BASE_H;
   const g = off.getContext("2d", { alpha: false });
+  // Offscreen badge canvas to keep text crisp
+  const badgeCanvas = document.createElement("canvas");
+  const badgeCtx = badgeCanvas.getContext("2d", { alpha: true });
+  badgeCtx.imageSmoothingEnabled = false;
 
   const applyLayoutVars = () => {
     const targetWidth = Math.round(canvas.height * (16 / 9));
@@ -2924,19 +2928,7 @@
       const lives = peer.lives ?? 0;
       const timer = peer.timer ?? 0;
       const label = `${peer.name || "P"} C${coins} L${lives} T${Math.max(0, Math.floor(timer))}`;
-      g.save();
-      g.font = "7px 'Press Start 2P', 'VT323', monospace";
-      g.textAlign = "center";
-      g.textBaseline = "middle";
-      const textX = Math.round(sx + w / 2);
-      const bgW = Math.max(36, label.length * 6 + 8);
-      const bgX = Math.round(textX - bgW / 2);
-      const bgY = badgeY - 9;
-      g.fillStyle = "rgba(0,0,0,0.55)";
-      g.fillRect(bgX, bgY, bgW, 12);
-      g.fillStyle = "#f2f5ff";
-      g.fillText(label, textX, badgeY - 3);
-      g.restore();
+      drawBadge(label, sx + w / 2, badgeY, "#f2f5ff");
     }
 
     // player
@@ -2985,19 +2977,7 @@
         // self badge: name + stats (snap to integers to reduce blur)
         const badgeY = Math.round(sy - 12);
         const label = `${PLAYER_NAME} C${coinCount} L${lives} T${Math.max(0, Math.floor(levelTimer))}`;
-        g.save();
-        g.font = "7px 'Press Start 2P', 'VT323', monospace";
-        g.textAlign = "center";
-        g.textBaseline = "middle";
-        const textX = Math.round(sx + player.w / 2);
-        const bgW = Math.max(36, label.length * 6 + 8);
-        const bgX = Math.round(textX - bgW / 2);
-        const bgY = badgeY - 9;
-        g.fillStyle = "rgba(0,0,0,0.55)";
-        g.fillRect(bgX, bgY, bgW, 12);
-        g.fillStyle = "#f6d341";
-        g.fillText(label, textX, badgeY - 3);
-        g.restore();
+        drawBadge(label, sx + player.w / 2, badgeY, "#f6d341");
       }
     }
 
@@ -3152,6 +3132,32 @@
     if (chatVisibleTime > 0) chatVisibleTime -= dt;
     render();
     requestAnimationFrame(frame);
+  }
+
+  function drawBadge(label, x, y, color = "#f2f5ff") {
+    const text = label || "";
+    const padding = 4;
+    const font = "7px 'Press Start 2P', 'VT323', monospace";
+    badgeCtx.font = font;
+    badgeCtx.textAlign = "center";
+    badgeCtx.textBaseline = "middle";
+    const textW = badgeCtx.measureText(text).width;
+    const w = Math.max(36, Math.ceil(textW + padding * 2));
+    const h = 12;
+    badgeCanvas.width = w;
+    badgeCanvas.height = h;
+    badgeCtx.imageSmoothingEnabled = false;
+    badgeCtx.font = font;
+    badgeCtx.textAlign = "center";
+    badgeCtx.textBaseline = "middle";
+    badgeCtx.fillStyle = "rgba(0,0,0,0.55)";
+    badgeCtx.fillRect(0, 0, w, h);
+    badgeCtx.fillStyle = color;
+    badgeCtx.fillText(text, Math.floor(w / 2), Math.floor(h / 2) + 1);
+    // blit without scaling for crisp edges
+    const destX = Math.round(x - w / 2);
+    const destY = Math.round(y);
+    g.drawImage(badgeCanvas, destX, destY);
   }
 
   // Start
