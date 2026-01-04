@@ -1,0 +1,13 @@
+{
+    "version":  "0.0.0",
+    "name":  "@smb3-service/social",
+    "main":  "src/index.ts",
+    "scripts":  {
+                    "lint":  "echo lint @smb3-service/social",
+                    "build":  "echo build @smb3-service/social",
+                    "dev":  "echo dev @smb3-service/social",
+                    "test":  "echo test @smb3-service/social"
+                },
+    "type":  "module",
+    "private":  true
+}

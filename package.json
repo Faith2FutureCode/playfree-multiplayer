@@ -1,0 +1,22 @@
+{
+  "name": "smb3-web-platform",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@8",
+  "workspaces": [
+    "packages/*",
+    "services/*"
+  ],
+  "devDependencies": {
+    "turbo": "^2.0.0"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "test": "turbo test"
+  }
+}

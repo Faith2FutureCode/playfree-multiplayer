@@ -1,0 +1,13 @@
+{
+    "version":  "0.0.0",
+    "name":  "@smb3-service/config",
+    "main":  "src/index.ts",
+    "scripts":  {
+                    "lint":  "echo lint @smb3-service/config",
+                    "build":  "echo build @smb3-service/config",
+                    "dev":  "echo dev @smb3-service/config",
+                    "test":  "echo test @smb3-service/config"
+                },
+    "type":  "module",
+    "private":  true
+}

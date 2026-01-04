@@ -1,0 +1,14 @@
+{
+  "version": "0.0.0",
+  "name": "@smb3-service/multiplayer",
+  "main": "src/server.js",
+  "scripts": {
+    "lint": "echo lint @smb3-service/multiplayer",
+    "build": "echo build @smb3-service/multiplayer",
+    "dev": "node src/server.js",
+    "test": "echo test @smb3-service/multiplayer",
+    "start": "node src/server.js"
+  },
+  "type": "module",
+  "private": true
+}

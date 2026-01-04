@@ -1,0 +1,13 @@
+{
+    "version":  "0.0.0",
+    "name":  "@smb3/sdk",
+    "main":  "src/index.ts",
+    "scripts":  {
+                    "lint":  "echo lint @smb3/sdk",
+                    "build":  "echo build @smb3/sdk",
+                    "dev":  "echo dev @smb3/sdk",
+                    "test":  "echo test @smb3/sdk"
+                },
+    "type":  "module",
+    "private":  true
+}

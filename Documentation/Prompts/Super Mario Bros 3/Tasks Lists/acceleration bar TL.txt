@@ -1,0 +1,11 @@
+acceleration bar
+Input-based run state: add a run button flag that ramps speed toward a higher max (P-speed) when held; walking uses a lower max.
+Acceleration curves: separate horizontal accel for walk vs run; separate decel for friction vs braking (holding opposite direction).
+Speed caps: clamp to walk max, run max, and a higher “P-speed” tier reached after sustained run.
+P-meter UI: HUD bar with segments that fill as horizontal speed stays near run max; drains slowly when not running or airborne.
+Ground/air differences: lower air acceleration and reduced braking/friction while airborne so speed changes feel “floatier.”
+Sliding/skid: if reversing direction at high speed on ground, trigger a short skid state (reduced control, skid animation/sound, minor dust).
+Jump velocity carryover: horizontal speed on jump uses current vx and is influenced by air accel limits; maintain P-speed bonus while airborne until friction bleeds it off.
+Terrain friction: optional surface modifiers (ice, sand) tweak accel/decel without changing the core logic.
+UI update cadence: refresh P-meter every frame from the current horizontal speed tier (not raw acceleration), with a brief decay delay for responsiveness.
+Debug overlay: temporary readout of vx, ax, and P-meter fill to tune constants before locking UI behavior.

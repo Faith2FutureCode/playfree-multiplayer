@@ -1,0 +1,13 @@
+{
+    "version":  "0.0.0",
+    "name":  "@smb3-service/commerce",
+    "main":  "src/index.ts",
+    "scripts":  {
+                    "lint":  "echo lint @smb3-service/commerce",
+                    "build":  "echo build @smb3-service/commerce",
+                    "dev":  "echo dev @smb3-service/commerce",
+                    "test":  "echo test @smb3-service/commerce"
+                },
+    "type":  "module",
+    "private":  true
+}

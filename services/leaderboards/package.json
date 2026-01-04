@@ -1,0 +1,13 @@
+{
+    "version":  "0.0.0",
+    "name":  "@smb3-service/leaderboards",
+    "main":  "src/index.ts",
+    "scripts":  {
+                    "lint":  "echo lint @smb3-service/leaderboards",
+                    "build":  "echo build @smb3-service/leaderboards",
+                    "dev":  "echo dev @smb3-service/leaderboards",
+                    "test":  "echo test @smb3-service/leaderboards"
+                },
+    "type":  "module",
+    "private":  true
+}

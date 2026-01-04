@@ -1,0 +1,3027 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Plumber Platformer (SMB3-inspired)</title>
+  <style>
+    html, body { margin:0; height:100%; background:#0b1020; }
+    :root { --canvas-width: 960px; --canvas-height: 720px; --editor-width: 0px; }
+    canvas { display:block; margin:0 auto; image-rendering: pixelated; image-rendering: crisp-edges; }
+    .app-shell {
+      display: flex;
+      gap: 0;
+      margin: 0 auto;
+      width: calc(var(--canvas-width) + var(--editor-width));
+      transition: width 0.15s ease;
+    }
+    .editor-panel {
+      width: var(--editor-width);
+      max-width: 360px;
+      background: #0a0f1f;
+      border-right: 3px solid #000;
+      box-shadow: inset -4px 0 0 rgba(255,255,255,0.08);
+      color: #dfe7ff;
+      font: 12px/1.3 "Press Start 2P", "VT323", monospace;
+      display: none;
+      padding: 10px;
+      box-sizing: border-box;
+      image-rendering: pixelated;
+    }
+    body.editor-open .editor-panel { display: block; }
+    .editor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 12px;
+      letter-spacing: 1px;
+    }
+    .editor-section {
+      margin-bottom: 12px;
+    }
+    .editor-section h4 {
+      margin: 0 0 6px 0;
+      font-size: 11px;
+      letter-spacing: 1px;
+      color: #9fb3ff;
+    }
+    .editor-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(32px, 1fr));
+      gap: 8px;
+    }
+    .editor-tile {
+      width: 38px;
+      height: 38px;
+      border: 2px solid #000;
+      background: #123;
+      display: grid;
+      place-items: center;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
+      position: relative;
+      cursor: pointer;
+    }
+    .editor-tile.selected {
+      box-shadow:
+        inset 0 0 0 2px rgba(255,255,255,0.08),
+        0 0 0 2px #f6d341;
+    }
+    .tile-preview {
+      width: 24px;
+      height: 24px;
+      image-rendering: pixelated;
+      border: 1px solid rgba(0,0,0,0.35);
+      background: #0b1629;
+    }
+    .editor-field {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 11px;
+      color: #dfe7ff;
+    }
+    .editor-field input {
+      background: #0f182a;
+      border: 2px solid #000;
+      color: #dfe7ff;
+      padding: 6px 8px;
+      font: 12px "Press Start 2P", "VT323", monospace;
+      outline: none;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
+    }
+    .editor-actions {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 11px;
+      color: #dfe7ff;
+    }
+    .editor-actions button {
+      background: #123;
+      border: 2px solid #000;
+      color: #f6d341;
+      padding: 6px 8px;
+      font: 12px "Press Start 2P", "VT323", monospace;
+      cursor: pointer;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
+    }
+    .editor-actions button.active {
+      background: #1c2f55;
+      color: #fff;
+      box-shadow: inset 0 0 0 2px #f6d341;
+    }
+    .editor-hint { margin-top: 10px; font-size: 10px; color: #9fb3ff; }
+    body.editor-open .game-shell canvas { cursor: none; }
+    .hud {
+      margin: 8px auto 0;
+      width: var(--canvas-width);
+      font-family: "Press Start 2P", "VT323", monospace;
+      font-size: 12px;
+      line-height: 1.2;
+      color: #fff;
+      text-shadow: 1px 0 #000, -1px 0 #000, 0 1px #000, 0 -1px #000;
+    }
+    .hud-bar {
+      background: #b8e8ff;
+      border: 4px solid #000;
+      padding: 6px 10px;
+      box-shadow: inset 0 0 0 3px #7fb7d6;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .hud-section { display:flex; align-items:center; gap:10px; }
+    .hud-left { flex: 1; justify-content: flex-start; }
+    .hud-center { justify-content: center; gap: 16px; }
+    .hud-right { flex: 1; justify-content: flex-end; }
+    .hud-icon-coin {
+      width: 10px; height: 14px;
+      background:#f5d000;
+      box-shadow: -1px 2px 0 #000, 1px 2px 0 #000;
+    }
+    .hud-block { display:flex; align-items:center; gap:6px; }
+    .hud small { font-size:10px; }
+    .hud-pmeter { display:flex; align-items:center; gap:6px; }
+    .pmeter-label { letter-spacing:1px; }
+    .pmeter-bar { display:flex; gap:2px; }
+    .pmeter-seg {
+      width: 10px; height: 12px;
+      background:#000;
+      box-shadow: inset 0 0 0 2px #fff;
+      transition: background 0.12s;
+    }
+    .pmeter-seg.filled { background:#ffb347; box-shadow: inset 0 0 0 2px #000; }
+    .hud-speed-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #b8e8ff;
+      border: 4px solid #000;
+      padding: 4px 10px;
+      box-shadow: inset 0 0 0 3px #7fb7d6;
+    }
+    .hint {
+      position: fixed; left: 12px; bottom: 12px;
+      color: #cbd5e1; font: 12px/1.3 system-ui, sans-serif; opacity: .9;
+      background: rgba(0,0,0,.25); padding: 10px 12px; border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.08);
+      max-width: 520px;
+    }
+    .hint b { color:#fff; }
+    .debug-panel {
+      position: fixed; top: 12px; left: 12px;
+      background: rgba(0,0,0,0.6);
+      color: #dce4ff;
+      font: 12px/1.4 "VT323", monospace;
+      padding: 8px 10px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      min-width: 120px;
+      pointer-events: none;
+    }
+    .debug-panel div { display:flex; justify-content: space-between; gap: 8px; }
+
+    /* Inventory overlay (SMB3-style) */
+    .inventory-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: center;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 200;
+      image-rendering: pixelated;
+      font-family: "Press Start 2P", "VT323", monospace;
+    }
+    .inventory-overlay.open { display: grid; }
+    .inventory-panel {
+      background: #0b74c5;
+      border: 4px solid #fff;
+      box-shadow:
+        inset 0 0 0 3px #000,
+        0 0 0 2px #000,
+        0 0 12px rgba(0,0,0,0.45);
+      padding: 10px 12px 12px;
+      width: 560px;
+    }
+    .inventory-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      color: #ffe28a;
+      text-shadow: 1px 0 #000, -1px 0 #000, 0 1px #000, 0 -1px #000;
+      font-size: 13px;
+    }
+    .inventory-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+    }
+    .inventory-slot {
+      position: relative;
+      background: #0f6cb6;
+      border: 3px solid #fff;
+      box-shadow: inset 0 0 0 2px #000;
+      height: 62px;
+      color: #ffe28a;
+      display: grid;
+      place-items: center;
+      text-shadow: 1px 0 #000, -1px 0 #000, 0 1px #000, 0 -1px #000;
+    }
+    .inventory-slot.empty { background: #0d64a9; color: #2c4f73; }
+    .inventory-slot.selected {
+      box-shadow:
+        inset 0 0 0 2px #000,
+        0 0 0 3px #f6d341;
+    }
+    .inventory-icon {
+      font-size: 28px;
+      line-height: 1;
+      pointer-events: none;
+    }
+    .inventory-count {
+      position: absolute;
+      bottom: 4px;
+      right: 6px;
+      font-size: 11px;
+    }
+    .inventory-footer {
+      margin-top: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #ffe28a;
+      text-shadow: 1px 0 #000, -1px 0 #000, 0 1px #000, 0 -1px #000;
+      font-size: 12px;
+    }
+    .inventory-hint {
+      color: #fff;
+      font-size: 11px;
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <div id="editor-panel" class="editor-panel" aria-label="Level editor palette">
+    <div class="editor-header">
+      <span>PALETTE</span>
+      <span>Press E</span>
+    </div>
+    <div class="editor-section">
+      <h4>TERRAIN</h4>
+      <div class="editor-grid" id="terrain-grid">
+        <div class="editor-tile solid" data-tile="#" title="Ground"><canvas class="tile-preview" width="8" height="8" data-tile="#"></canvas></div>
+        <div class="editor-tile sand" data-tile="S" title="Sand"><canvas class="tile-preview" width="8" height="8" data-tile="S"></canvas></div>
+        <div class="editor-tile ice" data-tile="I" title="Ice"><canvas class="tile-preview" width="8" height="8" data-tile="I"></canvas></div>
+      </div>
+    </div>
+    <div class="editor-section">
+      <h4>OBJECTS</h4>
+      <div class="editor-grid" id="object-grid">
+        <div class="editor-tile" data-tile="B" title="Brick"><canvas class="tile-preview" width="8" height="8" data-tile="B"></canvas></div>
+        <div class="editor-tile" data-tile="?" title="? Block"><canvas class="tile-preview" width="8" height="8" data-tile="?"></canvas></div>
+        <div class="editor-tile" data-tile="u" title="Used Block"><canvas class="tile-preview" width="8" height="8" data-tile="u"></canvas></div>
+        <div class="editor-tile" data-tile="C" title="Coin"><canvas class="tile-preview" width="8" height="8" data-tile="C"></canvas></div>
+      </div>
+    </div>
+    <div class="editor-section">
+      <h4>ENEMIES</h4>
+      <div class="editor-grid" id="enemy-grid">
+        <div class="editor-tile" data-tile="E" title="Enemy Spawn"><canvas class="tile-preview" width="8" height="8" data-tile="E"></canvas></div>
+      </div>
+    </div>
+    <div class="editor-section">
+      <h4>SPAWNS</h4>
+      <div class="editor-grid" id="spawn-grid">
+        <div class="editor-tile" data-tile="P" title="Player Spawn"><canvas class="tile-preview" width="8" height="8" data-tile="P"></canvas></div>
+      </div>
+    </div>
+    <div class="editor-field">
+      <label for="editor-label-input">Label</label>
+      <input id="editor-label-input" type="text" maxlength="24" placeholder="Type to tag block"/>
+    </div>
+    <div class="editor-field">
+      <label for="editor-text-stamp">Stamp Text (uses selected tile)</label>
+      <input id="editor-text-stamp" type="text" maxlength="24" placeholder="Enter text"/>
+      <div class="editor-actions">
+        <button id="editor-stamp-button" type="button">Stamp</button>
+      </div>
+    </div>
+    <div class="editor-hint">Left click paint · Right click erase · E to toggle</div>
+  </div>
+  <div class="game-shell">
+    <canvas id="c" width="960" height="720"></canvas>
+    <div class="hud" aria-label="HUD">
+  <div class="hud-bar">
+    <div class="hud-section hud-left">
+      <div class="hud-block">
+        <span>WORLD</span>
+        <span id="hud-world">1</span>
+      </div>
+      <div class="hud-block">
+        <small>M</small>
+        <span>x</span>
+        <span id="hud-lives">3</span>
+      </div>
+    </div>
+    <div class="hud-section hud-center">
+      <div class="hud-speed-chip">
+        <span>SPD</span>
+        <span id="hud-spd">0</span>
+      </div>
+      <div class="hud-pmeter" aria-label="P-Meter">
+        <span class="pmeter-label">P</span>
+        <div class="pmeter-bar" id="hud-pmeter"></div>
+      </div>
+      <div class="hud-speed-chip">
+        <span>FLY</span>
+        <span id="hud-fly">0</span>
+      </div>
+    </div>
+    <div class="hud-section hud-right">
+      <div class="hud-block">
+        <span>FORM</span>
+        <span id="hud-form">SM</span>
+      </div>
+      <div class="hud-block">
+        <div class="hud-icon-coin"></div>
+        <span>x</span>
+        <span id="hud-coins">00</span>
+      </div>
+      <div class="hud-block">
+        <span id="hud-score">000000</span>
+      </div>
+      <div class="hud-block">
+        <span>T</span>
+        <span id="hud-time">300</span>
+      </div>
+      <div class="hud-block">
+        <span>ACC</span>
+        <span id="hud-acc">0</span>
+      </div>
+      <div class="hud-block">
+        <span>★</span>
+        <span id="hud-star">0</span>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+<div class="hint">
+  <b>Controls:</b> Arrow keys move · <b>Z</b> jump · <b>X</b> run · <b>C</b> fire/tail/hammer · <b>V</b> statue · <b>R</b> restart<br/>
+  <b>Goal:</b> Collect coins, hit ? blocks, stomp enemies.<br/>
+  <b>Jump range:</b> Walk <span id="jump-walk">--</span> tiles · Run <span id="jump-run">--</span> tiles
+</div>
+<div class="debug-panel" id="debug-panel" aria-label="Debug overlay">
+  <div><span>vx</span><span id="debug-vx">0</span></div>
+  <div><span>ax</span><span id="debug-ax">0</span></div>
+  <div><span>P</span><span><span id="debug-pcharge">0</span>% (<span id="debug-psegs">0</span>/<span id="debug-pmax">0</span>)</span></div>
+</div>
+
+<div class="inventory-overlay" id="inventory-overlay" aria-label="Inventory">
+  <div class="inventory-panel">
+    <div class="inventory-header">
+      <span>ITEM STORAGE</span>
+      <span class="inventory-hint">Arrows move · Enter uses · Esc closes</span>
+    </div>
+    <div class="inventory-grid" id="inventory-grid" role="grid"></div>
+    <div class="inventory-footer">
+      <span id="inventory-selected">--</span>
+      <span class="inventory-hint" id="inventory-footer-hint">Use</span>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // -----------------------------
+  // Config
+  // -----------------------------
+  const canvas = document.getElementById("c");
+  const ctx = canvas.getContext("2d", { alpha: false });
+
+  // Pixel-art vibe: render at low-res then scale up
+  const BASE_W = 320;
+  const BASE_H = 240;
+  let SCALE = 3; // integer-only scaling for crisp pixels
+  let showGrid = true;
+  let editorOpen = false;
+  let editorTile = "#";
+  let selectedCell = null; // {tx, ty}
+  let hoverCell = null; // {tx, ty}
+  let editorClipboard = null;
+  let clickDebug = null; // {sx, sy, tx, ty, timer}
+  let stampMode = false;
+  const undoStack = [];
+  const redoStack = [];
+  const TEXT_FONT = {
+    A: ["0110","1001","1111","1001","1001"],
+    B: ["1110","1001","1110","1001","1110"],
+    C: ["0111","1000","1000","1000","0111"],
+    D: ["1110","1001","1001","1001","1110"],
+    E: ["1111","1000","1110","1000","1111"],
+    F: ["1111","1000","1110","1000","1000"],
+    G: ["0111","1000","1011","1001","0111"],
+    H: ["1001","1001","1111","1001","1001"],
+    I: ["111","010","010","010","111"],
+    J: ["0111","0010","0010","1010","0100"],
+    K: ["1001","1010","1100","1010","1001"],
+    L: ["1000","1000","1000","1000","1111"],
+    M: ["10001","11011","10101","10001","10001"],
+    N: ["1001","1101","1011","1001","1001"],
+    O: ["0110","1001","1001","1001","0110"],
+    P: ["1110","1001","1110","1000","1000"],
+    Q: ["0110","1001","1001","1011","0111"],
+    R: ["1110","1001","1110","1010","1001"],
+    S: ["0111","1000","0110","0001","1110"],
+    T: ["111","010","010","010","010"],
+    U: ["1001","1001","1001","1001","0110"],
+    V: ["1001","1001","1001","0101","0010"],
+    W: ["10001","10001","10101","11011","10001"],
+    X: ["1001","0110","0100","0110","1001"],
+    Y: ["1001","0101","0010","0010","0010"],
+    Z: ["1111","0010","0100","1000","1111"],
+    "0": ["0110","1001","1001","1001","0110"],
+    "1": ["010","110","010","010","111"],
+    "2": ["1110","0001","0110","1000","1111"],
+    "3": ["1110","0001","0110","0001","1110"],
+    "4": ["1001","1001","1111","0001","0001"],
+    "5": ["1111","1000","1110","0001","1110"],
+    "6": ["0111","1000","1110","1001","0110"],
+    "7": ["1111","0001","0010","0100","0100"],
+    "8": ["0110","1001","0110","1001","0110"],
+    "9": ["0110","1001","0111","0001","1110"],
+    " ": ["0","0","0","0","0"],
+    ".": ["0","0","0","0","1"],
+    "!": ["1","1","1","0","1"],
+    "?": ["111","001","011","000","010"],
+    "-": ["0","0","111","0","0"],
+  };
+  const off = document.createElement("canvas");
+  off.width = BASE_W;
+  off.height = BASE_H;
+  const g = off.getContext("2d", { alpha: false });
+
+  const applyLayoutVars = () => {
+    const targetWidth = Math.round(canvas.height * (16 / 9));
+    const editorTotal = Math.max(0, targetWidth - canvas.width);
+    const editorWidth = editorOpen ? editorTotal : 0;
+    document.documentElement.style.setProperty("--canvas-width", `${canvas.width}px`);
+    document.documentElement.style.setProperty("--canvas-height", `${canvas.height}px`);
+    document.documentElement.style.setProperty("--editor-width", `${editorWidth}px`);
+  };
+
+  const applyScale = () => {
+    const maxScale = Math.max(
+      1,
+      Math.floor(Math.min(window.innerWidth / BASE_W, window.innerHeight / BASE_H))
+    );
+    SCALE = maxScale;
+    canvas.width = BASE_W * SCALE;
+    canvas.height = BASE_H * SCALE;
+    applyLayoutVars();
+  };
+
+  applyScale();
+  window.addEventListener("resize", applyScale);
+  ctx.imageSmoothingEnabled = false;
+  g.imageSmoothingEnabled = false;
+
+  let prevGridOn = showGrid;
+  function setEditorOpen(next) {
+    if (next && !editorOpen) {
+      prevGridOn = showGrid;
+      showGrid = true; // ensure grid visible in editor
+    }
+    if (!next && editorOpen) {
+      showGrid = prevGridOn; // restore prior state
+    }
+    editorOpen = next;
+    document.body.classList.toggle("editor-open", editorOpen);
+    applyLayoutVars();
+  }
+
+  function selectEditorTile(tile, el) {
+    editorTile = tile;
+    document.querySelectorAll(".editor-tile.selected").forEach(n => n.classList.remove("selected"));
+    if (el) el.classList.add("selected");
+  }
+
+  const TILE = 16;
+  const params = new URLSearchParams(location.search);
+  const MP_ENABLED = params.get("mp") !== "0";
+  // Default to public relay when deployed; override via ?mpUrl=ws://localhost:3001 for local dev
+  const MP_SERVER = params.get("mpUrl") || "wss://ws.playfree.dev";
+  const MP_ROOM = params.get("room") || "lobby";
+  const PLAYER_NAME = params.get("name") || `P${Math.floor(Math.random() * 900 + 100)}`;
+  const STATE_SEND_INTERVAL = 0.05; // seconds
+  const PEER_STALE_TIME = 6; // seconds
+  const GRAVITY = 1400;      // px/s^2
+  const MAX_FALL = 900;
+  const WALK_ACCEL_CURVE = { high: 1700, low: 900 }; // higher out of standstill, softer near cap
+  const RUN_ACCEL_CURVE = { high: 2200, low: 1200 };
+  const FRICTION_DECEL = 1700;
+  const BRAKE_DECEL = 2800;
+  const AIR_ACCEL_SCALE = 0.55;
+  const AIR_FRICTION_DECEL = 400;
+  const AIR_BRAKE_DECEL = 750;
+  const SKID_SPEED_THRESHOLD = 140;
+  const SKID_TIME = 0.25;
+  const SKID_ACCEL_SCALE = 0.25;
+  const SKID_FRICTION_DECEL = 600;
+  const SKID_BRAKE_DECEL = 1400;
+  const SKID_DUST_INTERVAL = 0.06;
+  const SKID_BOOST_AMOUNT = 0.1; // 10% max speed bump
+  const SKID_BOOST_DECAY = 1.8;  // per second decay back to 0
+  const WALK_MAX = 120;
+  const RUN_MAX = 185;
+  const P_SPEED_MAX = 240;
+  const P_SPEED_CHARGE_TIME = 1.2; // seconds of run-hold to reach full P-speed
+  const P_SPEED_ENTRY_SPEED = RUN_MAX - 8; // must be near run cap before charge progresses
+  const P_SPEED_DECAY_RATE = 1.5; // how quickly P-speed charge drains when not qualifying
+  const P_METER_SEGMENTS = 6;
+  const P_METER_DECAY_DELAY = 0.12; // brief hold before the HUD meter drops a tier
+  const JUMP_V = 420;
+  const COYOTE_TIME = 0.08;  // seconds
+  const JUMP_BUFFER = 0.1;   // seconds
+  const HUD_TIMER_START = 300; // seconds
+  const DAMAGE_INVULN_TIME = 1.0;
+  const FIREBALL_COOLDOWN = 0.35; // seconds between shots
+  const FIREBALL_SPEED = 320;
+  const FIREBALL_GRAVITY = 900;
+  const FIREBALL_BOUNCE_V = 340;
+  const FIREBALL_LIFETIME = 3.5;
+  const GLIDE_GRAVITY_SCALE = 0.35;
+  const TAIL_SWING_TIME = 0.2;
+  const TAIL_COOLDOWN = 0.6;
+  const TAIL_RANGE_X = 18;
+  const TAIL_RANGE_Y = 12;
+  const FLIGHT_TIME = 2.6;
+  const FLIGHT_LIFT = 180;
+  const STATUE_DURATION = 2.5;
+  const STATUE_COOLDOWN = 4.5;
+  const STATUE_INVULN_TOPUP = 0.12;
+  const WATER_GRAVITY_SCALE = 0.28;
+  const WATER_MAX_FALL = 220;
+  const WATER_SWIM_IMPULSE = 320;
+  const FROG_LAND_ACCEL_SCALE = 0.7;
+  const FROG_LAND_DECEL_SCALE = 0.65;
+  const HAMMER_COOLDOWN = 0.3;
+  const HAMMER_SPEED = 190;
+  const HAMMER_GRAVITY = 1200;
+  const HAMMER_LIFETIME = 0.9;
+  const HAMMER_LAUNCH_ANGLE = (20 * Math.PI) / 180;
+  const PowerUpForm = Object.freeze({
+    Small: "small",
+    Super: "super",
+    Fire: "fire",
+    Raccoon: "raccoon",
+    Tanooki: "tanooki",
+    Frog: "frog",
+    Hammer: "hammer",
+  });
+  const BIG_FORMS = new Set([
+    PowerUpForm.Super,
+    PowerUpForm.Fire,
+    PowerUpForm.Raccoon,
+    PowerUpForm.Tanooki,
+    PowerUpForm.Frog,
+    PowerUpForm.Hammer,
+  ]);
+  const PLAYER_SAVE_KEY = "smb3-player-state";
+  const SURFACE_MODS = {
+    ice: { accel: 0.9, friction: 0.35, brake: 0.6 },
+    sand: { accel: 0.65, friction: 1.35, brake: 1.15 },
+  };
+
+  // -----------------------------
+  // Inventory UI (overlay)
+  // -----------------------------
+  const inventoryOverlay = document.getElementById("inventory-overlay");
+  const inventoryGrid = document.getElementById("inventory-grid");
+  const inventorySelected = document.getElementById("inventory-selected");
+  const inventoryFooterHint = document.getElementById("inventory-footer-hint");
+  const inventoryFeedback = document.createElement("div");
+  inventoryFeedback.className = "inventory-hint";
+  inventoryFeedback.id = "inventory-feedback";
+
+  const INVENTORY_COLS = 7;
+  const INVENTORY_ROWS = 4;
+  const INVENTORY_SLOTS = INVENTORY_COLS * INVENTORY_ROWS;
+
+  // Demo data; replace with real inventory view model wiring.
+  const inventorySlots = Array(INVENTORY_SLOTS).fill(null);
+  inventorySlots[0] = { name: "Fire Flower", icon: "🔥", count: 1, type: "fire-flower" };
+  inventorySlots[1] = { name: "Super Leaf", icon: "🍂", count: 1, type: "super-leaf" };
+  inventorySlots[2] = { name: "Hammer Suit", icon: "🔨", count: 1, type: "hammer-suit" };
+  inventorySlots[3] = { name: "Frog Suit", icon: "🐸", count: 1, type: "frog-suit" };
+
+  let inventoryOpen = false;
+  let inventoryCursor = 0;
+  const slotEls = [];
+
+  function buildInventoryGrid() {
+    inventoryGrid.innerHTML = "";
+    slotEls.length = 0;
+    for (let i = 0; i < INVENTORY_SLOTS; i++) {
+      const el = document.createElement("div");
+      el.className = "inventory-slot empty";
+      const icon = document.createElement("div");
+      icon.className = "inventory-icon";
+      const count = document.createElement("div");
+      count.className = "inventory-count";
+      el.appendChild(icon);
+      el.appendChild(count);
+    inventoryGrid.appendChild(el);
+    slotEls.push({ el, icon, count });
+  }
+  inventoryGrid.insertAdjacentElement("afterend", inventoryFeedback);
+  }
+
+  function renderInventory() {
+    inventoryOverlay.classList.toggle("open", inventoryOpen);
+    inventorySelected.textContent = "--";
+    inventoryFooterHint.textContent = "Use";
+    inventoryFeedback.textContent = "";
+    for (let i = 0; i < INVENTORY_SLOTS; i++) {
+      const slot = inventorySlots[i];
+      const { el, icon, count } = slotEls[i];
+      const isSelected = i === inventoryCursor;
+      if (slot) {
+        el.className = "inventory-slot" + (isSelected ? " selected" : "");
+        icon.textContent = slot.icon || "●";
+        count.textContent = slot.count > 1 ? `x${slot.count}` : "";
+        if (isSelected) {
+          inventorySelected.textContent = slot.name;
+          inventoryFooterHint.textContent = "Use";
+        }
+      } else {
+        el.className = "inventory-slot empty" + (isSelected ? " selected" : "");
+        icon.textContent = "";
+        count.textContent = "";
+        if (isSelected) {
+          inventorySelected.textContent = "(empty)";
+          inventoryFooterHint.textContent = "Close";
+        }
+      }
+    }
+  }
+
+  function moveInventoryCursor(dx, dy) {
+    const col = inventoryCursor % INVENTORY_COLS;
+    const row = Math.floor(inventoryCursor / INVENTORY_COLS);
+    const nextCol = (col + dx + INVENTORY_COLS) % INVENTORY_COLS;
+    const nextRow = (row + dy + INVENTORY_ROWS) % INVENTORY_ROWS;
+    inventoryCursor = nextRow * INVENTORY_COLS + nextCol;
+    renderInventory();
+  }
+
+  function toggleInventory(forceOpen) {
+    const next = typeof forceOpen === "boolean" ? forceOpen : !inventoryOpen;
+    inventoryOpen = next;
+    renderInventory();
+  }
+
+  const inventoryUseHandlers = {
+    "fire-flower": () => setPlayerForm(PowerUpForm.Fire),
+    "super-leaf": () => setPlayerForm(PowerUpForm.Raccoon),
+    "hammer-suit": () => setPlayerForm(PowerUpForm.Hammer),
+    "frog-suit": () => setPlayerForm(PowerUpForm.Frog),
+    mushroom: () => setPlayerForm(PowerUpForm.Super),
+  };
+
+  function useSelectedInventoryItem() {
+    const slot = inventorySlots[inventoryCursor];
+    if (!slot) {
+      inventoryFeedback.textContent = "Empty slot";
+      toggleInventory(false);
+      return;
+    }
+    const handler = slot.type ? inventoryUseHandlers[slot.type] : null;
+    if (handler) {
+      handler();
+      inventoryFeedback.textContent = `${slot.name} equipped`;
+      if (slot.count && slot.count > 1) {
+        slot.count -= 1;
+      } else {
+        inventorySlots[inventoryCursor] = null;
+      }
+      toggleInventory(false);
+    } else {
+      inventoryFeedback.textContent = `Cannot use ${slot.name}`;
+      console.log("Cannot use item:", slot.name);
+    }
+  }
+
+  function handleInventoryKey(e) {
+    if (e.code === "KeyI") {
+      toggleInventory();
+      e.preventDefault();
+      return true;
+    }
+    if (!inventoryOpen) return false;
+    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Space", "Escape"].includes(e.code)) {
+      e.preventDefault();
+      if (e.code === "ArrowUp") moveInventoryCursor(0, -1);
+      else if (e.code === "ArrowDown") moveInventoryCursor(0, 1);
+      else if (e.code === "ArrowLeft") moveInventoryCursor(-1, 0);
+      else if (e.code === "ArrowRight") moveInventoryCursor(1, 0);
+      else if (e.code === "Enter" || e.code === "Space") useSelectedInventoryItem();
+      else if (e.code === "Escape") toggleInventory(false);
+      return true;
+    }
+    return false;
+  }
+
+  buildInventoryGrid();
+  renderInventory();
+
+  // Precompute jump guide numbers (tiles traveled during a full jump)
+  const jumpFlightTime = (2 * JUMP_V) / GRAVITY;
+  const jumpWalkTiles = (WALK_MAX * jumpFlightTime) / TILE;
+  const jumpRunTiles = (RUN_MAX * jumpFlightTime) / TILE;
+
+  // -----------------------------
+  // Input
+  // -----------------------------
+  const keys = new Set();
+  const pressed = new Set();
+  window.addEventListener("keydown", (e) => {
+    if (e.target && e.target.tagName === "INPUT") return;
+    if (handleInventoryKey(e)) return;
+    if (editorOpen && handleEditorClipboard(e)) {
+      e.preventDefault();
+      return;
+    }
+    if (editorOpen && e.ctrlKey && e.code === "KeyZ") {
+      e.preventDefault();
+      undoAction();
+      return;
+    }
+    if (editorOpen && e.ctrlKey && e.code === "KeyY") {
+      e.preventDefault();
+      redoAction();
+      return;
+    }
+    if (e.code === "KeyE") {
+      setEditorOpen(!editorOpen);
+      e.preventDefault();
+      return;
+    }
+    if (e.code === "KeyG") {
+      showGrid = !showGrid;
+      e.preventDefault();
+      return;
+    }
+    if (!keys.has(e.code)) pressed.add(e.code);
+    keys.add(e.code);
+    if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(e.code)) e.preventDefault();
+  }, { passive:false });
+
+  window.addEventListener("keyup", (e) => {
+    if (e.target && e.target.tagName === "INPUT") return;
+    keys.delete(e.code);
+  });
+
+  // Clear keys when focus is lost to avoid stuck inputs causing auto actions
+  window.addEventListener("blur", () => {
+    keys.clear();
+    pressed.clear();
+  });
+
+  const down = (code) => keys.has(code);
+  const tap = (code) => pressed.has(code);
+
+  // -----------------------------
+  // Editor palette interactions
+  // -----------------------------
+  const terrainGrid = document.getElementById("terrain-grid");
+  const objectGrid = document.getElementById("object-grid");
+  const enemyGrid = document.getElementById("enemy-grid");
+  const spawnGrid = document.getElementById("spawn-grid");
+  const labelInput = document.getElementById("editor-label-input");
+  const textStampInput = document.getElementById("editor-text-stamp");
+  const textStampButton = document.getElementById("editor-stamp-button");
+  function updateStampButtonUI() {
+    if (!textStampButton) return;
+    textStampButton.classList.toggle("active", stampMode);
+    textStampButton.textContent = stampMode ? "Stamp Mode ON" : "Stamp Mode OFF";
+  }
+
+  function updateLabelInput() {
+    if (!labelInput) return;
+    if (selectedCell) {
+      const current = getLabel(selectedCell.tx, selectedCell.ty) || "";
+      labelInput.value = current;
+    } else {
+      labelInput.value = "";
+    }
+  }
+
+  function wirePaletteGrid(gridEl) {
+    if (!gridEl) return;
+    gridEl.querySelectorAll(".editor-tile").forEach(tileEl => {
+      tileEl.addEventListener("click", () => {
+        const tile = tileEl.getAttribute("data-tile") || "#";
+        selectEditorTile(tile, tileEl);
+      });
+    });
+  }
+
+  wirePaletteGrid(terrainGrid);
+  wirePaletteGrid(objectGrid);
+  wirePaletteGrid(enemyGrid);
+  wirePaletteGrid(spawnGrid);
+  // default select ground
+  const first = (terrainGrid || objectGrid || enemyGrid || spawnGrid)?.querySelector(".editor-tile");
+  if (first) selectEditorTile(first.getAttribute("data-tile") || "#", first);
+  if (labelInput) {
+    // prevent global hotkeys from interfering while typing
+    ["keydown", "keyup", "mousedown"].forEach(ev => {
+      labelInput.addEventListener(ev, (e) => {
+        e.stopPropagation();
+      });
+    });
+    labelInput.addEventListener("input", () => {
+      if (!selectedCell) return;
+      const prevTile = getTile(selectedCell.tx, selectedCell.ty);
+      const prevLabel = getLabel(selectedCell.tx, selectedCell.ty);
+      const nextLabel = labelInput.value.trim();
+      if (prevLabel === nextLabel) return;
+      setLabel(selectedCell.tx, selectedCell.ty, nextLabel);
+      recordAction([{
+        tx: selectedCell.tx, ty: selectedCell.ty,
+        prevTile, prevLabel,
+        nextTile: prevTile, nextLabel,
+      }]);
+    });
+    updateLabelInput();
+  }
+  if (textStampInput) {
+    ["keydown", "keyup", "mousedown"].forEach(ev => {
+      textStampInput.addEventListener(ev, (e) => {
+        e.stopPropagation();
+      });
+    });
+  }
+  if (textStampButton) {
+    textStampButton.addEventListener("click", () => {
+      stampMode = !stampMode;
+      updateStampButtonUI();
+    });
+    updateStampButtonUI();
+  }
+  renderPalettePreviews();
+
+  function setSelection(tx, ty) {
+    ensureBounds(tx, ty);
+    selectedCell = { tx, ty };
+    updateLabelInput();
+  }
+
+  function recordAction(changes) {
+    if (!changes || changes.length === 0) return;
+    undoStack.push(changes);
+    redoStack.length = 0;
+  }
+
+  function applyChanges(changes, useNext=true) {
+    for (const c of changes) {
+      if (c.prevTile === undefined && c.nextTile === undefined && c.prevLabel === undefined && c.nextLabel === undefined) continue;
+      if (useNext) {
+        if (c.nextTile !== undefined) setTileRaw(c.tx, c.ty, c.nextTile);
+        if (c.nextLabel !== undefined) setLabelRaw(c.tx, c.ty, c.nextLabel);
+      } else {
+        if (c.prevTile !== undefined) setTileRaw(c.tx, c.ty, c.prevTile);
+        if (c.prevLabel !== undefined) setLabelRaw(c.tx, c.ty, c.prevLabel);
+      }
+    }
+  }
+
+  function undoAction() {
+    if (undoStack.length === 0) return;
+    const changes = undoStack.pop();
+    applyChanges(changes, false);
+    redoStack.push(changes);
+    updateLabelInput();
+  }
+
+  function redoAction() {
+    if (redoStack.length === 0) return;
+    const changes = redoStack.pop();
+    applyChanges(changes, true);
+    undoStack.push(changes);
+    updateLabelInput();
+  }
+
+  function drawTilePreview(ctx, t) {
+    ctx.imageSmoothingEnabled = false;
+    const w = ctx.canvas.width;
+    const h = ctx.canvas.height;
+    if (t === "#") {
+      ctx.fillStyle = "#3b2f2f";
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = "#2a2020";
+      ctx.fillRect(0, h - Math.ceil(h * 0.25), w, Math.ceil(h * 0.25));
+      ctx.fillStyle = "#4a3a3a";
+      ctx.fillRect(0, 0, w, Math.max(1, Math.round(h * 0.15)));
+      return;
+    }
+    if (t === "S") {
+      ctx.fillStyle = "#d8c28f";
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = "#b89f6b";
+      ctx.fillRect(0, h - Math.ceil(h * 0.3), w, Math.ceil(h * 0.3));
+      ctx.fillStyle = "#f7e7b8";
+      ctx.fillRect(0, 0, w, Math.max(1, Math.round(h * 0.2)));
+      return;
+    }
+    if (t === "I") {
+      ctx.fillStyle = "#b0e0ff";
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = "#d8f4ff";
+      ctx.fillRect(0, 0, w, Math.max(1, Math.round(h * 0.2)));
+      ctx.fillStyle = "#8bbbd6";
+      ctx.fillRect(0, h - Math.ceil(h * 0.25), w, Math.ceil(h * 0.25));
+      return;
+    }
+    if (t === "B") {
+      ctx.fillStyle = "#7c3f2a";
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = "rgba(0,0,0,0.25)";
+      ctx.fillRect(0, 1, w, 1);
+      ctx.fillRect(0, Math.max(1, Math.floor(h / 2)), w, 1);
+      ctx.fillRect(Math.floor(w / 2), 0, 1, h);
+      return;
+    }
+    if (t === "?") {
+      ctx.fillStyle = "#d1a23a";
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = "#8a6a18";
+      ctx.fillRect(0, h - Math.ceil(h * 0.25), w, Math.ceil(h * 0.25));
+      ctx.fillStyle = "#fff2";
+      ctx.fillRect(0, 0, w, Math.max(1, Math.round(h * 0.2)));
+      ctx.fillStyle = "#2b1d05";
+      ctx.fillRect(Math.floor(w/2) - 1, Math.floor(h/2) - 1, 2, 2);
+      return;
+    }
+    if (t === "u") {
+      ctx.fillStyle = "#8c8c8c";
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = "#0002";
+      ctx.fillRect(0, h - Math.ceil(h * 0.25), w, Math.ceil(h * 0.25));
+      return;
+    }
+    if (t === "C") {
+      ctx.fillStyle = "#0b1629";
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = "#f5d000";
+      ctx.fillRect(Math.floor(w/2) - 1, 1, 2, h - 2);
+      ctx.fillRect(Math.floor(w/2) - 2, Math.floor(h/2) - 1, 4, 2);
+      ctx.fillStyle = "#fff5";
+      ctx.fillRect(Math.floor(w/2), 1, 1, 2);
+      return;
+    }
+    if (t === "E") {
+      ctx.fillStyle = "#0b1629";
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = "#6b3b2a";
+      ctx.fillRect(1, 1, w-2, h-2);
+      ctx.fillStyle = "#000";
+      ctx.fillRect(2, Math.floor(h/2), w-4, 1);
+      return;
+    }
+    if (t === "P") {
+      ctx.fillStyle = "#0b1629";
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = "#2a49ff";
+      ctx.fillRect(2, 2, w-4, h-4);
+      ctx.fillStyle = "#f00";
+      ctx.fillRect(2, 0, w-4, 2);
+      return;
+    }
+  }
+
+  function stampText(raw) {
+    if (!selectedCell || !raw) return;
+    const startX = selectedCell.tx;
+    const startY = selectedCell.ty;
+    const text = raw.toUpperCase();
+    let cursorX = startX;
+    const changes = [];
+    for (const ch of text) {
+      const glyph = TEXT_FONT[ch] || TEXT_FONT["?"];
+      const glyphW = glyph[0].length;
+      for (let y = 0; y < glyph.length; y++) {
+        for (let x = 0; x < glyphW; x++) {
+          if (glyph[y][x] === "1") {
+            const tx = cursorX + x;
+            const ty = startY + y;
+            const prevTile = getTile(tx, ty);
+            const prevLabel = getLabel(tx, ty);
+            if (prevTile === editorTile) continue;
+            setTile(tx, ty, editorTile);
+            changes.push({
+              tx, ty,
+              prevTile, prevLabel,
+              nextTile: editorTile,
+              nextLabel: prevLabel,
+            });
+          }
+        }
+      }
+      cursorX += glyphW + 1; // 1 tile gap
+    }
+    recordAction(changes);
+  }
+
+  function renderPalettePreviews() {
+    document.querySelectorAll(".tile-preview").forEach(canvasEl => {
+      const t = canvasEl.getAttribute("data-tile") || "#";
+      const ctx = canvasEl.getContext("2d", { alpha: false });
+      ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+      drawTilePreview(ctx, t);
+    });
+  }
+
+  function screenToCell(screenX, screenY, fromEvent=false, evt=null) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const px = (fromEvent && evt ? evt.offsetX : (screenX - rect.left)) * scaleX;
+    const py = (fromEvent && evt ? evt.offsetY : (screenY - rect.top)) * scaleY;
+    const worldX = px + cam.x;
+    const worldY = py + cam.y;
+    return { tx: Math.floor(worldX / TILE), ty: Math.floor(worldY / TILE) };
+  }
+
+  function applyEditorPaint(screenX, screenY, remove=false) {
+    if (!editorOpen) return;
+    const cell = screenToCell(screenX, screenY);
+    if (!cell) return;
+    const prevTile = getTile(cell.tx, cell.ty);
+    const prevLabel = getLabel(cell.tx, cell.ty);
+    ensureBounds(cell.tx, cell.ty);
+    setSelection(cell.tx, cell.ty);
+    const nextTile = remove ? "." : editorTile;
+    if (prevTile === nextTile) return;
+    setTile(cell.tx, cell.ty, nextTile);
+    recordAction([{
+      tx: cell.tx, ty: cell.ty,
+      prevTile, prevLabel,
+      nextTile, nextLabel: prevLabel,
+    }]);
+  }
+
+  let paintingButton = null;
+  canvas.addEventListener("mousedown", (e) => {
+    if (!editorOpen) return;
+    const cell = screenToCell(e.clientX, e.clientY, true, e);
+    if (cell) setSelection(cell.tx, cell.ty);
+    if (cell) {
+      const sx = Math.floor(cell.tx * TILE - cam.x);
+      const sy = Math.floor(cell.ty * TILE - cam.y);
+      clickDebug = { sx, sy, tx: cell.tx, ty: cell.ty, timer: 0.5 };
+    }
+    if (stampMode && e.button === 0) {
+      e.preventDefault();
+      stampText(textStampInput ? textStampInput.value : "");
+      return;
+    }
+    if (e.button === 0 || e.button === 2) {
+      e.preventDefault();
+      paintingButton = e.button;
+      applyEditorPaint(e.clientX, e.clientY, e.button === 2);
+    }
+  });
+  canvas.addEventListener("mousemove", (e) => {
+    if (!editorOpen) return;
+    const cell = screenToCell(e.clientX, e.clientY, true, e);
+    hoverCell = (cell && inBounds(cell.tx, cell.ty)) ? cell : null;
+    if (paintingButton !== null) {
+      applyEditorPaint(e.clientX, e.clientY, paintingButton === 2);
+    }
+  });
+  canvas.addEventListener("mouseup", () => {
+    paintingButton = null;
+  });
+  canvas.addEventListener("mouseleave", () => {
+    paintingButton = null;
+    hoverCell = null;
+  });
+  canvas.addEventListener("contextmenu", (e) => {
+    if (!editorOpen) return;
+    e.preventDefault();
+  });
+
+  function handleEditorClipboard(e) {
+    if (!editorOpen || !selectedCell) return false;
+    const { tx, ty } = selectedCell;
+    const tile = getTile(tx, ty);
+    const hasTile = tile && tile !== ".";
+    if (e.code === "KeyC" && e.ctrlKey) {
+      if (hasTile) editorClipboard = tile;
+      return true;
+    }
+    if (e.code === "KeyX" && e.ctrlKey) {
+      if (hasTile) editorClipboard = tile;
+      const prevLabel = getLabel(tx, ty);
+      setTile(tx, ty, ".");
+      recordAction([{
+        tx, ty,
+        prevTile: tile, prevLabel,
+        nextTile: ".", nextLabel: prevLabel,
+      }]);
+      return true;
+    }
+    if (e.code === "KeyV" && e.ctrlKey) {
+      if (editorClipboard) {
+        const prevLabel = getLabel(tx, ty);
+        const prevTile = getTile(tx, ty);
+        setTile(tx, ty, editorClipboard);
+        recordAction([{
+          tx, ty,
+          prevTile, prevLabel,
+          nextTile: editorClipboard,
+          nextLabel: prevLabel,
+        }]);
+      }
+      return true;
+    }
+    return false;
+  }
+
+  // -----------------------------
+  // Level
+  // Legend:
+  //  . empty
+  //  # solid ground
+  //  B solid brick
+  //  I ice (slippery)
+  //  S sand (heavy)
+  //  W water (swimmable)
+  //  ? question block
+  //  u used block
+  //  C coin (pickup, not solid)
+  //  E enemy spawn
+  //  P player spawn
+  // -----------------------------
+  const LEVEL = [
+    "................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................",
+    "................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................",
+    "................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................",
+    "................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................",
+    "................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................",
+    "................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................",
+    "......................C.............?...........C...............................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................",
+    "..............?............................?....................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................",
+    ".............BBB.........................BBB....................C...............................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................",
+    ".....................................................E..........................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................",
+    "....P......................IIIIII...............................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................",
+    "########################SSSSSS############################.....#################................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................",
+    "########################SSSSSS############################.....#################................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................"
+  ];
+
+  let mapH = LEVEL.length;
+  let mapW = LEVEL[0].length;
+  const tiles = LEVEL.map(row => row.split(""));
+  const labelMap = new Map(); // key: "tx,ty" -> string
+
+  function ensureBounds(tx, ty) {
+    let grew = false;
+    while (ty >= tiles.length) {
+      tiles.push(new Array(mapW).fill("."));
+      grew = true;
+    }
+    if (grew) mapH = tiles.length;
+    if (tx >= mapW) {
+      const add = tx - mapW + 1;
+      for (const row of tiles) {
+        for (let i = 0; i < add; i++) row.push(".");
+      }
+      mapW = tiles[0].length;
+    }
+  }
+
+  function inBounds(tx, ty) { return tx >= 0 && ty >= 0 && tx < mapW && ty < mapH; }
+
+  function getTile(tx, ty) {
+    if (!inBounds(tx, ty)) return "#"; // treat out-of-bounds as solid wall
+    return tiles[ty][tx];
+  }
+  function setTileRaw(tx, ty, v) {
+    ensureBounds(tx, ty);
+    tiles[ty][tx] = v;
+  }
+  function setTile(tx, ty, v) {
+    setTileRaw(tx, ty, v);
+  }
+  function labelKey(tx, ty) { return `${tx},${ty}`; }
+  function getLabel(tx, ty) {
+    return labelMap.get(labelKey(tx, ty));
+  }
+  function setLabelRaw(tx, ty, text) {
+    const key = labelKey(tx, ty);
+    if (!text) {
+      labelMap.delete(key);
+    } else {
+      labelMap.set(key, text);
+    }
+  }
+  function setLabel(tx, ty, text) {
+    setLabelRaw(tx, ty, text);
+  }
+  function isSolid(t) { return t === "#" || t === "B" || t === "?" || t === "u" || t === "I" || t === "S"; }
+  function isQuestion(t){ return t === "?"; }
+  function isCoinTile(t){ return t === "C"; }
+  function surfaceType(t) {
+    if (t === "I") return "ice";
+    if (t === "S") return "sand";
+    return null;
+  }
+
+  function isWaterTile(t) {
+    return t === "W";
+  }
+
+  // Find spawns
+  function findChar(ch) {
+    for (let y = 0; y < mapH; y++) {
+      for (let x = 0; x < mapW; x++) {
+        if (tiles[y][x] === ch) return { x, y };
+      }
+    }
+    return null;
+  }
+
+  const playerSpawn = findChar("P") || { x: 2, y: 2 };
+
+  // Replace spawns with empty
+  for (let y = 0; y < mapH; y++) {
+    for (let x = 0; x < mapW; x++) {
+      if (tiles[y][x] === "P") tiles[y][x] = ".";
+    }
+  }
+
+  // Entities
+  const entities = [];
+  const particles = [];
+  const peers = new Map(); // peerId -> state snapshot for rendering
+  let netSocket = null;
+  let clientId = null;
+  let reconnectTimer = 0;
+  let stateSendTimer = STATE_SEND_INTERVAL;
+  let audioCtx = null;
+
+  function playSkidSound() {
+    try {
+      if (!audioCtx) audioCtx = new AudioContext();
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "square";
+      osc.frequency.setValueAtTime(320, now);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.09);
+    } catch (e) {
+      // ignore audio init errors (e.g., autoplay restrictions)
+    }
+  }
+
+  function playFireballSound() {
+    try {
+      if (!audioCtx) audioCtx = new AudioContext();
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "square";
+      osc.frequency.setValueAtTime(520, now);
+      gain.gain.setValueAtTime(0.06, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.2);
+    } catch (e) {
+      // ignore audio init errors
+    }
+  }
+
+  function playTailSound() {
+    try {
+      if (!audioCtx) audioCtx = new AudioContext();
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(280, now);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.16);
+    } catch (e) {
+      // ignore audio init errors
+    }
+  }
+
+  function playHammerSound() {
+    try {
+      if (!audioCtx) audioCtx = new AudioContext();
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "square";
+      osc.frequency.setValueAtTime(340, now);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.2);
+    } catch (e) {
+      // ignore audio init errors
+    }
+  }
+
+  function aabb(ax, ay, aw, ah, bx, by, bw, bh) {
+    return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+  }
+
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+  const mix = (a, b, t) => a + (b - a) * t;
+  function isOnGround(body) {
+    // Check for solid tiles just below the feet with a 1px tolerance
+    const footY = body.y + body.h + 1;
+    const ty = Math.floor(footY / TILE);
+    const x0 = Math.floor(body.x / TILE);
+    const x1 = Math.floor((body.x + body.w - 1) / TILE);
+    for (let tx = x0; tx <= x1; tx++) {
+      if (isSolid(getTile(tx, ty))) return true;
+    }
+    return false;
+  }
+
+  // -----------------------------
+  // Multiplayer (client)
+  // -----------------------------
+  function openSocket() {
+    try {
+      netSocket = new WebSocket(MP_SERVER);
+    } catch (err) {
+      netSocket = null;
+      reconnectTimer = 1.5;
+      return;
+    }
+
+    netSocket.addEventListener("open", () => {
+      stateSendTimer = STATE_SEND_INTERVAL;
+      netSocket.send(JSON.stringify({ type: "join", room: MP_ROOM, name: PLAYER_NAME }));
+    });
+
+    netSocket.addEventListener("message", (ev) => handleNetMessage(ev.data));
+
+    const handleClose = () => {
+      clientId = null;
+      netSocket = null;
+      reconnectTimer = 1.5;
+    };
+    netSocket.addEventListener("close", handleClose);
+    netSocket.addEventListener("error", handleClose);
+  }
+
+  function handleNetMessage(raw) {
+    let msg;
+    try {
+      msg = JSON.parse(raw);
+    } catch (e) {
+      return;
+    }
+    if (msg.type === "welcome") {
+      clientId = msg.id || null;
+      if (Array.isArray(msg.players)) {
+        for (const p of msg.players) {
+          recordPeerState(p.id, p, p.name);
+        }
+      }
+      if (Array.isArray(msg.tiles)) {
+        for (const t of msg.tiles) {
+          if (typeof t.tx === "number" && typeof t.ty === "number") {
+            setTile(t.tx, t.ty, t.value ?? ".");
+          }
+        }
+      }
+      return;
+    }
+    if (msg.type === "state" && msg.id && msg.state) {
+      recordPeerState(msg.id, msg.state, msg.name);
+      return;
+    }
+    if (msg.type === "leave" && msg.id) {
+      peers.delete(msg.id);
+      return;
+    }
+    if (msg.type === "tile" && typeof msg.tx === "number" && typeof msg.ty === "number") {
+      setTile(msg.tx, msg.ty, msg.value ?? ".");
+    }
+  }
+
+  function recordPeerState(id, state, name) {
+    if (!id || id === clientId) return;
+    const now = performance.now();
+    const incomingForm = isValidForm(state.form) ? state.form : null;
+    const incomingBig = incomingForm ? formIsBig(incomingForm) : !!state.big;
+    let peer = peers.get(id);
+    if (!peer) {
+      peer = {
+        x: state.x ?? 0,
+        y: state.y ?? 0,
+        targetX: state.x ?? 0,
+        targetY: state.y ?? 0,
+        facing: state.facing || 1,
+        form: incomingForm ?? (incomingBig ? PowerUpForm.Super : PowerUpForm.Small),
+        big: incomingBig,
+        name: name || `P-${String(id).slice(0, 4)}`,
+        state: state.state || "ground",
+        lastSeen: now,
+      };
+      peers.set(id, peer);
+    } else {
+      peer.targetX = state.x ?? peer.targetX;
+      peer.targetY = state.y ?? peer.targetY;
+      peer.facing = state.facing || peer.facing || 1;
+      if (incomingForm) peer.form = incomingForm;
+      if (!peer.form) peer.form = incomingBig ? PowerUpForm.Super : PowerUpForm.Small;
+      peer.big = incomingForm ? formIsBig(incomingForm) : (incomingBig || peer.big);
+      peer.state = state.state || peer.state || "ground";
+      peer.lastSeen = now;
+    }
+    if (peer.x === undefined) peer.x = peer.targetX;
+    if (peer.y === undefined) peer.y = peer.targetY;
+  }
+
+  function broadcastTileChange(tx, ty, value) {
+    if (!MP_ENABLED || !netSocket || netSocket.readyState !== WebSocket.OPEN) return;
+    netSocket.send(JSON.stringify({ type: "tile", room: MP_ROOM, tx, ty, value }));
+  }
+
+  function sendPlayerState() {
+    if (!MP_ENABLED || !netSocket || netSocket.readyState !== WebSocket.OPEN) return;
+    const payload = {
+      type: "state",
+      room: MP_ROOM,
+      name: PLAYER_NAME,
+      state: {
+        x: player.x,
+        y: player.y,
+        vx: player.vx,
+        vy: player.vy,
+        facing: player.facing,
+        big: player.big,
+        form: player.form,
+        state: player.state,
+        coins: coinCount,
+        timer: levelTimer,
+      },
+    };
+    netSocket.send(JSON.stringify(payload));
+  }
+
+  function smoothPeers(dt) {
+    for (const peer of peers.values()) {
+      if (peer.targetX === undefined || peer.targetY === undefined) continue;
+      const lerp = Math.min(1, dt * 10);
+      peer.x = peer.x + (peer.targetX - peer.x) * lerp;
+      peer.y = peer.y + (peer.targetY - peer.y) * lerp;
+    }
+  }
+
+  function updateNetwork(dt) {
+    if (!MP_ENABLED) return;
+    if (!netSocket) {
+      if (reconnectTimer > 0) reconnectTimer -= dt;
+      if (reconnectTimer <= 0) openSocket();
+      return;
+    }
+    if (netSocket.readyState === WebSocket.OPEN) {
+      stateSendTimer -= dt;
+      if (stateSendTimer <= 0) {
+        stateSendTimer = STATE_SEND_INTERVAL;
+        sendPlayerState();
+      }
+    }
+    const now = performance.now();
+    for (const [id, peer] of peers.entries()) {
+      if (now - peer.lastSeen > PEER_STALE_TIME * 1000) peers.delete(id);
+    }
+    smoothPeers(dt);
+  }
+
+  // -----------------------------
+  // Tile collision
+  // -----------------------------
+  function moveAndCollide(body, dt) {
+    // body: {x,y,w,h,vx,vy,onGround,hitHead}
+    body.onGround = false;
+    body.hitHead = false;
+
+    // Horizontal
+    body.x += body.vx * dt;
+    if (body.vx !== 0) {
+      const dir = Math.sign(body.vx);
+      const aheadX = dir > 0 ? body.x + body.w : body.x;
+      const tx = Math.floor(aheadX / TILE);
+
+      const y0 = Math.floor(body.y / TILE);
+      const y1 = Math.floor((body.y + body.h - 1) / TILE);
+
+      for (let ty = y0; ty <= y1; ty++) {
+        const t = getTile(tx, ty);
+        if (isSolid(t)) {
+          if (dir > 0) body.x = tx * TILE - body.w;
+          else body.x = (tx + 1) * TILE;
+          body.vx = 0;
+          break;
+        }
+      }
+    }
+
+    // Vertical
+    body.y += body.vy * dt;
+    if (body.vy !== 0) {
+      const dir = Math.sign(body.vy);
+
+      const ty = Math.floor((dir > 0 ? (body.y + body.h) : body.y) / TILE);
+      const x0 = Math.floor(body.x / TILE);
+      const x1 = Math.floor((body.x + body.w - 1) / TILE);
+
+      for (let tx = x0; tx <= x1; tx++) {
+        const t = getTile(tx, ty);
+        if (isSolid(t)) {
+          if (dir > 0) {
+            body.y = ty * TILE - body.h;
+            body.onGround = true;
+          } else {
+            const brokeBrick = t === "B" && canBreakBricks();
+            if (brokeBrick) {
+              breakBrick(tx, ty);
+            } else if (isQuestion(t)) {
+              bumpQuestionBlock(tx, ty);
+            }
+            body.y = (ty + 1) * TILE;
+            body.hitHead = true;
+          }
+          body.vy = 0;
+          break;
+        }
+      }
+    }
+  }
+
+  // -----------------------------
+  // Game logic: blocks / pickups
+  // -----------------------------
+  let coinCount = 0;
+  let score = 0;
+  let lives = 3;
+  let levelTimer = HUD_TIMER_START;
+
+  function spawnCoinBurst(x, y) {
+    for (let i = 0; i < 8; i++) {
+      particles.push({
+        x, y,
+        vx: (Math.random() * 2 - 1) * 120,
+        vy: -(Math.random() * 220 + 100),
+        life: 0.5 + Math.random() * 0.25,
+      });
+    }
+  }
+
+  function spawnSkidDust(x, y, dir) {
+    for (let i = 0; i < 3; i++) {
+      particles.push({
+        x: x + (Math.random() * 4 - 2),
+        y: y + (Math.random() * 2 - 1),
+        vx: (Math.random() * 50 + 60) * dir * -1,
+        vy: -(Math.random() * 70 + 30),
+        life: 0.25 + Math.random() * 0.12,
+        color: "#d8d8d8",
+        size: 2
+      });
+    }
+  }
+
+  function spawnMushroom(px, py) {
+    entities.push({
+      type: "mushroom",
+      x: px, y: py,
+      w: 14, h: 14,
+      vx: 70, vy: 0,
+      alive: true,
+    });
+  }
+
+  function spawnFireball() {
+    const dir = player.facing >= 0 ? 1 : -1;
+    const startX = player.x + (dir > 0 ? player.w : -6);
+    const startY = player.y + 6;
+    entities.push({
+      type: "fireball",
+      x: startX,
+      y: startY,
+      w: 6,
+      h: 6,
+      vx: FIREBALL_SPEED * dir,
+      vy: -60,
+      alive: true,
+      life: FIREBALL_LIFETIME,
+      bounces: 0,
+    });
+    player.fireCooldown = FIREBALL_COOLDOWN;
+    playFireballSound();
+  }
+
+  function performTailAttack() {
+    const dir = player.facing >= 0 ? 1 : -1;
+    const hitbox = {
+      x: player.x + (dir > 0 ? player.w : -TAIL_RANGE_X),
+      y: player.y + (player.h - TAIL_RANGE_Y - 4),
+      w: TAIL_RANGE_X,
+      h: TAIL_RANGE_Y,
+    };
+    for (const target of entities) {
+      if (!target.alive || target.type !== "goon") continue;
+      if (aabb(hitbox.x, hitbox.y, hitbox.w, hitbox.h, target.x, target.y, target.w, target.h)) {
+        target.alive = false;
+        spawnCoinBurst(target.x + target.w / 2, target.y + target.h / 2);
+      }
+    }
+    playTailSound();
+  }
+
+  function countHammers() {
+    return entities.filter((e) => e.alive && e.type === "hammer").length;
+  }
+
+  function spawnHammer() {
+    if (countHammers() >= 2) return;
+    const dir = player.facing >= 0 ? 1 : -1;
+    const vx = Math.cos(HAMMER_LAUNCH_ANGLE) * HAMMER_SPEED * dir;
+    const vy = -Math.sin(HAMMER_LAUNCH_ANGLE) * HAMMER_SPEED;
+    const startX = player.x + (dir > 0 ? player.w : -6);
+    const startY = player.y + 4;
+    entities.push({
+      type: "hammer",
+      x: startX,
+      y: startY,
+      w: 6,
+      h: 6,
+      vx,
+      vy,
+      alive: true,
+      life: HAMMER_LIFETIME,
+      spin: 0,
+    });
+    player.hammerCooldown = HAMMER_COOLDOWN;
+    playHammerSound();
+  }
+
+  function startStatue() {
+    player.statueActive = true;
+    player.statueTimer = STATUE_DURATION;
+    player.statueCooldown = STATUE_COOLDOWN;
+    player.vx = 0;
+    player.ax = 0;
+    player.pCharge = 0;
+    playTailSound();
+  }
+
+  // Alternate between coin and mushroom spawns (simple demo)
+  let questionHits = 0;
+
+  function bumpQuestionBlock(tx, ty) {
+    setTile(tx, ty, "u");
+    broadcastTileChange(tx, ty, "u");
+    questionHits++;
+    const cx = tx * TILE + TILE/2;
+    const cy = ty * TILE;
+
+    if (questionHits % 2 === 1) {
+      coinCount++;
+      score += 200;
+      spawnCoinBurst(cx, cy);
+    } else {
+      spawnMushroom(tx * TILE + 1, ty * TILE - 14);
+    }
+  }
+
+  function breakBrick(tx, ty) {
+    setTile(tx, ty, ".");
+    broadcastTileChange(tx, ty, ".");
+    const cx = tx * TILE + TILE / 2;
+    const cy = ty * TILE + TILE / 2;
+    for (let i = 0; i < 6; i++) {
+      particles.push({
+        x: cx,
+        y: cy,
+        vx: (Math.random() * 2 - 1) * 160,
+        vy: -(Math.random() * 200 + 80),
+        life: 0.35 + Math.random() * 0.2,
+        color: "#b46a3a",
+        size: 2 + Math.floor(Math.random() * 2),
+      });
+    }
+  }
+
+  function breakIce(tx, ty) {
+    setTile(tx, ty, ".");
+    broadcastTileChange(tx, ty, ".");
+    const cx = tx * TILE + TILE / 2;
+    const cy = ty * TILE + TILE / 2;
+    for (let i = 0; i < 4; i++) {
+      particles.push({
+        x: cx,
+        y: cy,
+        vx: (Math.random() * 2 - 1) * 120,
+        vy: -(Math.random() * 140 + 60),
+        life: 0.35 + Math.random() * 0.2,
+        color: "#b0e0ff",
+        size: 2,
+      });
+    }
+  }
+
+  function breakDestructible(tx, ty) {
+    const t = getTile(tx, ty);
+    if (t === "B") return breakBrick(tx, ty);
+    if (t === "I") return breakIce(tx, ty);
+  }
+
+  function collectCoinTileAtPlayer(player) {
+    // check tiles overlapped by player for 'C'
+    const x0 = Math.floor(player.x / TILE);
+    const x1 = Math.floor((player.x + player.w - 1) / TILE);
+    const y0 = Math.floor(player.y / TILE);
+    const y1 = Math.floor((player.y + player.h - 1) / TILE);
+
+      for (let ty = y0; ty <= y1; ty++) {
+        for (let tx = x0; tx <= x1; tx++) {
+          if (getTile(tx, ty) === "C") {
+            setTile(tx, ty, ".");
+            broadcastTileChange(tx, ty, ".");
+            coinCount++;
+            score += 100;
+            spawnCoinBurst(tx*TILE + TILE/2, ty*TILE + TILE/2);
+          }
+        }
+    }
+  }
+
+  // -----------------------------
+  // Player
+  // -----------------------------
+  const player = {
+    type: "player",
+    x: playerSpawn.x * TILE,
+    y: playerSpawn.y * TILE,
+    w: 12,
+    h: 14,
+    vx: 0,
+    vy: 0,
+    facing: 1,
+    onGround: false,
+    hitHead: false,
+    state: "ground",
+    coyote: 0,
+    jumpBuf: 0,
+    form: PowerUpForm.Small,
+    big: formIsBig(PowerUpForm.Small),
+    invuln: 0,
+    ax: 0,
+    pCharge: 0,
+    skidTimer: 0,
+    skidDust: 0,
+    skidBoost: 0,
+    airCarryMax: 0,
+    fireCooldown: 0,
+    hammerCooldown: 0,
+    tailTimer: 0,
+    tailCooldown: 0,
+    flightTimer: 0,
+    flightActive: false,
+    statueActive: false,
+    statueTimer: 0,
+    statueCooldown: 0,
+  };
+  let pMeterDisplaySegs = 0;
+  let pMeterDecayHold = 0;
+  const debugVxEl = document.getElementById("debug-vx");
+  const debugAxEl = document.getElementById("debug-ax");
+  const debugPChargeEl = document.getElementById("debug-pcharge");
+  const debugPSegsEl = document.getElementById("debug-psegs");
+  const debugPMaxEl = document.getElementById("debug-pmax");
+  if (debugPMaxEl) debugPMaxEl.textContent = P_METER_SEGMENTS;
+
+  function isValidForm(form) {
+    return Object.values(PowerUpForm).includes(form);
+  }
+
+  function formIsBig(form) {
+    return BIG_FORMS.has(form);
+  }
+
+  function formPalette(form) {
+    switch (form) {
+      case PowerUpForm.Fire:
+        return { shirt: "#ff6b35", pants: "#ffd166" };
+      case PowerUpForm.Raccoon:
+        return { shirt: "#d66f4a", pants: "#7f5539" };
+      case PowerUpForm.Tanooki:
+        return { shirt: "#a97155", pants: "#5b4636" };
+      case PowerUpForm.Frog:
+        return { shirt: "#2dd36f", pants: "#0a8a4a" };
+      case PowerUpForm.Hammer:
+        return { shirt: "#5d78ff", pants: "#2d3142" };
+      case PowerUpForm.Super:
+        return { shirt: "#e23b2e", pants: "#2a49ff" };
+      default:
+        return { shirt: "#e23b2e", pants: "#2a49ff" };
+    }
+  }
+
+  function setPlayerForm(form, options = {}) {
+    const { skipSave = false } = options;
+    const nextForm = isValidForm(form) ? form : PowerUpForm.Small;
+    const willBeBig = formIsBig(nextForm);
+    player.form = nextForm;
+    player.big = willBeBig;
+    // adjust hitbox height; keep feet position stable when size changes
+    const oldH = player.h;
+    player.h = willBeBig ? 22 : 14;
+    player.y += (oldH - player.h);
+    if (!skipSave) savePlayerSnapshot();
+  }
+
+  let autoSaveCooldown = 0;
+
+  function serializePlayerSnapshot() {
+    return {
+      form: player.form,
+      levelTimer,
+      invuln: player.invuln,
+      fireCooldown: player.fireCooldown,
+      hammerCooldown: player.hammerCooldown,
+      tailCooldown: player.tailCooldown,
+      flightTimer: player.flightTimer,
+      flightActive: player.flightActive,
+      statueActive: player.statueActive,
+      statueTimer: player.statueTimer,
+      statueCooldown: player.statueCooldown,
+    };
+  }
+
+  function savePlayerSnapshot() {
+    if (typeof localStorage === "undefined") return;
+    try {
+      localStorage.setItem(PLAYER_SAVE_KEY, JSON.stringify(serializePlayerSnapshot()));
+    } catch (err) {
+      // ignore persistence failures (e.g., storage disabled)
+    }
+  }
+
+  function loadPlayerSnapshot() {
+    if (typeof localStorage === "undefined") return false;
+    const raw = localStorage.getItem(PLAYER_SAVE_KEY);
+    if (!raw) return false;
+    try {
+      const data = JSON.parse(raw);
+      if (isValidForm(data.form)) {
+        setPlayerForm(data.form, { skipSave: true });
+      }
+      if (typeof data.levelTimer === "number") {
+        levelTimer = clamp(data.levelTimer, 0, HUD_TIMER_START);
+      }
+      if (typeof data.invuln === "number") {
+        player.invuln = clamp(data.invuln, 0, DAMAGE_INVULN_TIME);
+      }
+      if (typeof data.fireCooldown === "number") {
+        player.fireCooldown = clamp(data.fireCooldown, 0, FIREBALL_COOLDOWN);
+      }
+      if (typeof data.hammerCooldown === "number") {
+        player.hammerCooldown = clamp(data.hammerCooldown, 0, HAMMER_COOLDOWN);
+      }
+      if (typeof data.tailCooldown === "number") {
+        player.tailCooldown = clamp(data.tailCooldown, 0, TAIL_COOLDOWN);
+      }
+      if (typeof data.flightTimer === "number") {
+        player.flightTimer = clamp(data.flightTimer, 0, FLIGHT_TIME);
+      }
+      if (typeof data.flightActive === "boolean") {
+        player.flightActive = data.flightActive;
+      }
+      if (typeof data.statueActive === "boolean") {
+        player.statueActive = data.statueActive;
+      }
+      if (typeof data.statueTimer === "number") {
+        player.statueTimer = clamp(data.statueTimer, 0, STATUE_DURATION);
+      }
+      if (typeof data.statueCooldown === "number") {
+        player.statueCooldown = clamp(data.statueCooldown, 0, STATUE_COOLDOWN);
+      }
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function maybeAutoSave(dt) {
+    autoSaveCooldown = Math.max(0, autoSaveCooldown - dt);
+    if (autoSaveCooldown > 0) return;
+    savePlayerSnapshot();
+    autoSaveCooldown = 1.0;
+  }
+
+  function downgradeForm(form) {
+    if (form === PowerUpForm.Small) return null;
+    if (form === PowerUpForm.Super) return PowerUpForm.Small;
+    return PowerUpForm.Super;
+  }
+
+  function canBreakBricks() {
+    return formIsBig(player.form);
+  }
+
+  function canShootFire() {
+    return player.form === PowerUpForm.Fire;
+  }
+
+  function hasTailAbilities() {
+    return player.form === PowerUpForm.Raccoon || player.form === PowerUpForm.Tanooki;
+  }
+
+  function getSurfaceModifier(body) {
+    if (!body.onGround) return { accel: 1, friction: 1, brake: 1 };
+    const footY = body.y + body.h + 0.5;
+    const tx = Math.floor((body.x + body.w / 2) / TILE);
+    const ty = Math.floor(footY / TILE);
+    const type = surfaceType(getTile(tx, ty));
+    return type ? SURFACE_MODS[type] : { accel: 1, friction: 1, brake: 1 };
+  }
+
+  function isPlayerSwimming() {
+    const tx = Math.floor((player.x + player.w / 2) / TILE);
+    const ty = Math.floor((player.y + player.h - 2) / TILE);
+    return isWaterTile(getTile(tx, ty));
+  }
+
+  // -----------------------------
+  // Enemies
+  // -----------------------------
+  function spawnEnemy(tx, ty) {
+    entities.push({
+      type: "goon",
+      x: tx * TILE + 1,
+      y: ty * TILE,
+      w: 14,
+      h: 14,
+      vx: -50,
+      vy: 0,
+      alive: true,
+    });
+  }
+
+  // Create enemies from map
+  for (let y = 0; y < mapH; y++) {
+    for (let x = 0; x < mapW; x++) {
+      if (tiles[y][x] === "E") {
+        tiles[y][x] = ".";
+        spawnEnemy(x, y);
+      }
+    }
+  }
+
+  // -----------------------------
+  // Camera
+  // -----------------------------
+  const cam = { x: 0, y: 0 };
+  const worldWpx = mapW * TILE;
+  const worldHpx = mapH * TILE;
+
+  function updateCamera() {
+    const targetX = player.x + player.w/2 - BASE_W/2;
+    cam.x = clamp(targetX, 0, Math.max(0, worldWpx - BASE_W));
+    cam.y = 0;
+  }
+
+  // -----------------------------
+  // Game state
+  // -----------------------------
+  let deadTimer = 0;
+  function restart() {
+    // reset tiles to initial
+    for (let y = 0; y < mapH; y++) tiles[y] = LEVEL[y].split("");
+    // wipe spawns
+    for (let y = 0; y < mapH; y++) for (let x = 0; x < mapW; x++) if (tiles[y][x] === "P") tiles[y][x] = ".";
+    // reset coins and blocks
+    coinCount = 0;
+    questionHits = 0;
+    entities.length = 0;
+    particles.length = 0;
+
+    // respawn enemies from template
+    for (let y = 0; y < mapH; y++) {
+      for (let x = 0; x < mapW; x++) {
+        if (tiles[y][x] === "E") {
+          tiles[y][x] = ".";
+          spawnEnemy(x, y);
+        }
+      }
+    }
+
+    player.x = playerSpawn.x * TILE;
+    player.y = playerSpawn.y * TILE;
+    player.vx = 0; player.vy = 0;
+    player.invuln = 0;
+    player.coyote = 0;
+    player.jumpBuf = 0;
+    player.ax = 0;
+    player.pCharge = 0;
+    player.skidTimer = 0;
+    player.skidDust = 0;
+    player.skidBoost = 0;
+    player.airCarryMax = 0;
+    player.fireCooldown = 0;
+    player.hammerCooldown = 0;
+    player.tailTimer = 0;
+    player.tailCooldown = 0;
+    player.flightTimer = 0;
+    player.flightActive = false;
+    player.hammerCooldown = 0;
+    player.statueActive = false;
+    player.statueTimer = 0;
+    player.statueCooldown = 0;
+    pMeterDisplaySegs = 0;
+    pMeterDecayHold = 0;
+    setPlayerForm(PowerUpForm.Small, { skipSave: true });
+    deadTimer = 0;
+    // also clear transient inputs so we don't instantly re-trigger actions
+    pressed.clear();
+    keys.clear();
+    levelTimer = HUD_TIMER_START;
+    loadPlayerSnapshot();
+    savePlayerSnapshot();
+  }
+
+  function killPlayer() {
+    deadTimer = 0.8;
+    player.vx = 0;
+    player.vy = -420;
+    setPlayerForm(PowerUpForm.Small);
+    player.invuln = 0;
+    player.fireCooldown = 0;
+    player.hammerCooldown = 0;
+    player.tailTimer = 0;
+    player.tailCooldown = 0;
+    player.flightTimer = 0;
+    player.flightActive = false;
+    player.hammerCooldown = 0;
+    player.statueActive = false;
+    player.statueTimer = 0;
+    player.statueCooldown = 0;
+    levelTimer = HUD_TIMER_START;
+    savePlayerSnapshot();
+  }
+
+  function handlePlayerHit() {
+    if (player.invuln > 0 || deadTimer > 0) return;
+    const nextForm = downgradeForm(player.form);
+    if (!nextForm) {
+      killPlayer();
+      return;
+    }
+    setPlayerForm(nextForm);
+    player.invuln = DAMAGE_INVULN_TIME;
+    player.vx = -player.facing * 120;
+    player.vy = -240;
+  }
+
+  // first load: replace initial P in template (already done), but keep everything else
+  // NOTE: coins in map are collected as tiles
+  // We'll initialize coinCount by counting coins on map (optional). We'll keep it 0 and treat them as pickups.
+
+  // -----------------------------
+  // Physics helper for entities
+  // -----------------------------
+  function entityMoveAndCollide(e, dt) {
+    e.onGround = false;
+
+    // Horizontal
+    e.x += e.vx * dt;
+    if (e.vx !== 0) {
+      const dir = Math.sign(e.vx);
+      const aheadX = dir > 0 ? e.x + e.w : e.x;
+      const tx = Math.floor(aheadX / TILE);
+
+      const y0 = Math.floor(e.y / TILE);
+      const y1 = Math.floor((e.y + e.h - 1) / TILE);
+
+      for (let ty = y0; ty <= y1; ty++) {
+        const t = getTile(tx, ty);
+        if (isSolid(t)) {
+          if (dir > 0) e.x = tx * TILE - e.w;
+          else e.x = (tx + 1) * TILE;
+          e.vx = -e.vx; // bounce back
+          break;
+        }
+      }
+    }
+
+    // Vertical
+    e.y += e.vy * dt;
+    if (e.vy !== 0) {
+      const dir = Math.sign(e.vy);
+      const ty = Math.floor((dir > 0 ? (e.y + e.h) : e.y) / TILE);
+
+      const x0 = Math.floor(e.x / TILE);
+      const x1 = Math.floor((e.x + e.w - 1) / TILE);
+
+      for (let tx = x0; tx <= x1; tx++) {
+        const t = getTile(tx, ty);
+        if (isSolid(t)) {
+          if (dir > 0) {
+            e.y = ty * TILE - e.h;
+            e.onGround = true;
+          } else {
+            e.y = (ty + 1) * TILE;
+          }
+          e.vy = 0;
+          break;
+        }
+      }
+    }
+  }
+
+  // -----------------------------
+  // Update
+  // -----------------------------
+  let last = performance.now();
+  let acc = 0;
+  const FIXED = 1/120;
+
+  function step(dt) {
+    // Restart key
+    if (tap("KeyR")) restart();
+
+    // Death / respawn pause
+    if (deadTimer > 0) {
+      deadTimer -= dt;
+      if (deadTimer <= 0) restart();
+      return;
+    }
+
+    // Update invuln
+    player.invuln = Math.max(0, player.invuln - dt);
+    player.tailTimer = Math.max(0, player.tailTimer - dt);
+    player.tailCooldown = Math.max(0, player.tailCooldown - dt);
+    player.flightTimer = Math.max(0, player.flightTimer - dt);
+    player.statueTimer = Math.max(0, player.statueTimer - dt);
+    player.statueCooldown = Math.max(0, player.statueCooldown - dt);
+
+    // Jump buffer: remember a tap briefly to fire on next grounded frame
+    if (tap("KeyZ")) player.jumpBuf = JUMP_BUFFER;
+    else player.jumpBuf = Math.max(0, player.jumpBuf - dt);
+    player.fireCooldown = Math.max(0, player.fireCooldown - dt);
+    player.hammerCooldown = Math.max(0, player.hammerCooldown - dt);
+
+    const prevVx = player.vx;
+    const wasGrounded = player.onGround;
+
+    // Move input
+    const left = down("ArrowLeft");
+    const right = down("ArrowRight");
+    const run = down("KeyX");
+    const tailSwing = tap("KeyC");
+    const statueToggle = tap("KeyV");
+    const surfaceMod = player.onGround ? getSurfaceModifier(player) : { accel: 1, friction: 1, brake: 1 };
+
+    // Tanooki statue toggle
+    if (hasTailAbilities() && player.form === PowerUpForm.Tanooki) {
+      if (statueToggle && player.statueCooldown <= 0 && !player.statueActive) {
+        startStatue();
+      }
+      if (player.statueActive) {
+        if (player.statueTimer <= 0) {
+          player.statueActive = false;
+        } else {
+          player.invuln = Math.max(player.invuln, STATUE_INVULN_TOPUP);
+        }
+      }
+    } else {
+      player.statueActive = false;
+      player.statueTimer = 0;
+    }
+
+    const moveLeft = player.statueActive ? false : left;
+    const moveRight = player.statueActive ? false : right;
+    const runHeld = player.statueActive ? false : run;
+    const accelCurve = runHeld ? RUN_ACCEL_CURVE : WALK_ACCEL_CURVE;
+    const wantsRun = runHeld && (moveLeft !== moveRight);
+    const hasPSpeed = player.pCharge >= 1;
+    const boostMult = 1 + player.skidBoost;
+    const baseMax = runHeld ? (hasPSpeed ? P_SPEED_MAX : RUN_MAX) : WALK_MAX;
+    const maxSpeed = baseMax * boostMult;
+    const speedRatio = clamp(Math.abs(player.vx) / Math.max(1, maxSpeed), 0, 1);
+    const accel = mix(accelCurve.high, accelCurve.low, speedRatio);
+
+    const wantDir = (moveLeft ? -1 : 0) + (moveRight ? 1 : 0);
+    const vxSign = Math.sign(player.vx);
+    // Use previous-frame velocity to decide skid, so friction this frame doesn't block the trigger
+    const prevVxSign = Math.sign(prevVx);
+    const reversing = player.onGround && wantDir !== 0 && prevVxSign !== 0 && wantDir === -prevVxSign && Math.abs(prevVx) > SKID_SPEED_THRESHOLD;
+
+    // Trigger skid when reversing at speed on ground
+    if (reversing && player.skidTimer <= 0) {
+      player.skidTimer = SKID_TIME;
+      player.skidDust = 0;
+      player.skidBoost = Math.max(player.skidBoost, SKID_BOOST_AMOUNT);
+      playSkidSound();
+      spawnSkidDust(player.x + (player.facing > 0 ? player.w : 0), player.y + player.h, player.facing);
+    }
+
+    const isSkidding = player.skidTimer > 0 && player.onGround;
+    if (player.skidTimer > 0) player.skidTimer = Math.max(0, player.skidTimer - dt);
+    const accelScale = player.onGround ? (isSkidding ? SKID_ACCEL_SCALE : 1) : AIR_ACCEL_SCALE;
+    const frogLandAccelScale = player.form === PowerUpForm.Frog && player.onGround ? FROG_LAND_ACCEL_SCALE : 1;
+    const frogLandDecelScale = player.form === PowerUpForm.Frog && player.onGround ? FROG_LAND_DECEL_SCALE : 1;
+
+    if (player.statueActive) {
+      player.vx = 0;
+    } else if (wantDir === 0) {
+      // friction
+      const mag = Math.abs(player.vx);
+      const groundFriction = (isSkidding ? SKID_FRICTION_DECEL : FRICTION_DECEL) * frogLandDecelScale;
+      const dec = (player.onGround ? groundFriction * surfaceMod.friction : AIR_FRICTION_DECEL) * dt;
+      player.vx = (mag <= dec) ? 0 : (mag - dec) * vxSign;
+    } else if (wantDir !== vxSign && player.vx !== 0) {
+      // braking when reversing direction
+      const mag = Math.abs(player.vx);
+      const groundBrake = (isSkidding ? SKID_BRAKE_DECEL : BRAKE_DECEL) * frogLandDecelScale;
+      const dec = (player.onGround ? groundBrake * surfaceMod.brake : AIR_BRAKE_DECEL) * dt;
+      player.vx = (mag <= dec) ? 0 : (mag - dec) * vxSign;
+    } else {
+      // accelerate in desired direction
+      player.vx += accel * accelScale * surfaceMod.accel * frogLandAccelScale * dt * wantDir;
+      player.facing = wantDir;
+    }
+
+    player.vx = clamp(player.vx, -maxSpeed, maxSpeed);
+
+    // Gravity (with glide/flight modifiers)
+    let gravity = GRAVITY;
+    if (player.statueActive) {
+      player.flightActive = false;
+      player.flightTimer = 0;
+    }
+    const swimming = isPlayerSwimming();
+    const gliding = !swimming && hasTailAbilities() && player.vy > 40 && down("KeyZ") && !player.flightActive;
+    if (gliding) gravity *= GLIDE_GRAVITY_SCALE;
+    if (swimming) {
+      gravity *= WATER_GRAVITY_SCALE;
+    }
+    if (!swimming && player.flightActive && player.flightTimer > 0 && down("KeyZ")) {
+      // keep upward lift while flight lasts
+      player.vy = Math.min(player.vy, -FLIGHT_LIFT);
+      player.flightTimer = Math.max(0, player.flightTimer - dt);
+      if (player.flightTimer <= 0) player.flightActive = false;
+    } else if (player.flightActive && player.flightTimer <= 0) {
+      player.flightActive = false;
+    }
+    player.vy += gravity * dt;
+    player.vy = Math.min(player.vy, swimming ? WATER_MAX_FALL : MAX_FALL);
+
+    // Collide
+    moveAndCollide(player, dt);
+
+    // Track actual acceleration (accounts for collisions and friction)
+    player.ax = (player.vx - prevVx) / dt;
+
+    // Grounded tracking and state (adds tolerance check so micro-separations don't kill jumps)
+    const grounded = player.onGround || isOnGround(player);
+    // Carry takeoff speed in air so P-speed bonus lingers until air friction/braking trims it
+    if (!grounded && wasGrounded) {
+      player.airCarryMax = Math.max(player.airCarryMax, Math.abs(player.vx));
+    } else if (grounded) {
+      player.airCarryMax = 0;
+    }
+    const speedCap = Math.max(maxSpeed, player.airCarryMax || 0);
+    player.vx = clamp(player.vx, -speedCap, speedCap);
+    player.onGround = grounded;
+    player.coyote = grounded ? COYOTE_TIME : Math.max(0, player.coyote - dt);
+    const skiddingActive = isSkidding && grounded;
+    player.state = grounded ? (skiddingActive ? "skid" : "ground") : "jumping";
+    if (player.statueActive) player.state = "statue";
+
+    if (skiddingActive && Math.abs(player.vx) > 20) {
+      player.skidDust -= dt;
+      if (player.skidDust <= 0) {
+        player.skidDust = SKID_DUST_INTERVAL;
+        spawnSkidDust(player.x + (player.facing > 0 ? player.w : 0), player.y + player.h, player.facing);
+      }
+    }
+
+    // Decay skid boost over time
+    player.skidBoost = Math.max(0, player.skidBoost - SKID_BOOST_DECAY * dt);
+
+    // P-speed charge only builds while holding run on ground near run cap; drains slowly otherwise
+    if (wantsRun && grounded && Math.abs(player.vx) >= P_SPEED_ENTRY_SPEED) {
+      player.pCharge = clamp(player.pCharge + dt / P_SPEED_CHARGE_TIME, 0, 1);
+    } else if (player.pCharge > 0) {
+      const decay = (!wantsRun || !grounded) ? P_SPEED_DECAY_RATE * 0.65 : P_SPEED_DECAY_RATE;
+      player.pCharge = Math.max(0, player.pCharge - dt * decay);
+    }
+
+    // If jump is held while grounded, refresh the buffer so landing while held triggers another jump
+    if (down("KeyZ") && grounded) player.jumpBuf = JUMP_BUFFER;
+
+    // Fireball/Hammer throw
+    if (!player.statueActive && tap("KeyC")) {
+      if (player.form === PowerUpForm.Hammer && player.hammerCooldown <= 0) {
+        spawnHammer();
+      } else if (canShootFire() && player.fireCooldown <= 0) {
+        spawnFireball();
+      }
+    }
+
+    // Tail attack (Raccoon/Tanooki)
+    if (!player.statueActive && hasTailAbilities() && tailSwing && player.tailCooldown <= 0) {
+      player.tailTimer = TAIL_SWING_TIME;
+      player.tailCooldown = TAIL_COOLDOWN;
+      performTailAttack();
+    }
+
+    // Jump: only allow when currently on ground, no buffer
+    if (player.jumpBuf > 0 && player.coyote > 0) {
+      const swimming = isPlayerSwimming();
+      if (swimming) {
+        player.vy = -WATER_SWIM_IMPULSE;
+        player.onGround = false;
+      } else {
+        player.vy = -JUMP_V;
+        player.onGround = false;
+        if (hasTailAbilities() && player.pCharge >= 1) {
+          player.flightActive = true;
+          player.flightTimer = FLIGHT_TIME;
+        } else {
+          player.flightActive = false;
+          player.flightTimer = 0;
+        }
+      }
+      player.state = "jumping";
+      player.coyote = 0;
+      player.jumpBuf = 0;
+      // Capture takeoff speed so airborne clamp preserves P-speed until air drag/braking trims it
+      player.airCarryMax = Math.max(player.airCarryMax || 0, Math.abs(player.vx));
+    }
+
+    // Level timer tick
+    levelTimer = Math.max(0, levelTimer - dt);
+    maybeAutoSave(dt);
+
+    // Collect coin tiles
+    collectCoinTileAtPlayer(player);
+
+    // Entity updates
+    for (const e of entities) {
+      if (!e.alive) continue;
+
+      if (e.type === "goon" || e.type === "mushroom") {
+        e.vy += GRAVITY * dt;
+        e.vy = Math.min(e.vy, MAX_FALL);
+        entityMoveAndCollide(e, dt);
+
+        // If it falls off world, kill it
+        if (e.y > worldHpx + 200) e.alive = false;
+      }
+      if (e.type === "fireball") {
+        e.life -= dt;
+        if (e.life <= 0) {
+          e.alive = false;
+        } else {
+          // gravity
+          e.vy += FIREBALL_GRAVITY * dt;
+          e.vy = Math.min(e.vy, MAX_FALL);
+
+          // horizontal move, die on wall hit
+          const dirX = Math.sign(e.vx);
+          e.x += e.vx * dt;
+          if (dirX !== 0) {
+            const tx = Math.floor((dirX > 0 ? e.x + e.w : e.x) / TILE);
+            const y0 = Math.floor(e.y / TILE);
+            const y1 = Math.floor((e.y + e.h - 1) / TILE);
+            for (let ty = y0; ty <= y1; ty++) {
+              if (isSolid(getTile(tx, ty))) {
+                e.alive = false;
+                break;
+              }
+            }
+          }
+
+          // vertical move with ground bounce
+          const dirY = Math.sign(e.vy);
+          e.y += e.vy * dt;
+          if (dirY !== 0) {
+            const ty = Math.floor((dirY > 0 ? e.y + e.h : e.y) / TILE);
+            const x0 = Math.floor(e.x / TILE);
+            const x1 = Math.floor((e.x + e.w - 1) / TILE);
+            for (let tx = x0; tx <= x1; tx++) {
+              if (isSolid(getTile(tx, ty))) {
+                if (dirY > 0) {
+                  e.y = ty * TILE - e.h;
+                  e.vy = -FIREBALL_BOUNCE_V;
+                  e.bounces += 1;
+                  if (e.bounces > 4) e.alive = false;
+                } else {
+                  e.alive = false;
+                }
+                break;
+              }
+            }
+          }
+        }
+      }
+      if (e.type === "hammer") {
+        e.life -= dt;
+        if (e.life <= 0) {
+          e.alive = false;
+        } else {
+          e.spin = (e.spin + dt * 12) % (Math.PI * 2);
+          e.vy += HAMMER_GRAVITY * dt;
+          e.x += e.vx * dt;
+          e.y += e.vy * dt;
+          // collisions with tiles
+          const tx0 = Math.floor(e.x / TILE);
+          const tx1 = Math.floor((e.x + e.w - 1) / TILE);
+          const ty0 = Math.floor(e.y / TILE);
+          const ty1 = Math.floor((e.y + e.h - 1) / TILE);
+          let collided = false;
+          for (let ty = ty0; ty <= ty1; ty++) {
+            for (let tx = tx0; tx <= tx1; tx++) {
+              const t = getTile(tx, ty);
+              if (isSolid(t)) {
+                if (t === "B" || t === "I") {
+                  breakDestructible(tx, ty);
+                }
+                collided = true;
+                break;
+              }
+            }
+            if (collided) break;
+          }
+          if (collided) e.alive = false;
+        }
+      }
+
+      // Interactions with player
+      if (e.alive && e.type === "mushroom") {
+        if (aabb(player.x, player.y, player.w, player.h, e.x, e.y, e.w, e.h)) {
+          e.alive = false;
+          setPlayerForm(PowerUpForm.Super);
+          spawnCoinBurst(e.x + e.w/2, e.y + e.h/2);
+          score += 200;
+        }
+      }
+
+      if (e.alive && e.type === "goon") {
+        if (aabb(player.x, player.y, player.w, player.h, e.x, e.y, e.w, e.h)) {
+          // stomp check: player moving downward and feet above enemy top
+          const playerFeet = player.y + player.h;
+          const enemyTop = e.y;
+          const stomp = player.vy > 40 && (playerFeet - enemyTop) < 10;
+
+          if (stomp) {
+            e.alive = false;
+            player.vy = -260; // bounce
+            spawnCoinBurst(e.x + e.w/2, e.y + e.h/2);
+          } else {
+            handlePlayerHit();
+          }
+        }
+      }
+
+      if (e.alive && e.type === "fireball") {
+        for (const target of entities) {
+          if (!target.alive || target.type !== "goon") continue;
+          if (aabb(e.x, e.y, e.w, e.h, target.x, target.y, target.w, target.h)) {
+            target.alive = false;
+            e.alive = false;
+            spawnCoinBurst(target.x + target.w / 2, target.y + target.h / 2);
+            break;
+          }
+        }
+      }
+      if (e.alive && e.type === "hammer") {
+        for (const target of entities) {
+          if (!target.alive || target.type !== "goon") continue;
+          if (aabb(e.x, e.y, e.w, e.h, target.x, target.y, target.w, target.h)) {
+            target.alive = false;
+            e.alive = false;
+            spawnCoinBurst(target.x + target.w / 2, target.y + target.h / 2);
+            break;
+          }
+        }
+      }
+    }
+
+    // cleanup
+    for (let i = entities.length - 1; i >= 0; i--) {
+      if (!entities[i].alive) entities.splice(i, 1);
+    }
+
+    // particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.life -= dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += GRAVITY * dt * 0.7;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+
+    // Fall death
+    if (player.y > worldHpx + 120) {
+      killPlayer();
+    }
+
+    updateCamera();
+  }
+
+  // -----------------------------
+  // Render
+  // -----------------------------
+  function drawTile(t, x, y) {
+    // x,y in pixels (world)
+    const sx = Math.floor(x - cam.x);
+    const sy = Math.floor(y - cam.y);
+    if (sx < -TILE || sy < -TILE || sx > BASE_W || sy > BASE_H) return;
+
+    if (t === "#") { // ground
+      g.fillStyle = "#3b2f2f";
+      g.fillRect(sx, sy, TILE, TILE);
+      g.fillStyle = "#2a2020";
+      g.fillRect(sx, sy + 12, TILE, 4);
+      g.fillStyle = "#4a3a3a";
+      g.fillRect(sx, sy, TILE, 2);
+      return;
+    }
+    if (t === "B") { // brick
+      g.fillStyle = "#7c3f2a";
+      g.fillRect(sx, sy, TILE, TILE);
+      g.fillStyle = "rgba(0,0,0,0.25)";
+      g.fillRect(sx, sy + 1, TILE, 1);
+      g.fillRect(sx, sy + 8, TILE, 1);
+      g.fillRect(sx + 7, sy, 1, TILE);
+      return;
+    }
+    if (t === "?") { // question block
+      g.fillStyle = "#d1a23a";
+      g.fillRect(sx, sy, TILE, TILE);
+      g.fillStyle = "#8a6a18";
+      g.fillRect(sx, sy + 12, TILE, 4);
+      g.fillStyle = "#fff2";
+      g.fillRect(sx, sy, TILE, 3);
+      g.fillStyle = "#2b1d05";
+      g.fillRect(sx + 6, sy + 4, 4, 8); // cheap "?"
+      g.fillRect(sx + 8, sy + 4, 3, 3);
+      return;
+    }
+    if (t === "u") { // used block
+      g.fillStyle = "#8c8c8c";
+      g.fillRect(sx, sy, TILE, TILE);
+      g.fillStyle = "#0002";
+      g.fillRect(sx, sy + 12, TILE, 4);
+      return;
+    }
+    if (t === "C") { // coin tile
+      // drawn as coin in world
+      g.fillStyle = "#f5d000";
+      g.fillRect(sx + 6, sy + 4, 4, 8);
+      g.fillRect(sx + 5, sy + 6, 6, 4);
+      g.fillStyle = "#fff5";
+      g.fillRect(sx + 6, sy + 5, 2, 2);
+      return;
+    }
+    if (t === "I") { // ice
+      g.fillStyle = "#b0e0ff";
+      g.fillRect(sx, sy, TILE, TILE);
+      g.fillStyle = "#d8f4ff";
+      g.fillRect(sx, sy, TILE, 3);
+      g.fillStyle = "#8bbbd6";
+      g.fillRect(sx, sy + 12, TILE, 4);
+      return;
+    }
+    if (t === "S") { // sand
+      g.fillStyle = "#d8c28f";
+      g.fillRect(sx, sy, TILE, TILE);
+      g.fillStyle = "#b89f6b";
+      g.fillRect(sx, sy + 11, TILE, 5);
+      g.fillStyle = "#f7e7b8";
+      g.fillRect(sx, sy, TILE, 2);
+      return;
+    }
+  }
+
+  function drawGridOverlay() {
+    if (!showGrid) return;
+    // Grid locked to world coordinates, not screen overlay
+    const step = TILE; // 16px per tile
+    const startX = -(cam.x % step);
+    const startY = -(cam.y % step);
+    g.save();
+    g.strokeStyle = "rgba(255,255,255,0.12)";
+    g.lineWidth = 1;
+    for (let x = startX; x <= BASE_W; x += step) {
+      const lx = Math.floor(x) + 0.5;
+      g.beginPath();
+      g.moveTo(lx, 0);
+      g.lineTo(lx, BASE_H);
+      g.stroke();
+    }
+    for (let y = startY; y <= BASE_H; y += step) {
+      const ly = Math.floor(y) + 0.5;
+      g.beginPath();
+      g.moveTo(0, ly);
+      g.lineTo(BASE_W, ly);
+      g.stroke();
+    }
+    g.restore();
+  }
+
+  function drawSelectionOverlay() {
+    if (!editorOpen || !selectedCell) return;
+    const { tx, ty } = selectedCell;
+    const sx = Math.floor(tx * TILE - cam.x);
+    const sy = Math.floor(ty * TILE - cam.y);
+    if (sx < -TILE || sy < -TILE || sx > BASE_W || sy > BASE_H) return;
+    g.save();
+    g.fillStyle = "rgba(0, 255, 170, 0.18)";
+    g.fillRect(sx, sy, TILE, TILE);
+    g.strokeStyle = "rgba(0, 255, 170, 0.95)";
+    g.lineWidth = 2.5;
+    g.strokeRect(sx + 0.5, sy + 0.5, TILE - 1, TILE - 1);
+    g.strokeStyle = "rgba(0, 0, 0, 0.45)";
+    g.lineWidth = 1;
+    g.strokeRect(sx + 1.5, sy + 1.5, TILE - 3, TILE - 3);
+    g.restore();
+  }
+
+  function drawHoverOverlay() {
+    if (!editorOpen || !hoverCell) return;
+    const { tx, ty } = hoverCell;
+    const sx = Math.floor(tx * TILE - cam.x);
+    const sy = Math.floor(ty * TILE - cam.y);
+    if (sx < -TILE || sy < -TILE || sx > BASE_W || sy > BASE_H) return;
+    g.save();
+    g.strokeStyle = "rgba(255, 255, 255, 0.7)";
+    g.lineWidth = 1;
+    g.strokeRect(sx + 0.5, sy + 0.5, TILE - 1, TILE - 1);
+    g.restore();
+  }
+
+  function drawLabelsOverlay() {
+    if (!editorOpen) return;
+    g.save();
+    g.font = "8px 'Press Start 2P', 'VT323', monospace";
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    const outline = (text, x, y, color) => {
+      g.fillStyle = "rgba(0,0,0,0.8)";
+      g.fillText(text, x + 1, y);
+      g.fillText(text, x - 1, y);
+      g.fillText(text, x, y + 1);
+      g.fillText(text, x, y - 1);
+      g.fillStyle = color;
+      g.fillText(text, x, y);
+    };
+    const selKey = selectedCell ? `${selectedCell.tx},${selectedCell.ty}` : null;
+    const hovKey = hoverCell ? `${hoverCell.tx},${hoverCell.ty}` : null;
+    for (const [key, text] of labelMap.entries()) {
+      if (!text) continue;
+      const [txStr, tyStr] = key.split(",");
+      const tx = parseInt(txStr, 10);
+      const ty = parseInt(tyStr, 10);
+      const sx = Math.floor(tx * TILE - cam.x);
+      const sy = Math.floor(ty * TILE - cam.y);
+      if (sx < -TILE || sy < -TILE || sx > BASE_W || sy > BASE_H) continue;
+      const cx = sx + TILE / 2;
+      const cy = sy + TILE / 2;
+      if (key === selKey || key === hovKey) {
+        outline(text, cx, cy, "#f2f5ff");
+      } else {
+        // badge in corner
+        g.fillStyle = "rgba(0,0,0,0.5)";
+        g.fillRect(sx + TILE - 8, sy, 8, 8);
+        g.fillStyle = "#f2f5ff";
+        g.fillText("T", sx + TILE - 4, sy + 4);
+      }
+    }
+    g.restore();
+  }
+
+  function render() {
+    // sky
+    g.fillStyle = "#4b79ff";
+    g.fillRect(0,0,BASE_W,BASE_H);
+
+    // parallax clouds
+    const cloudX = -((cam.x * 0.2) % 120);
+    g.fillStyle = "rgba(255,255,255,0.65)";
+    for (let i = 0; i < 6; i++) {
+      const x = cloudX + i * 120;
+      g.fillRect(x + 10, 18, 28, 10);
+      g.fillRect(x + 0, 22, 40, 12);
+      g.fillRect(x + 30, 24, 22, 10);
+    }
+
+    // tiles
+    const tx0 = Math.floor(cam.x / TILE);
+    const tx1 = Math.floor((cam.x + BASE_W) / TILE) + 1;
+
+    for (let y = 0; y < mapH; y++) {
+      for (let x = tx0; x <= tx1; x++) {
+        const t = getTile(x, y);
+        if (t !== ".") drawTile(t, x * TILE, y * TILE);
+      }
+    }
+
+    // entities
+    for (const e of entities) {
+      const sx = Math.floor(e.x - cam.x);
+      const sy = Math.floor(e.y - cam.y);
+      if (sx < -40 || sy < -40 || sx > BASE_W+40 || sy > BASE_H+40) continue;
+
+      if (e.type === "goon") {
+        g.fillStyle = "#6b3b2a";
+        g.fillRect(sx, sy, e.w, e.h);
+        g.fillStyle = "#000";
+        g.fillRect(sx + 3, sy + 5, 2, 2);
+        g.fillRect(sx + 9, sy + 5, 2, 2);
+        g.fillStyle = "#2a120a";
+        g.fillRect(sx + 2, sy + 11, e.w-4, 3);
+      }
+      if (e.type === "mushroom") {
+        g.fillStyle = "#d43c3c";
+        g.fillRect(sx, sy, e.w, e.h);
+        g.fillStyle = "#f3d9d9";
+        g.fillRect(sx + 2, sy + 7, e.w-4, e.h-9);
+        g.fillStyle = "#fff7";
+        g.fillRect(sx + 3, sy + 3, 3, 3);
+        g.fillRect(sx + 9, sy + 2, 3, 3);
+      }
+      if (e.type === "fireball") {
+        g.fillStyle = "#ff7b21";
+        g.fillRect(sx, sy, e.w, e.h);
+        g.fillStyle = "#ffd19b";
+        g.fillRect(sx + 2, sy + 2, Math.max(1, e.w - 4), Math.max(1, e.h - 4));
+      }
+      if (e.type === "hammer") {
+        g.save();
+        g.translate(sx + e.w / 2, sy + e.h / 2);
+        g.rotate(e.spin || 0);
+        g.fillStyle = "#c9c9c9";
+        g.fillRect(-e.w / 2, -e.h / 2, e.w, e.h);
+        g.fillStyle = "#8a6b2f";
+        g.fillRect(-1, -e.h / 2, 2, e.h);
+        g.restore();
+      }
+    }
+
+    // remote players
+    for (const peer of peers.values()) {
+      const w = 12;
+      const isBig = peer.form ? formIsBig(peer.form) : peer.big;
+      const h = isBig ? 22 : 14;
+      const sx = Math.floor((peer.x ?? peer.targetX ?? 0) - cam.x);
+      const sy = Math.floor((peer.y ?? peer.targetY ?? 0) - cam.y);
+      if (sx < -40 || sy < -40 || sx > BASE_W+40 || sy > BASE_H+40) continue;
+      g.fillStyle = "#2ad4b8"; // shirt
+      g.fillRect(sx, sy, w, Math.min(8, h));
+      g.fillStyle = "#1c3faa"; // pants
+      g.fillRect(sx, sy + 8, w, h - 8);
+      g.fillStyle = "#000";
+      g.fillRect(sx + (peer.facing > 0 ? 8 : 3), sy + 4, 2, 2);
+      if (isBig) {
+        g.fillStyle = "#0002";
+        g.fillRect(sx, sy, w, h);
+      }
+    }
+
+    // player
+    {
+      const blink = player.invuln > 0 && Math.floor(performance.now() / 60) % 2 === 0;
+      if (!blink) {
+        const sx = Math.floor(player.x - cam.x);
+        const sy = Math.floor(player.y - cam.y);
+        if (player.statueActive) {
+          g.fillStyle = "#5b4c3b";
+          g.fillRect(sx, sy, player.w, player.h);
+          g.fillStyle = "#2b241d";
+          g.fillRect(sx + 2, sy + 2, player.w - 4, player.h - 4);
+        } else {
+          g.fillStyle = "#e23b2e"; // shirt
+          g.fillRect(sx, sy, player.w, Math.min(8, player.h));
+          g.fillStyle = "#2a49ff"; // pants
+          g.fillRect(sx, sy + 8, player.w, player.h - 8);
+          g.fillStyle = "#f2c7a7"; // face
+          g.fillRect(sx + 3, sy + 2, 6, 5);
+          g.fillStyle = "#000";
+          g.fillRect(sx + (player.facing > 0 ? 8 : 3), sy + 4, 2, 2);
+        const palette = formPalette(player.form);
+        g.fillStyle = palette.shirt;
+        g.fillRect(sx, sy, player.w, Math.min(8, player.h));
+        g.fillStyle = palette.pants;
+        g.fillRect(sx, sy + 8, player.w, player.h - 8);
+        g.fillStyle = "#f2c7a7"; // face
+        g.fillRect(sx + 3, sy + 2, 6, 5);
+        g.fillStyle = "#000";
+        g.fillRect(sx + (player.facing > 0 ? 8 : 3), sy + 4, 2, 2);
+        if (player.big) {
+          g.fillStyle = "#0002";
+          g.fillRect(sx, sy, player.w, player.h);
+        }
+        if (player.tailTimer > 0 && hasTailAbilities()) {
+          const dir = player.facing >= 0 ? 1 : -1;
+          const tx = sx + (dir > 0 ? player.w : -TAIL_RANGE_X);
+          const ty = sy + (player.h - TAIL_RANGE_Y - 4);
+          g.fillStyle = "#d18f2c";
+            g.fillRect(tx, ty, TAIL_RANGE_X, TAIL_RANGE_Y);
+            g.fillStyle = "#ffdd99";
+            g.fillRect(tx + (dir > 0 ? 2 : 0), ty + 2, TAIL_RANGE_X - 4, TAIL_RANGE_Y - 4);
+          }
+        }
+      }
+    }
+
+    // particles
+    for (const p of particles) {
+      const sx = Math.floor(p.x - cam.x);
+      const sy = Math.floor(p.y - cam.y);
+      g.fillStyle = p.color || "#ffe066";
+      const size = p.size || 2;
+      g.fillRect(sx, sy, size, size);
+    }
+
+    drawGridOverlay();
+    drawHoverOverlay();
+    drawSelectionOverlay();
+    drawLabelsOverlay();
+    if (clickDebug && clickDebug.timer > 0) {
+      const { sx, sy } = clickDebug;
+      g.save();
+      g.fillStyle = "rgba(255,0,200,0.9)";
+      g.fillRect(sx + TILE/2 - 1, sy, 2, TILE);
+      g.fillRect(sx, sy + TILE/2 - 1, TILE, 2);
+      g.restore();
+    }
+
+    // blit scaled to main canvas
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(off, 0, 0, canvas.width, canvas.height);
+  }
+
+  function updateHudDom() {
+    const worldEl = document.getElementById("hud-world");
+    const livesEl = document.getElementById("hud-lives");
+    const coinsEl = document.getElementById("hud-coins");
+    const scoreEl = document.getElementById("hud-score");
+    const timeEl = document.getElementById("hud-time");
+    const accEl = document.getElementById("hud-acc");
+    const spdEl = document.getElementById("hud-spd");
+    const pMeterEl = document.getElementById("hud-pmeter");
+    const formEl = document.getElementById("hud-form");
+    const starEl = document.getElementById("hud-star");
+    const flyEl = document.getElementById("hud-fly");
+
+    if (!worldEl) return;
+    worldEl.textContent = "1";
+    livesEl.textContent = Math.max(1, lives);
+    coinsEl.textContent = coinCount.toString().padStart(2, "0");
+    scoreEl.textContent = score.toString().padStart(6, "0");
+    timeEl.textContent = Math.max(0, Math.floor(levelTimer)).toString().padStart(3, "0");
+    const ax = player.ax;
+    accEl.textContent = `${ax >= 0 ? "+" : ""}${ax.toFixed(0)}`;
+    if (spdEl) {
+      const spd = Math.abs(player.vx);
+      spdEl.textContent = spd.toFixed(0);
+    }
+    if (formEl) {
+      const formLabel = player.form ? player.form.slice(0, 2).toUpperCase() : "SM";
+      formEl.textContent = formLabel;
+    }
+    if (starEl) {
+      const starTime = Math.max(0, player.invuln);
+      starEl.textContent = starTime > 0 ? starTime.toFixed(1) : "0";
+      starEl.style.color = starTime > 0 ? "#ffeb3b" : "#fff";
+    }
+    if (flyEl) {
+      flyEl.textContent = player.flightActive ? player.flightTimer.toFixed(1) : "0";
+    }
+
+    if (pMeterEl) {
+      const filled = pMeterDisplaySegs;
+      for (let i = 0; i < pMeterEl.children.length; i++) {
+        pMeterEl.children[i].classList.toggle("filled", i < filled);
+      }
+    }
+  }
+
+  function updateDebugOverlay() {
+    if (!debugVxEl && !debugAxEl && !debugPChargeEl && !debugPSegsEl) return;
+    if (debugVxEl) debugVxEl.textContent = player.vx.toFixed(1);
+    if (debugAxEl) debugAxEl.textContent = player.ax.toFixed(1);
+    if (debugPChargeEl) debugPChargeEl.textContent = (player.pCharge * 100).toFixed(1);
+    if (debugPSegsEl) debugPSegsEl.textContent = `${pMeterDisplaySegs}/${P_METER_SEGMENTS}`;
+  }
+
+  function updatePMeterUi(dt) {
+    const speedRatio = clamp(Math.abs(player.vx) / P_SPEED_MAX, 0, 1);
+    const targetSegs = Math.min(P_METER_SEGMENTS, Math.round(speedRatio * P_METER_SEGMENTS));
+
+    if (targetSegs > pMeterDisplaySegs) {
+      pMeterDisplaySegs = targetSegs;
+      pMeterDecayHold = P_METER_DECAY_DELAY;
+    } else if (targetSegs < pMeterDisplaySegs) {
+      if (pMeterDecayHold <= 0) {
+        pMeterDecayHold = P_METER_DECAY_DELAY;
+      } else {
+        pMeterDecayHold = Math.max(0, pMeterDecayHold - dt);
+        if (pMeterDecayHold <= 0) pMeterDisplaySegs = targetSegs;
+      }
+    } else {
+      pMeterDecayHold = Math.max(0, pMeterDecayHold - dt);
+    }
+  }
+
+  // -----------------------------
+  // Main loop
+  // -----------------------------
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    acc += dt;
+
+    while (acc >= FIXED) {
+      step(FIXED);
+      acc -= FIXED;
+    }
+
+    if (clickDebug && clickDebug.timer > 0) {
+      clickDebug.timer -= dt;
+      if (clickDebug.timer <= 0) clickDebug = null;
+    }
+
+    updateNetwork(dt);
+
+    // consume pressed keys for this frame
+    pressed.clear();
+
+    updatePMeterUi(dt);
+    updateHudDom();
+    updateDebugOverlay();
+    render();
+    requestAnimationFrame(frame);
+  }
+
+  // Start
+  const jumpWalkEl = document.getElementById("jump-walk");
+  const jumpRunEl = document.getElementById("jump-run");
+  const pMeterEl = document.getElementById("hud-pmeter");
+  if (pMeterEl && pMeterEl.children.length === 0) {
+    for (let i = 0; i < P_METER_SEGMENTS; i++) {
+      const seg = document.createElement("div");
+      seg.className = "pmeter-seg";
+      pMeterEl.appendChild(seg);
+    }
+  }
+  if (jumpWalkEl && jumpRunEl) {
+    jumpWalkEl.textContent = jumpWalkTiles.toFixed(1);
+    jumpRunEl.textContent = jumpRunTiles.toFixed(1);
+  }
+
+  loadPlayerSnapshot();
+  savePlayerSnapshot();
+  updateCamera();
+  requestAnimationFrame(frame);
+
+})();
+</script>
+</body>
+</html>
+
+
+

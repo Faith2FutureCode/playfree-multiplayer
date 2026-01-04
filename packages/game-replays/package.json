@@ -1,0 +1,13 @@
+{
+    "version":  "0.0.0",
+    "name":  "@smb3/game-replays",
+    "main":  "src/index.ts",
+    "scripts":  {
+                    "lint":  "echo lint @smb3/game-replays",
+                    "build":  "echo build @smb3/game-replays",
+                    "dev":  "echo dev @smb3/game-replays",
+                    "test":  "echo test @smb3/game-replays"
+                },
+    "type":  "module",
+    "private":  true
+}

@@ -1,0 +1,13 @@
+{
+    "version":  "0.0.0",
+    "name":  "@smb3-service/tournaments",
+    "main":  "src/index.ts",
+    "scripts":  {
+                    "lint":  "echo lint @smb3-service/tournaments",
+                    "build":  "echo build @smb3-service/tournaments",
+                    "dev":  "echo dev @smb3-service/tournaments",
+                    "test":  "echo test @smb3-service/tournaments"
+                },
+    "type":  "module",
+    "private":  true
+}

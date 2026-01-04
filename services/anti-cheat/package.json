@@ -1,0 +1,13 @@
+{
+    "version":  "0.0.0",
+    "name":  "@smb3-service/anti-cheat",
+    "main":  "src/index.ts",
+    "scripts":  {
+                    "lint":  "echo lint @smb3-service/anti-cheat",
+                    "build":  "echo build @smb3-service/anti-cheat",
+                    "dev":  "echo dev @smb3-service/anti-cheat",
+                    "test":  "echo test @smb3-service/anti-cheat"
+                },
+    "type":  "module",
+    "private":  true
+}
