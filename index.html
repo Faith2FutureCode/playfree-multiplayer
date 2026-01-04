@@ -5,13 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Plumber Platformer (SMB3-inspired)</title>
   <style>
-    html, body { margin:0; height:100%; background:#0b1020; }
+    html, body {
+      margin:0;
+      height:100%;
+      background:#0b1020;
+      overflow:hidden;
+      position: relative;
+    }
     :root { --canvas-width: 960px; --canvas-height: 720px; --editor-width: 0px; --tile: 16px; }
     canvas { display:block; margin:0 auto; image-rendering: pixelated; image-rendering: crisp-edges; }
     .app-shell {
+      position: absolute;
+      left: 50%;
+      bottom: 0;
+      transform: translateX(-50%);
       display: flex;
       gap: 0;
-      margin: 0 auto;
+      margin: 0;
       width: calc(var(--canvas-width) + var(--editor-width));
       transition: width 0.15s ease;
     }
