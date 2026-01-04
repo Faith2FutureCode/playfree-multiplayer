@@ -314,7 +314,7 @@
     <div class="editor-hint">Left click paint · Right click erase · E to toggle</div>
   </div>
   <div class="game-shell">
-    <canvas id="c" width="960" height="720"></canvas>
+    <canvas id="c" width="768" height="720"></canvas>
     <div class="hud" aria-label="HUD">
   <div class="hud-bar">
     <div class="hud-section hud-left">
@@ -406,8 +406,8 @@
   const ctx = canvas.getContext("2d", { alpha: false });
 
   // Pixel-art vibe: render at low-res then scale up
-  const BASE_W = 320;
-  const BASE_H = 240;
+  const BASE_W = 256; // 16 tiles wide
+  const BASE_H = 240; // 15 tiles tall
   let SCALE = 3; // integer-only scaling for crisp pixels
   let showGrid = true;
   let editorOpen = false;
@@ -3033,8 +3033,9 @@
       const el = document.createElement("div");
       el.textContent = label;
       el.style.position = "absolute";
-      el.style.left = `${Math.round(rect.left + screenX - 40)}px`;
-      el.style.top = `${Math.round(rect.top + screenY)}px`;
+      el.style.left = `${rect.left + screenX}px`;
+      el.style.top = `${rect.top + screenY}px`;
+      el.style.transform = "translate(-50%, -100%)";
       el.style.font = "16px 'Press Start 2P', 'VT323', monospace";
       el.style.color = color;
       el.style.textShadow = "1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000";
