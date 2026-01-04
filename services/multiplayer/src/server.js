@@ -13,6 +13,7 @@ function getRoom(roomId) {
       states: new Map(),  // clientId -> state payload
       tiles: new Map(),   // "x,y" -> value
       labels: new Map(),  // "x,y" -> string
+      chatSeq: 0,
     });
   }
   return rooms.get(roomId);
@@ -105,6 +106,14 @@ wss.on("connection", (ws) => {
         else room.labels.set(key, String(msg.label));
       }
       broadcast(roomId, { type: "edit", tx: msg.tx, ty: msg.ty, value: msg.value, label: msg.label }, ws);
+      return;
+    }
+
+    if (msg.type === "chat" && typeof msg.text === "string") {
+      const seq = (room.chatSeq = (room.chatSeq || 0) + 1);
+      const name = (msg.name || "").toString().slice(0, 20) || "Player";
+      const text = msg.text.toString().slice(0, 200);
+      broadcast(roomId, { type: "chat", id: clientId, name, text, seq, ts: Date.now() }, ws);
     }
   });
 

@@ -518,7 +518,7 @@
   // Default to shared lobby relay; override via ?mpUrl=ws://localhost:3001 for local dev
   const MP_SERVER = params.get("mpUrl") || "wss://ws.playfree.dev";
   const MP_ROOM = params.get("room") || "lobby";
-  const PLAYER_NAME = params.get("name") || `P${Math.floor(Math.random() * 900 + 100)}`;
+  let PLAYER_NAME = (params.get("name") || `P${Math.floor(Math.random() * 900 + 100)}`).slice(0, 20);
   const STATE_SEND_INTERVAL = 0.05; // seconds
   const PEER_STALE_TIME = 6; // seconds
   const GRAVITY = 1400;      // px/s^2
@@ -751,8 +751,58 @@
   // -----------------------------
   const keys = new Set();
   const pressed = new Set();
+  const chatInput = document.createElement("input");
+  chatInput.type = "text";
+  chatInput.maxLength = 200;
+  chatInput.placeholder = "Enter chat (/name newname)";
+  chatInput.style.position = "fixed";
+  chatInput.style.left = "12px";
+  chatInput.style.bottom = "12px";
+  chatInput.style.width = "280px";
+  chatInput.style.padding = "8px 10px";
+  chatInput.style.border = "2px solid #000";
+  chatInput.style.background = "#0f182a";
+  chatInput.style.color = "#dfe7ff";
+  chatInput.style.font = "12px 'Press Start 2P', 'VT323', monospace";
+  chatInput.style.boxShadow = "inset 0 0 0 2px rgba(255,255,255,0.08)";
+  chatInput.style.zIndex = "500";
+  chatInput.style.display = "none";
+  document.body.appendChild(chatInput);
+
+  function toggleChatInput(show) {
+    chatInput.style.display = show ? "block" : "none";
+    if (show) {
+      chatInput.value = "";
+      chatInput.focus();
+    } else {
+      chatInput.blur();
+    }
+  }
   window.addEventListener("keydown", (e) => {
-    if (e.target && e.target.tagName === "INPUT") return;
+    if (e.target && e.target.tagName === "INPUT" && e.target !== chatInput) return;
+    if (e.target === chatInput) {
+      if (e.code === "Escape") {
+        toggleChatInput(false);
+        e.preventDefault();
+      } else if (e.code === "Enter") {
+        const text = chatInput.value.trim();
+        if (text.startsWith("/name")) {
+          const next = text.replace("/name", "").trim().slice(0, 20);
+          if (next) PLAYER_NAME = next;
+        } else {
+          sendChat(text);
+        }
+        chatInput.value = "";
+        toggleChatInput(false);
+        e.preventDefault();
+      }
+      return;
+    }
+    if (e.code === "Enter") {
+      toggleChatInput(chatInput.style.display === "none");
+      e.preventDefault();
+      return;
+    }
     if (handleInventoryKey(e)) return;
     if (editorOpen && handleEditorClipboard(e)) {
       e.preventDefault();
@@ -1276,6 +1326,9 @@
   const entities = [];
   const particles = [];
   const peers = new Map(); // peerId -> state snapshot for rendering
+  const chatLog = [];
+  const chatMax = 30;
+  let chatVisibleTime = 0;
   let netSocket = null;
   let clientId = null;
   let reconnectTimer = 0;
@@ -1434,6 +1487,12 @@
       recordPeerState(msg.id, msg.state, msg.name);
       return;
     }
+    if (msg.type === "chat" && typeof msg.text === "string") {
+      chatLog.push({ name: msg.name || "Player", text: msg.text, ts: msg.ts || Date.now(), seq: msg.seq || chatLog.length });
+      while (chatLog.length > chatMax) chatLog.shift();
+      chatVisibleTime = 6;
+      return;
+    }
     if (msg.type === "leave" && msg.id) {
       peers.delete(msg.id);
       return;
@@ -1523,6 +1582,12 @@
       },
     };
     netSocket.send(JSON.stringify(payload));
+  }
+
+  function sendChat(text) {
+    if (!MP_ENABLED || !netSocket || netSocket.readyState !== WebSocket.OPEN) return;
+    if (!text || !text.trim()) return;
+    netSocket.send(JSON.stringify({ type: "chat", room: MP_ROOM, name: PLAYER_NAME, text: text.slice(0, 200) }));
   }
 
   function smoothPeers(dt) {
@@ -2928,6 +2993,27 @@
     drawHoverOverlay();
     drawSelectionOverlay();
     drawLabelsOverlay();
+    // chat overlay
+    if (chatLog.length > 0 && chatVisibleTime > -2) {
+      g.save();
+      g.font = "8px 'Press Start 2P', 'VT323', monospace";
+      g.textAlign = "left";
+      g.textBaseline = "top";
+      const startY = 16;
+      const startX = 12;
+      let y = startY;
+      for (let i = Math.max(0, chatLog.length - 8); i < chatLog.length; i++) {
+        const entry = chatLog[i];
+        const line = `${entry.name}: ${entry.text}`;
+        const alpha = Math.max(0, Math.min(1, chatVisibleTime / 2));
+        g.fillStyle = `rgba(0,0,0,${0.5 * alpha})`;
+        g.fillRect(startX - 4, y - 2, Math.min(200, line.length * 6 + 8), 12);
+        g.fillStyle = `rgba(242,245,255,${alpha})`;
+        g.fillText(line.slice(0, 64), startX, y);
+        y += 12;
+      }
+      g.restore();
+    }
     if (clickDebug && clickDebug.timer > 0) {
       const { sx, sy } = clickDebug;
       g.save();
@@ -3041,6 +3127,8 @@
     updatePMeterUi(dt);
     updateHudDom();
     updateDebugOverlay();
+    // chat fade timer
+    if (chatVisibleTime > 0) chatVisibleTime -= dt;
     render();
     requestAnimationFrame(frame);
   }
