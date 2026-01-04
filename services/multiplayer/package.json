@@ -10,5 +10,8 @@
     "start": "node src/server.js"
   },
   "type": "module",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
 }
