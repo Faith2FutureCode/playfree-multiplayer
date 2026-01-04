@@ -115,31 +115,8 @@
     }
     .editor-hint { margin-top: 10px; font-size: 10px; color: #9fb3ff; }
     body.editor-open .game-shell canvas { cursor: none; }
-    .hud {
-      margin: 8px auto 0;
-      width: var(--canvas-width);
-      font-family: "Press Start 2P", "VT323", monospace;
-      font-size: 12px;
-      line-height: 1.2;
-      color: #fff;
-      text-shadow: 1px 0 #000, -1px 0 #000, 0 1px #000, 0 -1px #000;
-    }
-    .hud-bar {
-      background: #b8e8ff;
-      border: 4px solid #000;
-      height: calc(var(--tile) * 3);
-      padding: 4px 10px;
-      box-shadow: inset 0 0 0 3px #7fb7d6;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      box-sizing: border-box;
-    }
-    .hud-section { display:flex; align-items:center; gap:10px; height: 100%; }
-    .hud-left { flex: 1; justify-content: flex-start; }
-    .hud-center { justify-content: center; gap: 12px; }
-    .hud-right { flex: 1; justify-content: flex-end; }
+    /* HUD now rendered on canvas; hide DOM HUD shell */
+    .hud { display:none; }
     .hud-icon-coin {
       width: 10px; height: 14px;
       background:#f5d000;
@@ -317,7 +294,7 @@
     <div class="editor-hint">Left click paint · Right click erase · E to toggle</div>
   </div>
   <div class="game-shell">
-    <canvas id="c" width="912" height="672"></canvas>
+    <canvas id="c" width="912" height="816"></canvas>
     <div class="hud" aria-label="HUD">
   <div class="hud-bar">
     <div class="hud-section hud-left">
@@ -410,7 +387,7 @@
 
   // Pixel-art vibe: render at low-res then scale up
   const BASE_W = 304; // 19 tiles wide
-  const BASE_H = 224; // 14 tiles tall
+  const BASE_H = 272; // 17 tiles tall (14 play + 3 HUD)
   let SCALE = 3; // integer-only scaling for crisp pixels
   let showGrid = true;
   let editorOpen = false;
@@ -2991,6 +2968,7 @@
     drawHoverOverlay();
     drawSelectionOverlay();
     drawLabelsOverlay();
+    drawHudCanvas();
     // chat overlay
     if (chatLog.length > 0 && chatVisibleTime > -2) {
       g.save();
@@ -3053,6 +3031,56 @@
       const py = peer.y ?? peer.targetY ?? 0;
       addTag(`${peer.name || "P"}`, px + 6, py - 10, "#f2f5ff");
     }
+  }
+
+  function drawHudCanvas() {
+    const hudH = HUD_TILES * TILE;
+    const hudY = BASE_H - hudH;
+    // background
+    g.fillStyle = "#b8e8ff";
+    g.fillRect(0, hudY, BASE_W, hudH);
+    g.strokeStyle = "#000";
+    g.lineWidth = 4;
+    g.strokeRect(0, hudY, BASE_W, hudH);
+    g.strokeStyle = "#7fb7d6";
+    g.lineWidth = 3;
+    g.strokeRect(2, hudY + 2, BASE_W - 4, hudH - 4);
+
+    g.save();
+    g.translate(6, hudY + 6);
+    g.fillStyle = "#000";
+    g.font = "8px 'Press Start 2P', 'VT323', monospace";
+    g.textBaseline = "top";
+
+    const drawBlock = (lines, x) => {
+      const padX = 8, padY = 6;
+      const w = 70, h = hudH - 12;
+      g.fillStyle = "#b8e8ff";
+      g.strokeStyle = "#000";
+      g.lineWidth = 3;
+      g.beginPath();
+      g.rect(x, 0, w, h);
+      g.fill();
+      g.stroke();
+      g.strokeStyle = "#7fb7d6";
+      g.lineWidth = 2;
+      g.strokeRect(x + 2, 2, w - 4, h - 4);
+      g.fillStyle = "#000";
+      let y = padY;
+      for (const line of lines) {
+        g.fillText(line, x + padX, y);
+        y += 12;
+      }
+    };
+
+    drawBlock(["WORLD", "1"], 0);
+    drawBlock([`M x ${lives}`, `COIN ${coinCount.toString().padStart(2, "0")}`], 80);
+    drawBlock([`SPD ${Math.abs(player.vx).toFixed(0)}`, `ACC ${player.ax.toFixed(0)}`], 160);
+    drawBlock([`FORM ${player.form ? player.form.slice(0,2).toUpperCase() : "SM"}`, `T ${Math.max(0, Math.floor(levelTimer)).toString().padStart(3,"0")}`], 240);
+    drawBlock([`SCORE`, score.toString().padStart(6,"0")], 320);
+    drawBlock([`FLY ${player.flightActive ? player.flightTimer.toFixed(1) : "0"}`, `P ${pMeterDisplaySegs}/${P_METER_SEGMENTS}`], 400);
+
+    g.restore();
   }
 
   function updateHudDom() {
