@@ -477,6 +477,9 @@
     document.documentElement.style.setProperty("--canvas-width", `${canvas.width}px`);
     document.documentElement.style.setProperty("--canvas-height", `${canvas.height}px`);
     document.documentElement.style.setProperty("--editor-width", `${editorWidth}px`);
+    // Derive tile px size from canvas width (19 tiles wide)
+    const tilePx = canvas.width / (BASE_W / TILE);
+    document.documentElement.style.setProperty("--tile", `${tilePx}px`);
   };
 
   const applyScale = () => {
