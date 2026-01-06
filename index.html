@@ -52,6 +52,8 @@
     .editor-section {
       margin-bottom: 12px;
     }
+    .author-only { display: none; }
+    body.author .author-only { display: block; }
     .editor-section h4 {
       margin: 0 0 6px 0;
       font-size: 11px;
@@ -292,6 +294,14 @@
         <div class="editor-tile" data-tile="P" title="Player Spawn"><canvas class="tile-preview" width="8" height="8" data-tile="P"></canvas></div>
       </div>
     </div>
+    <div class="editor-section author-only">
+      <h4>AUTHOR TOOLS</h4>
+      <div class="editor-field">
+        <label for="sprite-upload">Sprite Upload</label>
+        <input id="sprite-upload" type="file" accept="image/png, image/jpeg"/>
+      </div>
+      <div class="editor-hint">Author-only tools</div>
+    </div>
     <div class="editor-field">
       <label for="editor-label-input">Label</label>
       <input id="editor-label-input" type="text" maxlength="24" placeholder="Type to tag block"/>
@@ -394,8 +404,87 @@
   // -----------------------------
   // Config
   // -----------------------------
+  const AUTHOR_LOGIN_ENDPOINT = "/api/author-login";
+  const AUTHOR_LOGOUT_ENDPOINT = "/api/author-logout";
+  const AUTHOR_STATUS_ENDPOINT = "/api/author-status";
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d", { alpha: false });
+  const setAuthorClass = (enabled) => {
+    document.body.classList.toggle("author", enabled);
+  };
+  async function refreshAuthorStatus() {
+    try {
+      const res = await fetch(AUTHOR_STATUS_ENDPOINT, { credentials: "include" });
+      if (!res.ok) {
+        setAuthorClass(false);
+        return false;
+      }
+      const data = await res.json();
+      const enabled = Boolean(data && data.author);
+      setAuthorClass(enabled);
+      return enabled;
+    } catch (err) {
+      setAuthorClass(false);
+      return false;
+    }
+  }
+  async function authorLogin(pass) {
+    if (!pass) return false;
+    try {
+      const res = await fetch(AUTHOR_LOGIN_ENDPOINT, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pass }),
+      });
+      if (!res.ok) {
+        setAuthorClass(false);
+        return false;
+      }
+      const data = await res.json();
+      const enabled = Boolean(data && data.author);
+      setAuthorClass(enabled);
+      return enabled;
+    } catch (err) {
+      return false;
+    }
+  }
+  async function authorLogout() {
+    try {
+      await fetch(AUTHOR_LOGOUT_ENDPOINT, {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (err) {
+      // ignore network errors
+    }
+    setAuthorClass(false);
+    return false;
+  }
+  function handleAuthorCommand(text) {
+    const raw = text.replace("/author", "").trim();
+    if (!raw) {
+      beginAuthorPrompt();
+      return true;
+    }
+    const parts = raw.split(/\s+/);
+    const action = parts[0].toLowerCase();
+    if (action === "logout" || action === "off") {
+      authorLogout().then(() => {
+        pushSystemChat("Author mode disabled.");
+      });
+      return false;
+    }
+    if (action === "status") {
+      refreshAuthorStatus().then((enabled) => {
+        pushSystemChat(enabled ? "Author mode enabled." : "Author mode disabled.");
+      });
+      return false;
+    }
+    beginAuthorPrompt();
+    return true;
+  }
+  refreshAuthorStatus();
 
   // Pixel-art vibe: render at low-res then scale up
   const BASE_W = 304; // 19 tiles wide
@@ -765,6 +854,8 @@
   chatInput.style.zIndex = "500";
   chatInput.style.display = "none";
   document.body.appendChild(chatInput);
+  let authorPromptActive = false;
+  const chatPlaceholderDefault = chatInput.placeholder;
 
   function toggleChatInput(show) {
     chatInput.style.display = show ? "block" : "none";
@@ -775,17 +866,54 @@
       chatInput.blur();
     }
   }
+  function beginAuthorPrompt() {
+    authorPromptActive = true;
+    chatInput.type = "password";
+    chatInput.placeholder = "Author passphrase";
+    chatInput.value = "";
+    toggleChatInput(true);
+    pushSystemChat("Enter author passphrase.");
+  }
+  function endAuthorPrompt() {
+    authorPromptActive = false;
+    chatInput.type = "text";
+    chatInput.placeholder = chatPlaceholderDefault;
+  }
+  function submitAuthorPass(pass) {
+    const raw = pass ?? "";
+    endAuthorPrompt();
+    toggleChatInput(false);
+    if (!raw) {
+      pushSystemChat("Author login cancelled.");
+      return;
+    }
+    authorLogin(raw).then((ok) => {
+      pushSystemChat(ok ? "Author mode enabled." : "Author login failed.");
+    });
+  }
   window.addEventListener("keydown", (e) => {
     if (e.target && e.target.tagName === "INPUT" && e.target !== chatInput) return;
     if (e.target === chatInput) {
       if (e.code === "Escape") {
+        if (authorPromptActive) endAuthorPrompt();
         toggleChatInput(false);
         e.preventDefault();
       } else if (e.code === "Enter") {
+        if (authorPromptActive) {
+          submitAuthorPass(chatInput.value);
+          e.preventDefault();
+          return;
+        }
         const text = chatInput.value.trim();
         if (text.startsWith("/name")) {
           const next = text.replace("/name", "").trim().slice(0, 20);
           if (next) PLAYER_NAME = next;
+        } else if (text.startsWith("/author")) {
+          const keepOpen = handleAuthorCommand(text);
+          chatInput.value = "";
+          if (!keepOpen) toggleChatInput(false);
+          e.preventDefault();
+          return;
         } else {
           sendChat(text);
         }
@@ -1327,6 +1455,12 @@
   const chatLog = [];
   const chatMax = 30;
   let chatVisibleTime = 0;
+  function pushSystemChat(text) {
+    if (!text) return;
+    chatLog.push({ name: "SYSTEM", text, ts: Date.now(), seq: chatLog.length });
+    while (chatLog.length > chatMax) chatLog.shift();
+    chatVisibleTime = 6;
+  }
   const tagLayer = document.createElement("div");
   tagLayer.style.position = "fixed";
   tagLayer.style.left = "0";
