@@ -90,6 +90,7 @@
       position: relative;
       width: 100%;
       height: 100%;
+      transform-origin: 0 0;
     }
     .tileset-preview-grid {
       position: absolute;
@@ -523,6 +524,7 @@
   const ctx = canvas.getContext("2d", { alpha: false });
   const tilesetUploadEl = document.getElementById("tileset-upload");
   const tilesetPreviewPanel = document.getElementById("tileset-preview");
+  const tilesetPreviewStage = document.querySelector(".tileset-preview-stage");
   const tilesetPreviewImage = document.getElementById("tileset-preview-image");
   const tilesetPreviewGrid = document.getElementById("tileset-preview-grid");
   const tilesetGridX = document.getElementById("tileset-grid-x");
@@ -530,6 +532,7 @@
   const tilesetGridW = document.getElementById("tileset-grid-w");
   const tilesetGridH = document.getElementById("tileset-grid-h");
   let tilesetPreviewUrl = null;
+  let tilesetZoom = 1;
   const setAuthorClass = (enabled) => {
     document.body.classList.toggle("author", enabled);
   };
@@ -619,6 +622,7 @@
     tilesetPreviewUrl = URL.createObjectURL(file);
     tilesetPreviewImage.src = tilesetPreviewUrl;
     tilesetPreviewPanel.classList.add("visible");
+    setTilesetZoom(1);
     requestAnimationFrame(updateTilesetGrid);
   };
 
@@ -633,6 +637,14 @@
     if (!inputEl) return fallback;
     const n = Number.parseInt(inputEl.value, 10);
     return Number.isFinite(n) ? n : fallback;
+  };
+
+  const setTilesetZoom = (nextZoom, anchorX = 0.5, anchorY = 0.5) => {
+    tilesetZoom = Math.min(6, Math.max(0.5, nextZoom));
+    if (tilesetPreviewStage) {
+      tilesetPreviewStage.style.transformOrigin = `${anchorX * 100}% ${anchorY * 100}%`;
+      tilesetPreviewStage.style.transform = `scale(${tilesetZoom})`;
+    }
   };
 
   const updateTilesetGrid = () => {
@@ -685,6 +697,17 @@
     [tilesetGridX, tilesetGridY, tilesetGridW, tilesetGridH].forEach((inputEl) => {
       inputEl.addEventListener("input", updateTilesetGrid);
     });
+  }
+  if (tilesetPreviewPanel) {
+    tilesetPreviewPanel.addEventListener("wheel", (e) => {
+      if (!tilesetPreviewPanel.classList.contains("visible")) return;
+      e.preventDefault();
+      const direction = e.deltaY > 0 ? -0.1 : 0.1;
+      const rect = tilesetPreviewPanel.getBoundingClientRect();
+      const anchorX = rect.width ? (e.clientX - rect.left) / rect.width : 0.5;
+      const anchorY = rect.height ? (e.clientY - rect.top) / rect.height : 0.5;
+      setTilesetZoom(tilesetZoom + direction, anchorX, anchorY);
+    }, { passive: false });
   }
   window.addEventListener("resize", updateTilesetGrid);
 
