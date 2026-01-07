@@ -30,6 +30,12 @@
       z-index: 2;
     }
     .tileset-preview.visible { display: flex; }
+    .tileset-preview-sidebar {
+      width: 160px;
+      height: 100%;
+      background: rgba(10, 16, 28, 0.9);
+      border-right: 2px solid rgba(255,255,255,0.08);
+    }
     .tileset-preview img {
       width: 100%;
       height: 100%;
@@ -345,6 +351,7 @@
   <div class="game-shell">
     <canvas id="c" width="912" height="816"></canvas>
     <div class="tileset-preview" id="tileset-preview" aria-label="Tileset preview">
+      <div class="tileset-preview-sidebar" aria-hidden="true"></div>
       <img id="tileset-preview-image" alt="Tileset preview"/>
     </div>
     <div class="hud" aria-label="HUD">
