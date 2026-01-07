@@ -196,14 +196,47 @@
       padding: 4px 10px;
       box-shadow: inset 0 0 0 3px #7fb7d6;
     }
-    .hint {
-      position: fixed; top: 12px; right: 12px;
-      color: #cbd5e1; font: 12px/1.3 system-ui, sans-serif; opacity: .9;
-      background: rgba(0,0,0,.25); padding: 10px 12px; border-radius: 10px;
-      border: 1px solid rgba(255,255,255,.08);
-      max-width: 520px;
+    .settings-toggle {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 2px solid #000;
+      background: rgba(15, 24, 42, 0.9);
+      color: #dfe7ff;
+      font: 16px/1 "Press Start 2P", "VT323", monospace;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
+      z-index: 260;
     }
-    .hint b { color:#fff; }
+    .settings-panel {
+      position: fixed;
+      top: 56px;
+      right: 12px;
+      width: 260px;
+      background: rgba(10, 15, 31, 0.95);
+      border: 2px solid #000;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
+      padding: 10px 12px;
+      color: #cbd5e1;
+      font: 11px/1.45 "Press Start 2P", "VT323", monospace;
+      display: none;
+      z-index: 260;
+    }
+    .settings-panel.open { display: block; }
+    .settings-panel h5 {
+      margin: 0 0 6px 0;
+      font-size: 11px;
+      color: #f6d341;
+      letter-spacing: 1px;
+    }
+    .settings-panel .settings-row {
+      margin-bottom: 8px;
+    }
     .debug-panel {
       position: fixed; top: 12px; left: 12px;
       background: rgba(0,0,0,0.6);
@@ -446,10 +479,14 @@
 </div>
 </div>
 </div>
-<div class="hint">
-  <b>Controls:</b> Arrow keys move · <b>Z</b> jump · <b>X</b> run · <b>C</b> fire/tail/hammer · <b>V</b> statue · <b>R</b> restart<br/>
-  <b>Goal:</b> Collect coins, hit ? blocks, stomp enemies.<br/>
-  <b>Jump range:</b> Walk <span id="jump-walk">--</span> tiles · Run <span id="jump-run">--</span> tiles
+<button id="settings-toggle" class="settings-toggle" type="button" aria-label="Game info">
+  ⚙
+</button>
+<div id="settings-panel" class="settings-panel" aria-hidden="true">
+  <h5>GAME INFO</h5>
+  <div class="settings-row">Controls: Arrows move · Z jump · X run · C fire/tail/hammer · V statue · R restart</div>
+  <div class="settings-row">Goal: Collect coins, hit ? blocks, stomp enemies.</div>
+  <div class="settings-row">Jump range: Walk <span id="jump-walk">--</span> tiles · Run <span id="jump-run">--</span> tiles</div>
 </div>
 <div class="debug-panel" id="debug-panel" aria-label="Debug overlay">
   <div><span>vx</span><span id="debug-vx">0</span></div>
@@ -1117,6 +1154,8 @@
   const inventoryFeedback = document.createElement("div");
   inventoryFeedback.className = "inventory-hint";
   inventoryFeedback.id = "inventory-feedback";
+  const settingsToggle = document.getElementById("settings-toggle");
+  const settingsPanel = document.getElementById("settings-panel");
 
   const INVENTORY_COLS = 7;
   const INVENTORY_ROWS = 4;
@@ -1132,6 +1171,26 @@
   let inventoryOpen = false;
   let inventoryCursor = 0;
   const slotEls = [];
+
+  function setSettingsOpen(open) {
+    if (!settingsPanel || !settingsToggle) return;
+    settingsPanel.classList.toggle("open", open);
+    settingsPanel.setAttribute("aria-hidden", open ? "false" : "true");
+  }
+
+  if (settingsToggle && settingsPanel) {
+    settingsToggle.addEventListener("click", () => {
+      setSettingsOpen(!settingsPanel.classList.contains("open"));
+    });
+    document.addEventListener("mousedown", (e) => {
+      if (!settingsPanel.classList.contains("open")) return;
+      if (settingsPanel.contains(e.target) || settingsToggle.contains(e.target)) return;
+      setSettingsOpen(false);
+    });
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Escape") setSettingsOpen(false);
+    });
+  }
 
   function buildInventoryGrid() {
     inventoryGrid.innerHTML = "";
