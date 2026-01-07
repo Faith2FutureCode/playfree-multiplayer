@@ -698,6 +698,9 @@
     if (!ctx) return;
     ctx.clearRect(0, 0, tilesetPreviewGrid.width, tilesetPreviewGrid.height);
     const { drawW, drawH, offsetX, offsetY } = bounds;
+    const naturalW = tilesetPreviewImage.naturalWidth || drawW;
+    const naturalH = tilesetPreviewImage.naturalHeight || drawH;
+    const scale = Math.min(bounds.baseW / naturalW, bounds.baseH / naturalH);
     const x = readGridValue(tilesetGridX, 0);
     const y = readGridValue(tilesetGridY, 0);
     const w = Math.max(1, readGridValue(tilesetGridW, 16));
@@ -711,13 +714,13 @@
     ctx.beginPath();
     const startX = ((x % stepX) + stepX) % stepX;
     const startY = ((y % stepY) + stepY) % stepY;
-    for (let gx = startX; gx <= drawW; gx += stepX) {
-      const px = offsetX + gx;
+    for (let gx = startX; gx <= naturalW; gx += stepX) {
+      const px = offsetX + gx * scale;
       ctx.moveTo(Math.round(px) + 0.5, offsetY);
       ctx.lineTo(Math.round(px) + 0.5, offsetY + drawH);
     }
-    for (let gy = startY; gy <= drawH; gy += stepY) {
-      const py = offsetY + gy;
+    for (let gy = startY; gy <= naturalH; gy += stepY) {
+      const py = offsetY + gy * scale;
       ctx.moveTo(offsetX, Math.round(py) + 0.5);
       ctx.lineTo(offsetX + drawW, Math.round(py) + 0.5);
     }
