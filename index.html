@@ -723,11 +723,15 @@
     }
     const bounds = getTilesetImageBounds();
     if (!bounds) return;
-    tilesetPreviewGrid.width = Math.round(bounds.baseW);
-    tilesetPreviewGrid.height = Math.round(bounds.baseH);
+    const dpr = window.devicePixelRatio || 1;
+    tilesetPreviewGrid.width = Math.round(bounds.baseW * dpr);
+    tilesetPreviewGrid.height = Math.round(bounds.baseH * dpr);
+    tilesetPreviewGrid.style.width = `${Math.round(bounds.baseW)}px`;
+    tilesetPreviewGrid.style.height = `${Math.round(bounds.baseH)}px`;
     const ctx = tilesetPreviewGrid.getContext("2d");
     if (!ctx) return;
-    ctx.clearRect(0, 0, tilesetPreviewGrid.width, tilesetPreviewGrid.height);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, bounds.baseW, bounds.baseH);
     const { drawW, drawH, offsetX, offsetY } = bounds;
     const naturalW = tilesetPreviewImage.naturalWidth || drawW;
     const naturalH = tilesetPreviewImage.naturalHeight || drawH;
@@ -741,7 +745,7 @@
     const stepX = w + padX;
     const stepY = h + padY;
     ctx.strokeStyle = "rgba(255,255,255,0.25)";
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1 / Math.max(0.5, tilesetZoom);
     ctx.beginPath();
     let startX = x;
     let startY = y;
