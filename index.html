@@ -427,6 +427,10 @@
             <input id="tileset-grid-w" type="text" value="16" inputmode="numeric"/>
             <label for="tileset-grid-h">Height:</label>
             <input id="tileset-grid-h" type="text" value="16" inputmode="numeric"/>
+            <label for="tileset-grid-padx">Pad X:</label>
+            <input id="tileset-grid-padx" type="text" value="0" inputmode="numeric"/>
+            <label for="tileset-grid-pady">Pad Y:</label>
+            <input id="tileset-grid-pady" type="text" value="0" inputmode="numeric"/>
           </div>
           <div class="tileset-tools-divider" aria-hidden="true"></div>
         </div>
@@ -531,6 +535,8 @@
   const tilesetGridY = document.getElementById("tileset-grid-y");
   const tilesetGridW = document.getElementById("tileset-grid-w");
   const tilesetGridH = document.getElementById("tileset-grid-h");
+  const tilesetGridPadX = document.getElementById("tileset-grid-padx");
+  const tilesetGridPadY = document.getElementById("tileset-grid-pady");
   let tilesetPreviewUrl = null;
   let tilesetZoom = 1;
   const setAuthorClass = (enabled) => {
@@ -672,17 +678,21 @@
     const y = readGridValue(tilesetGridY, 0);
     const w = Math.max(1, readGridValue(tilesetGridW, 16));
     const h = Math.max(1, readGridValue(tilesetGridH, 16));
+    const padX = Math.max(0, readGridValue(tilesetGridPadX, 0));
+    const padY = Math.max(0, readGridValue(tilesetGridPadY, 0));
+    const stepX = w + padX;
+    const stepY = h + padY;
     ctx.strokeStyle = "rgba(255,255,255,0.25)";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    const startX = ((x % w) + w) % w;
-    const startY = ((y % h) + h) % h;
-    for (let gx = startX; gx <= drawW; gx += w) {
+    const startX = ((x % stepX) + stepX) % stepX;
+    const startY = ((y % stepY) + stepY) % stepY;
+    for (let gx = startX; gx <= drawW; gx += stepX) {
       const px = offsetX + gx;
       ctx.moveTo(Math.round(px) + 0.5, offsetY);
       ctx.lineTo(Math.round(px) + 0.5, offsetY + drawH);
     }
-    for (let gy = startY; gy <= drawH; gy += h) {
+    for (let gy = startY; gy <= drawH; gy += stepY) {
       const py = offsetY + gy;
       ctx.moveTo(offsetX, Math.round(py) + 0.5);
       ctx.lineTo(offsetX + drawW, Math.round(py) + 0.5);
@@ -693,8 +703,8 @@
   if (tilesetPreviewImage) {
     tilesetPreviewImage.addEventListener("load", updateTilesetGrid);
   }
-  if (tilesetGridX && tilesetGridY && tilesetGridW && tilesetGridH) {
-    [tilesetGridX, tilesetGridY, tilesetGridW, tilesetGridH].forEach((inputEl) => {
+  if (tilesetGridX && tilesetGridY && tilesetGridW && tilesetGridH && tilesetGridPadX && tilesetGridPadY) {
+    [tilesetGridX, tilesetGridY, tilesetGridW, tilesetGridH, tilesetGridPadX, tilesetGridPadY].forEach((inputEl) => {
       inputEl.addEventListener("input", updateTilesetGrid);
     });
   }
