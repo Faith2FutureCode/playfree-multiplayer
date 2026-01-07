@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Plumber Platformer (SMB3-inspired)</title>
   <style>
     html, body {
@@ -81,6 +81,16 @@
       color: #dfe7ff;
       text-align: right;
       box-sizing: border-box;
+    }
+    .tileset-tools-button {
+      width: 100%;
+      border: 2px solid #000;
+      background: #1a2640;
+      color: #dfe7ff;
+      font: 12px/1.2 "VT323", monospace;
+      padding: 4px 6px;
+      text-align: left;
+      cursor: pointer;
     }
     .tileset-tools-divider {
       margin-top: 8px;
@@ -432,6 +442,10 @@
             <input id="tileset-grid-padx" type="text" value="0" inputmode="numeric"/>
             <label for="tileset-grid-pady">Pad Y:</label>
             <input id="tileset-grid-pady" type="text" value="0" inputmode="numeric"/>
+            <label for="tileset-remove-color">Remove BG:</label>
+            <input id="tileset-remove-color" type="text" value="#000000"/>
+            <span></span>
+            <button class="tileset-tools-button" id="tileset-remove-apply" type="button">Remove Selected Color</button>
           </div>
           <div class="tileset-tools-divider" aria-hidden="true"></div>
         </div>
@@ -850,9 +864,17 @@
     document.documentElement.style.setProperty("--editor-width", `${editorWidth}px`);
   };
 
+  const getViewportSize = () => {
+    const vv = window.visualViewport;
+    const vw = vv ? vv.width : window.innerWidth;
+    const vh = vv ? vv.height : window.innerHeight;
+    return { vw, vh };
+  };
+
   const applyScale = () => {
     // Scale smoothly to fit viewport while preserving aspect ratio (no integer step jumps)
-    const scale = Math.min(window.innerWidth / BASE_W, window.innerHeight / BASE_H);
+    const { vw, vh } = getViewportSize();
+    const scale = Math.min(vw / BASE_W, vh / BASE_H);
     SCALE = scale;
     canvas.width = BASE_W;
     canvas.height = BASE_H;
@@ -865,6 +887,10 @@
 
   applyScale();
   window.addEventListener("resize", applyScale);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", applyScale);
+    window.visualViewport.addEventListener("scroll", applyScale);
+  }
   ctx.imageSmoothingEnabled = false;
   g.imageSmoothingEnabled = false;
 
