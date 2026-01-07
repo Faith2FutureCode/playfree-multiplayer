@@ -877,7 +877,8 @@
     const ch = canvasH ?? (canvas.clientHeight || canvas.height);
     const fw = frameW ?? lastFrameW ?? cw;
     const fh = frameH ?? lastFrameH ?? ch;
-    const editorWidth = editorOpen ? Math.min(360, Math.round(fw * 0.32)) : 0;
+    const barWidth = Math.max(0, Math.round((fw - cw) / 2));
+    const editorWidth = editorOpen ? Math.min(360, barWidth) : 0;
     const editorScale = Math.min(1, Math.max(0.6, fh / 720));
     document.documentElement.style.setProperty("--frame-width", `${fw}px`);
     document.documentElement.style.setProperty("--frame-height", `${fh}px`);
