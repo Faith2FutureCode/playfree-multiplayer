@@ -743,8 +743,10 @@
     ctx.strokeStyle = "rgba(255,255,255,0.25)";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    const startX = ((x % stepX) + stepX) % stepX;
-    const startY = ((y % stepY) + stepY) % stepY;
+    let startX = x;
+    let startY = y;
+    while (startX < 0) startX += stepX;
+    while (startY < 0) startY += stepY;
     for (let gx = startX; gx <= naturalW; gx += stepX) {
       const px = offsetX + gx * scale;
       ctx.moveTo(Math.round(px) + 0.5, offsetY);
