@@ -162,11 +162,49 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
+      height: 100%;
+      flex: 1 1 auto;
+    }
+    .tilesheet-popout {
+      position: fixed;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: var(--canvas-width);
+      height: var(--canvas-height);
+      background: rgba(10, 15, 31, 0.98);
+      border: 2px solid #000;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
+      padding: 10px 12px 12px;
+      display: none;
+      z-index: 260;
+    }
+    .tilesheet-popout.open {
+      display: flex;
+      flex-direction: column;
+    }
+    .tilesheet-popout-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      color: #f6d341;
+      font-size: 11px;
+      letter-spacing: 1px;
+    }
+    .tilesheet-popout-close {
+      background: #123;
+      border: 2px solid #000;
+      color: #f6d341;
+      font: 11px "Press Start 2P", "VT323", monospace;
+      padding: 4px 6px;
+      cursor: pointer;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
     }
     .tilesheet-preview {
       width: 100%;
-      max-width: 320px;
-      height: 200px;
+      flex: 1 1 auto;
+      height: 100%;
       border: 2px solid #000;
       background: #0f182a;
       image-rendering: pixelated;
@@ -412,18 +450,6 @@
       <div class="editor-grid" id="undefined-grid"></div>
     </div>
     <div class="editor-section author-only">
-      <h4>TILESHEET CUTTER</h4>
-      <div class="tilesheet-panel">
-        <input id="tilesheet-upload" type="file" accept="image/png, image/jpeg"/>
-        <canvas id="tilesheet-preview" class="tilesheet-preview" width="320" height="200"></canvas>
-        <div class="tilesheet-actions">
-          <button id="tilesheet-add-button" type="button">Add Tile to Undefined</button>
-          <button id="tilesheet-clear-button" type="button">Clear Selection</button>
-        </div>
-        <div id="tilesheet-status" class="editor-hint" data-state="idle">Load a tilesheet, drag to select any size, save as 16x16.</div>
-      </div>
-    </div>
-    <div class="editor-section author-only">
       <h4>AUTHOR TOOLS</h4>
       <div class="editor-field">
         <label for="sprite-upload">Sprite Upload</label>
@@ -443,6 +469,7 @@
         <button id="publish-level-button" type="button">Publish Draft</button>
         <button id="export-level-button" type="button">Export Level</button>
         <button id="import-level-button" type="button">Import Level</button>
+        <button id="tilesheet-open-button" type="button">Tilesheet Cutter</button>
         <input id="import-level-input" type="file" accept="application/json" style="display:none"/>
       </div>
       <div id="sprite-upload-status" class="editor-hint" data-state="idle">Upload a square PNG/JPG (max 256x256).</div>
@@ -472,6 +499,21 @@
     <button type="button" data-category="enemies">Enemies</button>
     <button type="button" data-category="spawns">Spawns</button>
     <button type="button" data-category="undefined">Undefined</button>
+  </div>
+  <div id="tilesheet-popout" class="tilesheet-popout author-only" aria-hidden="true">
+    <div class="tilesheet-popout-header">
+      <span>TILESHEET CUTTER</span>
+      <button id="tilesheet-close-button" class="tilesheet-popout-close" type="button">Close</button>
+    </div>
+    <div class="tilesheet-panel">
+      <input id="tilesheet-upload" type="file" accept="image/png, image/jpeg"/>
+      <canvas id="tilesheet-preview" class="tilesheet-preview" width="320" height="200"></canvas>
+      <div class="tilesheet-actions">
+        <button id="tilesheet-add-button" type="button">Add Tile to Undefined</button>
+        <button id="tilesheet-clear-button" type="button">Clear Selection</button>
+      </div>
+      <div id="tilesheet-status" class="editor-hint" data-state="idle">Load a tilesheet, drag to select any size, save as 16x16.</div>
+    </div>
   </div>
   <div class="game-shell">
     <canvas id="c" width="912" height="816"></canvas>
@@ -789,6 +831,7 @@
     editorOpen = next;
     document.body.classList.toggle("editor-open", editorOpen);
     if (!editorOpen) closePaletteContextMenu();
+    if (!editorOpen) setTilesheetOpen(false);
     applyLayoutVars();
   }
 
@@ -817,6 +860,9 @@
   const tilesheetAddButton = document.getElementById("tilesheet-add-button");
   const tilesheetClearButton = document.getElementById("tilesheet-clear-button");
   const tilesheetStatus = document.getElementById("tilesheet-status");
+  const tilesheetOpenButton = document.getElementById("tilesheet-open-button");
+  const tilesheetPopout = document.getElementById("tilesheet-popout");
+  const tilesheetCloseButton = document.getElementById("tilesheet-close-button");
   const publishLevelButton = document.getElementById("publish-level-button");
   const exportLevelButton = document.getElementById("export-level-button");
   const importLevelButton = document.getElementById("import-level-button");
@@ -1047,8 +1093,18 @@
     dragStart: null,
   };
 
+  function setTilesheetOpen(open) {
+    if (!tilesheetPopout) return;
+    tilesheetPopout.classList.toggle("open", open);
+    tilesheetPopout.setAttribute("aria-hidden", open ? "false" : "true");
+  }
+
   function renderTilesheetPreview() {
     if (!tilesheetPreview) return;
+    const targetW = tilesheetPreview.clientWidth || tilesheetPreview.width;
+    const targetH = tilesheetPreview.clientHeight || tilesheetPreview.height;
+    if (tilesheetPreview.width !== targetW) tilesheetPreview.width = targetW;
+    if (tilesheetPreview.height !== targetH) tilesheetPreview.height = targetH;
     const ctx = tilesheetPreview.getContext("2d", { alpha: false });
     ctx.clearRect(0, 0, tilesheetPreview.width, tilesheetPreview.height);
     ctx.fillStyle = "#0f182a";
@@ -1208,6 +1264,21 @@
       handleSpriteUpload(file);
     });
   }
+  if (tilesheetOpenButton) {
+    tilesheetOpenButton.addEventListener("click", () => {
+      if (!document.body.classList.contains("author")) {
+        setTilesheetStatus("Author mode required.", "error");
+        return;
+      }
+      setTilesheetOpen(true);
+      renderTilesheetPreview();
+    });
+  }
+  if (tilesheetCloseButton) {
+    tilesheetCloseButton.addEventListener("click", () => {
+      setTilesheetOpen(false);
+    });
+  }
   if (tilesheetUpload && tilesheetPreview) {
     tilesheetUpload.addEventListener("change", () => {
       if (!document.body.classList.contains("author")) {
@@ -1315,6 +1386,17 @@
       setTilesheetStatus("Selection cleared.", "idle");
     });
   }
+  document.addEventListener("mousedown", (e) => {
+    if (!tilesheetPopout || !tilesheetPopout.classList.contains("open")) return;
+    if (tilesheetPopout.contains(e.target)) return;
+    if (tilesheetOpenButton && tilesheetOpenButton.contains(e.target)) return;
+    setTilesheetOpen(false);
+  });
+  window.addEventListener("keydown", (e) => {
+    if (e.code === "Escape" && tilesheetPopout && tilesheetPopout.classList.contains("open")) {
+      setTilesheetOpen(false);
+    }
+  });
   if (publishLevelButton) {
     publishLevelButton.addEventListener("click", () => {
       publishDraftPayload();
