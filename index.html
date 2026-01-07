@@ -191,6 +191,8 @@
       color: #f6d341;
       font-size: 11px;
       letter-spacing: 1px;
+      position: relative;
+      z-index: 1;
     }
     .tilesheet-popout-close {
       background: #123;
@@ -208,6 +210,8 @@
       border: 2px solid #000;
       background: #0f182a;
       image-rendering: pixelated;
+      position: relative;
+      z-index: 0;
     }
     .tilesheet-actions {
       display: flex;
@@ -1275,9 +1279,12 @@
     });
   }
   if (tilesheetCloseButton) {
-    tilesheetCloseButton.addEventListener("click", () => {
+    const closeHandler = (e) => {
+      if (e) e.stopPropagation();
       setTilesheetOpen(false);
-    });
+    };
+    tilesheetCloseButton.addEventListener("click", closeHandler);
+    tilesheetCloseButton.addEventListener("pointerdown", closeHandler);
   }
   if (tilesheetUpload && tilesheetPreview) {
     tilesheetUpload.addEventListener("change", () => {
@@ -1298,6 +1305,7 @@
         .then((img) => {
           tilesheetState.image = img;
           tilesheetState.selection = null;
+          setTilesheetOpen(true);
           setTilesheetStatus("Drag to select a region, then add it as 16x16.", "success");
           renderTilesheetPreview();
         })
