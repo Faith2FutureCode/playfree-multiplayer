@@ -31,7 +31,6 @@
     }
     .tileset-preview.visible { display: flex; }
     .tileset-preview.panning { cursor: grabbing; }
-    .tileset-preview.ref-mode { cursor: crosshair; }
     .tileset-preview-sidebar {
       width: 160px;
       height: 100%;
@@ -71,20 +70,6 @@
       display: grid;
       grid-template-columns: auto 1fr;
       gap: 4px 6px;
-    }
-    .tileset-tools-button {
-      width: 100%;
-      border: 2px solid #000;
-      background: #1a2640;
-      color: #dfe7ff;
-      font: 12px/1.2 "VT323", monospace;
-      padding: 4px 6px;
-      text-align: left;
-      cursor: pointer;
-    }
-    .tileset-tools-button.active {
-      background: #2a3a5c;
-      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
     }
     .tileset-tools-grid input {
       width: 100%;
@@ -435,8 +420,6 @@
             <span class="tileset-tools-close" aria-hidden="true">X</span>
           </div>
           <div class="tileset-tools-grid">
-            <span></span>
-            <button class="tileset-tools-button" id="tileset-grid-ref" type="button">Grid Reference</button>
             <label for="tileset-grid-x">X:</label>
             <input id="tileset-grid-x" type="text" value="0" inputmode="numeric"/>
             <label for="tileset-grid-y">Y:</label>
@@ -549,7 +532,6 @@
   const tilesetPreviewStage = document.querySelector(".tileset-preview-stage");
   const tilesetPreviewImage = document.getElementById("tileset-preview-image");
   const tilesetPreviewGrid = document.getElementById("tileset-preview-grid");
-  const tilesetGridRefButton = document.getElementById("tileset-grid-ref");
   const tilesetGridX = document.getElementById("tileset-grid-x");
   const tilesetGridY = document.getElementById("tileset-grid-y");
   const tilesetGridW = document.getElementById("tileset-grid-w");
@@ -563,9 +545,6 @@
   let tilesetPanning = false;
   let tilesetPanStartX = 0;
   let tilesetPanStartY = 0;
-  let tilesetRefMode = false;
-  let tilesetRefStart = null;
-  let tilesetRefCurrent = null;
   const setAuthorClass = (enabled) => {
     document.body.classList.toggle("author", enabled);
   };
@@ -744,17 +723,6 @@
     }
     ctx.stroke();
 
-    if (tilesetRefStart && tilesetRefCurrent) {
-      const selX = Math.min(tilesetRefStart.x, tilesetRefCurrent.x);
-      const selY = Math.min(tilesetRefStart.y, tilesetRefCurrent.y);
-      const selW = Math.max(1, Math.abs(tilesetRefCurrent.x - tilesetRefStart.x));
-      const selH = Math.max(1, Math.abs(tilesetRefCurrent.y - tilesetRefStart.y));
-      ctx.fillStyle = "rgba(120, 180, 255, 0.2)";
-      ctx.strokeStyle = "rgba(120, 180, 255, 0.6)";
-      ctx.lineWidth = 1;
-      ctx.fillRect(offsetX + selX, offsetY + selY, selW, selH);
-      ctx.strokeRect(Math.round(offsetX + selX) + 0.5, Math.round(offsetY + selY) + 0.5, selW, selH);
-    }
   };
 
   if (tilesetPreviewImage) {
@@ -800,56 +768,6 @@
     tilesetPreviewPanel.addEventListener("mouseup", stopTilesetPan);
     tilesetPreviewPanel.addEventListener("mouseleave", stopTilesetPan);
 
-    tilesetPreviewPanel.addEventListener("mousedown", (e) => {
-      if (!tilesetRefMode || !tilesetPreviewPanel.classList.contains("visible")) return;
-      if (e.button !== 0) return;
-      e.preventDefault();
-      if (!tilesetPreviewStage) return;
-      const stageRect = tilesetPreviewStage.getBoundingClientRect();
-      const localX = (e.clientX - stageRect.left) / tilesetZoom - tilesetPanX;
-      const localY = (e.clientY - stageRect.top) / tilesetZoom - tilesetPanY;
-      const bounds = getTilesetImageBounds();
-      if (!bounds) return;
-      const clampedX = Math.min(bounds.drawW, Math.max(0, localX - bounds.offsetX));
-      const clampedY = Math.min(bounds.drawH, Math.max(0, localY - bounds.offsetY));
-      tilesetRefStart = { x: clampedX, y: clampedY };
-      tilesetRefCurrent = { x: clampedX, y: clampedY };
-      setGridInputs(clampedX, clampedY, 1, 1);
-      updateTilesetGrid();
-    });
-    tilesetPreviewPanel.addEventListener("mousemove", (e) => {
-      if (!tilesetRefMode || !tilesetRefStart) return;
-      if (!tilesetPreviewStage) return;
-      const stageRect = tilesetPreviewStage.getBoundingClientRect();
-      const localX = (e.clientX - stageRect.left) / tilesetZoom - tilesetPanX;
-      const localY = (e.clientY - stageRect.top) / tilesetZoom - tilesetPanY;
-      const bounds = getTilesetImageBounds();
-      if (!bounds) return;
-      const clampedX = Math.min(bounds.drawW, Math.max(0, localX - bounds.offsetX));
-      const clampedY = Math.min(bounds.drawH, Math.max(0, localY - bounds.offsetY));
-      tilesetRefCurrent = { x: clampedX, y: clampedY };
-      const w = Math.max(1, Math.abs(clampedX - tilesetRefStart.x));
-      const h = Math.max(1, Math.abs(clampedY - tilesetRefStart.y));
-      setGridInputs(tilesetRefStart.x, tilesetRefStart.y, w, h);
-      updateTilesetGrid();
-    });
-    const stopTilesetRef = () => {
-      if (!tilesetRefStart) return;
-      tilesetRefStart = null;
-      tilesetRefCurrent = null;
-      updateTilesetGrid();
-    };
-    tilesetPreviewPanel.addEventListener("mouseup", stopTilesetRef);
-    tilesetPreviewPanel.addEventListener("mouseleave", stopTilesetRef);
-  }
-
-  if (tilesetGridRefButton && tilesetPreviewPanel) {
-    tilesetGridRefButton.addEventListener("click", () => {
-      tilesetRefMode = !tilesetRefMode;
-      tilesetGridRefButton.classList.toggle("active", tilesetRefMode);
-      tilesetPreviewPanel.classList.toggle("ref-mode", tilesetRefMode);
-      tilesetRefStart = null;
-    });
   }
   window.addEventListener("resize", updateTilesetGrid);
 
