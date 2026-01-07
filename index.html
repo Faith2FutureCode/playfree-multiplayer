@@ -565,6 +565,7 @@
   let tilesetPanStartY = 0;
   let tilesetRefMode = false;
   let tilesetRefStart = null;
+  let tilesetRefCurrent = null;
   const setAuthorClass = (enabled) => {
     document.body.classList.toggle("author", enabled);
   };
@@ -742,6 +743,18 @@
       ctx.lineTo(offsetX + drawW, Math.round(py) + 0.5);
     }
     ctx.stroke();
+
+    if (tilesetRefStart && tilesetRefCurrent) {
+      const selX = Math.min(tilesetRefStart.x, tilesetRefCurrent.x);
+      const selY = Math.min(tilesetRefStart.y, tilesetRefCurrent.y);
+      const selW = Math.max(1, Math.abs(tilesetRefCurrent.x - tilesetRefStart.x));
+      const selH = Math.max(1, Math.abs(tilesetRefCurrent.y - tilesetRefStart.y));
+      ctx.fillStyle = "rgba(120, 180, 255, 0.2)";
+      ctx.strokeStyle = "rgba(120, 180, 255, 0.6)";
+      ctx.lineWidth = 1;
+      ctx.fillRect(offsetX + selX, offsetY + selY, selW, selH);
+      ctx.strokeRect(Math.round(offsetX + selX) + 0.5, Math.round(offsetY + selY) + 0.5, selW, selH);
+    }
   };
 
   if (tilesetPreviewImage) {
@@ -800,6 +813,7 @@
       const clampedX = Math.min(bounds.drawW, Math.max(0, localX - bounds.offsetX));
       const clampedY = Math.min(bounds.drawH, Math.max(0, localY - bounds.offsetY));
       tilesetRefStart = { x: clampedX, y: clampedY };
+      tilesetRefCurrent = { x: clampedX, y: clampedY };
       setGridInputs(clampedX, clampedY, 1, 1);
       updateTilesetGrid();
     });
@@ -813,6 +827,7 @@
       if (!bounds) return;
       const clampedX = Math.min(bounds.drawW, Math.max(0, localX - bounds.offsetX));
       const clampedY = Math.min(bounds.drawH, Math.max(0, localY - bounds.offsetY));
+      tilesetRefCurrent = { x: clampedX, y: clampedY };
       const w = Math.max(1, Math.abs(clampedX - tilesetRefStart.x));
       const h = Math.max(1, Math.abs(clampedY - tilesetRefStart.y));
       setGridInputs(tilesetRefStart.x, tilesetRefStart.y, w, h);
@@ -821,6 +836,8 @@
     const stopTilesetRef = () => {
       if (!tilesetRefStart) return;
       tilesetRefStart = null;
+      tilesetRefCurrent = null;
+      updateTilesetGrid();
     };
     tilesetPreviewPanel.addEventListener("mouseup", stopTilesetRef);
     tilesetPreviewPanel.addEventListener("mouseleave", stopTilesetRef);
