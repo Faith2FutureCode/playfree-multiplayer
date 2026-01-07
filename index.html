@@ -12,12 +12,22 @@
       overflow:hidden;
       position: relative;
     }
-    :root { --canvas-width: 960px; --canvas-height: 720px; --editor-width: 0px; --tile: 16px; }
+    :root {
+      --frame-width: 960px;
+      --frame-height: 720px;
+      --canvas-width: 960px;
+      --canvas-height: 720px;
+      --editor-width: 0px;
+      --tile: 16px;
+    }
     canvas { display:block; margin:0 auto; image-rendering: pixelated; image-rendering: crisp-edges; }
     .game-shell {
       position: relative;
-      width: var(--canvas-width);
-      height: var(--canvas-height);
+      width: var(--frame-width);
+      height: var(--frame-height);
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     .tileset-preview {
       position: absolute;
@@ -125,7 +135,7 @@
       align-items: flex-start;
       gap: 0;
       margin: 0;
-      width: calc(var(--canvas-width) + var(--editor-width));
+      width: calc(var(--frame-width) + var(--editor-width));
       transition: width 0.15s ease;
     }
     .editor-panel {
@@ -853,15 +863,21 @@
   off.height = BASE_H;
   const g = off.getContext("2d", { alpha: false });
 
-  const applyLayoutVars = (displayW, displayH) => {
-    const cw = displayW ?? (canvas.clientWidth || canvas.width);
-    const ch = displayH ?? (canvas.clientHeight || canvas.height);
-    const targetWidth = Math.round(ch * (16 / 9));
-    const editorTotal = Math.max(0, targetWidth - cw);
-    const editorWidth = editorOpen ? editorTotal : 0;
+  let lastFrameW = null;
+  let lastFrameH = null;
+  const applyLayoutVars = (frameW, frameH, canvasW, canvasH) => {
+    const cw = canvasW ?? (canvas.clientWidth || canvas.width);
+    const ch = canvasH ?? (canvas.clientHeight || canvas.height);
+    const fw = frameW ?? lastFrameW ?? cw;
+    const fh = frameH ?? lastFrameH ?? ch;
+    const editorWidth = editorOpen ? Math.min(360, Math.round(fw * 0.32)) : 0;
+    document.documentElement.style.setProperty("--frame-width", `${fw}px`);
+    document.documentElement.style.setProperty("--frame-height", `${fh}px`);
     document.documentElement.style.setProperty("--canvas-width", `${cw}px`);
     document.documentElement.style.setProperty("--canvas-height", `${ch}px`);
     document.documentElement.style.setProperty("--editor-width", `${editorWidth}px`);
+    if (frameW) lastFrameW = frameW;
+    if (frameH) lastFrameH = frameH;
   };
 
   const getViewportSize = () => {
@@ -874,15 +890,19 @@
   const applyScale = () => {
     // Scale smoothly to fit viewport while preserving aspect ratio (no integer step jumps)
     const { vw, vh } = getViewportSize();
-    const scale = Math.min(vw / BASE_W, vh / BASE_H);
+    const frameBaseW = BASE_H * (16 / 9);
+    const frameBaseH = BASE_H;
+    const scale = Math.min(vw / frameBaseW, vh / frameBaseH);
     SCALE = scale;
     canvas.width = BASE_W;
     canvas.height = BASE_H;
     const displayW = BASE_W * scale;
     const displayH = BASE_H * scale;
+    const frameW = frameBaseW * scale;
+    const frameH = frameBaseH * scale;
     canvas.style.width = `${displayW}px`;
     canvas.style.height = `${displayH}px`;
-    applyLayoutVars(displayW, displayH);
+    applyLayoutVars(frameW, frameH, displayW, displayH);
   };
 
   applyScale();
