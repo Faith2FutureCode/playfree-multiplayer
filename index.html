@@ -1106,8 +1106,12 @@
 
   function setTilesheetOpen(open) {
     if (!tilesheetPopout) return;
+    if (!open && tilesheetPopout.contains(document.activeElement)) {
+      document.activeElement.blur();
+    }
     tilesheetPopout.classList.toggle("open", open);
     tilesheetPopout.setAttribute("aria-hidden", open ? "false" : "true");
+    tilesheetPopout.inert = !open;
   }
 
   function renderTilesheetPreview() {
