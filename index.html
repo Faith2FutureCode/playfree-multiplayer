@@ -31,6 +31,7 @@
     }
     .tileset-preview.visible { display: flex; }
     .tileset-preview.panning { cursor: grabbing; }
+    .tileset-preview.ref-mode { cursor: crosshair; }
     .tileset-preview-sidebar {
       width: 160px;
       height: 100%;
@@ -70,6 +71,20 @@
       display: grid;
       grid-template-columns: auto 1fr;
       gap: 4px 6px;
+    }
+    .tileset-tools-button {
+      width: 100%;
+      border: 2px solid #000;
+      background: #1a2640;
+      color: #dfe7ff;
+      font: 12px/1.2 "VT323", monospace;
+      padding: 4px 6px;
+      text-align: left;
+      cursor: pointer;
+    }
+    .tileset-tools-button.active {
+      background: #2a3a5c;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
     }
     .tileset-tools-grid input {
       width: 100%;
@@ -420,6 +435,8 @@
             <span class="tileset-tools-close" aria-hidden="true">X</span>
           </div>
           <div class="tileset-tools-grid">
+            <span></span>
+            <button class="tileset-tools-button" id="tileset-grid-ref" type="button">Grid Reference</button>
             <label for="tileset-grid-x">X:</label>
             <input id="tileset-grid-x" type="text" value="0" inputmode="numeric"/>
             <label for="tileset-grid-y">Y:</label>
@@ -532,6 +549,7 @@
   const tilesetPreviewStage = document.querySelector(".tileset-preview-stage");
   const tilesetPreviewImage = document.getElementById("tileset-preview-image");
   const tilesetPreviewGrid = document.getElementById("tileset-preview-grid");
+  const tilesetGridRefButton = document.getElementById("tileset-grid-ref");
   const tilesetGridX = document.getElementById("tileset-grid-x");
   const tilesetGridY = document.getElementById("tileset-grid-y");
   const tilesetGridW = document.getElementById("tileset-grid-w");
@@ -545,6 +563,8 @@
   let tilesetPanning = false;
   let tilesetPanStartX = 0;
   let tilesetPanStartY = 0;
+  let tilesetRefMode = false;
+  let tilesetRefStart = null;
   const setAuthorClass = (enabled) => {
     document.body.classList.toggle("author", enabled);
   };
@@ -653,6 +673,28 @@
     return Number.isFinite(n) ? n : fallback;
   };
 
+  const getTilesetImageBounds = () => {
+    if (!tilesetPreviewImage) return null;
+    const baseW = tilesetPreviewImage.offsetWidth;
+    const baseH = tilesetPreviewImage.offsetHeight;
+    if (baseW <= 0 || baseH <= 0) return null;
+    const naturalW = tilesetPreviewImage.naturalWidth || baseW;
+    const naturalH = tilesetPreviewImage.naturalHeight || baseH;
+    const scale = Math.min(baseW / naturalW, baseH / naturalH);
+    const drawW = naturalW * scale;
+    const drawH = naturalH * scale;
+    const offsetX = (baseW - drawW) / 2;
+    const offsetY = (baseH - drawH) / 2;
+    return { baseW, baseH, drawW, drawH, offsetX, offsetY };
+  };
+
+  const setGridInputs = (x, y, w, h) => {
+    if (tilesetGridX) tilesetGridX.value = `${Math.max(0, Math.round(x))}`;
+    if (tilesetGridY) tilesetGridY.value = `${Math.max(0, Math.round(y))}`;
+    if (tilesetGridW) tilesetGridW.value = `${Math.max(1, Math.round(w))}`;
+    if (tilesetGridH) tilesetGridH.value = `${Math.max(1, Math.round(h))}`;
+  };
+
   const setTilesetZoom = (nextZoom, anchorX = 0.5, anchorY = 0.5) => {
     tilesetZoom = Math.min(6, Math.max(0.5, nextZoom));
     if (tilesetPreviewStage) {
@@ -668,21 +710,14 @@
       ctx && ctx.clearRect(0, 0, tilesetPreviewGrid.width, tilesetPreviewGrid.height);
       return;
     }
-    const baseW = tilesetPreviewImage.offsetWidth;
-    const baseH = tilesetPreviewImage.offsetHeight;
-    if (baseW <= 0 || baseH <= 0) return;
-    tilesetPreviewGrid.width = Math.round(baseW);
-    tilesetPreviewGrid.height = Math.round(baseH);
+    const bounds = getTilesetImageBounds();
+    if (!bounds) return;
+    tilesetPreviewGrid.width = Math.round(bounds.baseW);
+    tilesetPreviewGrid.height = Math.round(bounds.baseH);
     const ctx = tilesetPreviewGrid.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, tilesetPreviewGrid.width, tilesetPreviewGrid.height);
-    const naturalW = tilesetPreviewImage.naturalWidth || baseW;
-    const naturalH = tilesetPreviewImage.naturalHeight || baseH;
-    const scale = Math.min(baseW / naturalW, baseH / naturalH);
-    const drawW = naturalW * scale;
-    const drawH = naturalH * scale;
-    const offsetX = (baseW - drawW) / 2;
-    const offsetY = (baseH - drawH) / 2;
+    const { drawW, drawH, offsetX, offsetY } = bounds;
     const x = readGridValue(tilesetGridX, 0);
     const y = readGridValue(tilesetGridY, 0);
     const w = Math.max(1, readGridValue(tilesetGridW, 16));
@@ -751,6 +786,53 @@
     };
     tilesetPreviewPanel.addEventListener("mouseup", stopTilesetPan);
     tilesetPreviewPanel.addEventListener("mouseleave", stopTilesetPan);
+
+    tilesetPreviewPanel.addEventListener("mousedown", (e) => {
+      if (!tilesetRefMode || !tilesetPreviewPanel.classList.contains("visible")) return;
+      if (e.button !== 0) return;
+      e.preventDefault();
+      if (!tilesetPreviewStage) return;
+      const stageRect = tilesetPreviewStage.getBoundingClientRect();
+      const localX = (e.clientX - stageRect.left) / tilesetZoom - tilesetPanX;
+      const localY = (e.clientY - stageRect.top) / tilesetZoom - tilesetPanY;
+      const bounds = getTilesetImageBounds();
+      if (!bounds) return;
+      const clampedX = Math.min(bounds.drawW, Math.max(0, localX - bounds.offsetX));
+      const clampedY = Math.min(bounds.drawH, Math.max(0, localY - bounds.offsetY));
+      tilesetRefStart = { x: clampedX, y: clampedY };
+      setGridInputs(clampedX, clampedY, 1, 1);
+      updateTilesetGrid();
+    });
+    tilesetPreviewPanel.addEventListener("mousemove", (e) => {
+      if (!tilesetRefMode || !tilesetRefStart) return;
+      if (!tilesetPreviewStage) return;
+      const stageRect = tilesetPreviewStage.getBoundingClientRect();
+      const localX = (e.clientX - stageRect.left) / tilesetZoom - tilesetPanX;
+      const localY = (e.clientY - stageRect.top) / tilesetZoom - tilesetPanY;
+      const bounds = getTilesetImageBounds();
+      if (!bounds) return;
+      const clampedX = Math.min(bounds.drawW, Math.max(0, localX - bounds.offsetX));
+      const clampedY = Math.min(bounds.drawH, Math.max(0, localY - bounds.offsetY));
+      const w = Math.max(1, Math.abs(clampedX - tilesetRefStart.x));
+      const h = Math.max(1, Math.abs(clampedY - tilesetRefStart.y));
+      setGridInputs(tilesetRefStart.x, tilesetRefStart.y, w, h);
+      updateTilesetGrid();
+    });
+    const stopTilesetRef = () => {
+      if (!tilesetRefStart) return;
+      tilesetRefStart = null;
+    };
+    tilesetPreviewPanel.addEventListener("mouseup", stopTilesetRef);
+    tilesetPreviewPanel.addEventListener("mouseleave", stopTilesetRef);
+  }
+
+  if (tilesetGridRefButton && tilesetPreviewPanel) {
+    tilesetGridRefButton.addEventListener("click", () => {
+      tilesetRefMode = !tilesetRefMode;
+      tilesetGridRefButton.classList.toggle("active", tilesetRefMode);
+      tilesetPreviewPanel.classList.toggle("ref-mode", tilesetRefMode);
+      tilesetRefStart = null;
+    });
   }
   window.addEventListener("resize", updateTilesetGrid);
 
