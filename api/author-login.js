@@ -1,4 +1,5 @@
 import {
+  hasPassConfig,
   isPassValid,
   issueAuthorCookie,
   readJson,
@@ -13,6 +14,12 @@ export default async function handler(req, res) {
     return;
   }
   setNoCache(res);
+  if (!hasPassConfig()) {
+    res.statusCode = 500;
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ author: false, error: "server_misconfigured" }));
+    return;
+  }
   const body = await readJson(req);
   const pass = typeof body.pass === "string" ? body.pass : "";
   if (!pass || !isPassValid(pass)) {

@@ -1,0 +1,1 @@
+make me a complete script follow by what i should display on the screen during the script and the timing in second 180 words per minute

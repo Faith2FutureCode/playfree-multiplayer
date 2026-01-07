@@ -105,6 +105,15 @@
       outline: none;
       box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
     }
+    .editor-field select {
+      background: #0f182a;
+      border: 2px solid #000;
+      color: #dfe7ff;
+      padding: 6px 8px;
+      font: 12px "Press Start 2P", "VT323", monospace;
+      outline: none;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
+    }
     .editor-actions {
       margin-top: 10px;
       display: flex;
@@ -128,6 +137,36 @@
       box-shadow: inset 0 0 0 2px #f6d341;
     }
     .editor-hint { margin-top: 10px; font-size: 10px; color: #9fb3ff; }
+    .editor-hint[data-state="error"] { color: #ff9b9b; }
+    .editor-hint[data-state="success"] { color: #b5f7a1; }
+    .palette-context-menu {
+      position: fixed;
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+      padding: 6px;
+      background: #0f182a;
+      border: 2px solid #000;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
+      z-index: 300;
+      font: 10px/1.3 "Press Start 2P", "VT323", monospace;
+      color: #dfe7ff;
+    }
+    .palette-context-menu.open { display: flex; }
+    .palette-context-menu button {
+      background: #123;
+      border: 2px solid #000;
+      color: #f6d341;
+      padding: 4px 6px;
+      font: inherit;
+      cursor: pointer;
+      text-align: left;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
+    }
+    .palette-context-menu button:hover {
+      background: #1c2f55;
+      color: #fff;
+    }
     body.editor-open .game-shell canvas { cursor: none; }
     /* HUD now rendered on canvas; hide DOM HUD shell */
     .hud { display:none; }
@@ -294,13 +333,39 @@
         <div class="editor-tile" data-tile="P" title="Player Spawn"><canvas class="tile-preview" width="8" height="8" data-tile="P"></canvas></div>
       </div>
     </div>
+    <div class="editor-section">
+      <h4>UNDEFINED</h4>
+      <div class="editor-grid" id="undefined-grid"></div>
+    </div>
     <div class="editor-section author-only">
       <h4>AUTHOR TOOLS</h4>
       <div class="editor-field">
         <label for="sprite-upload">Sprite Upload</label>
         <input id="sprite-upload" type="file" accept="image/png, image/jpeg"/>
       </div>
-      <div class="editor-hint">Author-only tools</div>
+      <div class="editor-field">
+        <label for="sprite-upload-category">Palette Category</label>
+        <select id="sprite-upload-category">
+          <option value="undefined" selected>Undefined</option>
+          <option value="terrain">Terrain</option>
+          <option value="objects">Objects</option>
+          <option value="enemies">Enemies</option>
+          <option value="spawns">Spawns</option>
+        </select>
+      </div>
+      <div class="editor-actions">
+        <button id="publish-level-button" type="button">Publish Draft</button>
+        <button id="export-level-button" type="button">Export Level</button>
+        <button id="import-level-button" type="button">Import Level</button>
+        <input id="import-level-input" type="file" accept="application/json" style="display:none"/>
+      </div>
+      <div id="sprite-upload-status" class="editor-hint" data-state="idle">Upload a square PNG/JPG (max 256x256).</div>
+    </div>
+    <div class="editor-section">
+      <h4>LEVEL</h4>
+      <div class="editor-actions">
+        <button id="reset-level-button" type="button">Reset Level</button>
+      </div>
     </div>
     <div class="editor-field">
       <label for="editor-label-input">Label</label>
@@ -314,6 +379,13 @@
       </div>
     </div>
     <div class="editor-hint">Left click paint · Right click erase · E to toggle</div>
+  </div>
+  <div id="palette-context-menu" class="palette-context-menu" aria-hidden="true">
+    <button type="button" data-category="terrain">Terrain</button>
+    <button type="button" data-category="objects">Objects</button>
+    <button type="button" data-category="enemies">Enemies</button>
+    <button type="button" data-category="spawns">Spawns</button>
+    <button type="button" data-category="undefined">Undefined</button>
   </div>
   <div class="game-shell">
     <canvas id="c" width="912" height="816"></canvas>
@@ -407,6 +479,7 @@
   const AUTHOR_LOGIN_ENDPOINT = "/api/author-login";
   const AUTHOR_LOGOUT_ENDPOINT = "/api/author-logout";
   const AUTHOR_STATUS_ENDPOINT = "/api/author-status";
+  const AUTHOR_DIAGNOSTICS_ENDPOINT = "/api/author-diagnostics";
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d", { alpha: false });
   const setAuthorClass = (enabled) => {
@@ -428,8 +501,22 @@
       return false;
     }
   }
+  function formatAuthorError(error) {
+    if (!error) return "Author login failed.";
+    if (error === "server_misconfigured") {
+      return "Author login failed: server missing config.";
+    }
+    if (error === "network_error") {
+      return "Author login failed: network error.";
+    }
+    if (error.startsWith("http_")) {
+      const code = error.split("_")[1] || "error";
+      return `Author login failed: server error (${code}).`;
+    }
+    return "Author login failed.";
+  }
   async function authorLogin(pass) {
-    if (!pass) return false;
+    if (!pass) return { ok: false, error: "empty" };
     try {
       const res = await fetch(AUTHOR_LOGIN_ENDPOINT, {
         method: "POST",
@@ -437,16 +524,17 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pass }),
       });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setAuthorClass(false);
-        return false;
+        const error = data && data.error ? data.error : `http_${res.status}`;
+        return { ok: false, error };
       }
-      const data = await res.json();
       const enabled = Boolean(data && data.author);
       setAuthorClass(enabled);
-      return enabled;
+      return { ok: enabled, error: enabled ? null : data && data.error ? data.error : "login_failed" };
     } catch (err) {
-      return false;
+      return { ok: false, error: "network_error" };
     }
   }
   async function authorLogout() {
@@ -460,6 +548,15 @@
     }
     setAuthorClass(false);
     return false;
+  }
+  async function authorDiagnostics() {
+    try {
+      const res = await fetch(AUTHOR_DIAGNOSTICS_ENDPOINT, { credentials: "include" });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (err) {
+      return null;
+    }
   }
   function handleAuthorCommand(text) {
     const raw = text.replace("/author", "").trim();
@@ -478,6 +575,18 @@
     if (action === "status") {
       refreshAuthorStatus().then((enabled) => {
         pushSystemChat(enabled ? "Author mode enabled." : "Author mode disabled.");
+      });
+      return false;
+    }
+    if (action === "diag" || action === "diagnostics") {
+      authorDiagnostics().then((data) => {
+        if (!data) {
+          pushSystemChat("Author diagnostics failed.");
+          return;
+        }
+        const pass = data.hasPassphraseHash ? "yes" : "no";
+        const token = data.hasTokenSecret ? "yes" : "no";
+        pushSystemChat(`Author diagnostics: hash=${pass}, secret=${token}.`);
       });
       return false;
     }
@@ -589,6 +698,7 @@
     }
     editorOpen = next;
     document.body.classList.toggle("editor-open", editorOpen);
+    if (!editorOpen) closePaletteContextMenu();
     applyLayoutVars();
   }
 
@@ -599,6 +709,318 @@
   }
 
   const TILE = 16;
+  const MAX_UPLOAD_BYTES = 128 * 1024;
+  const MAX_UPLOAD_DIM = 256;
+  const CUSTOM_TILE_LIMIT = 32;
+  const ALLOWED_UPLOAD_TYPES = new Set(["image/png", "image/jpeg"]);
+  const tileRegistry = new Map();
+  const customTiles = [];
+  let customTileCounter = 0;
+  const spriteUploadInput = document.getElementById("sprite-upload");
+  const spriteUploadStatus = document.getElementById("sprite-upload-status");
+  const spriteUploadCategory = document.getElementById("sprite-upload-category");
+  const paletteContextMenu = document.getElementById("palette-context-menu");
+  const publishLevelButton = document.getElementById("publish-level-button");
+  const exportLevelButton = document.getElementById("export-level-button");
+  const importLevelButton = document.getElementById("import-level-button");
+  const importLevelInput = document.getElementById("import-level-input");
+  const resetLevelButton = document.getElementById("reset-level-button");
+  const DRAFT_PAYLOAD_KEY = "playfree.level.draft.v1";
+  const PUBLISHED_PAYLOAD_KEY = "playfree.level.published.v1";
+  const PAYLOAD_VERSION = 1;
+  const CATEGORY_GRID_IDS = {
+    terrain: "terrain-grid",
+    objects: "object-grid",
+    enemies: "enemy-grid",
+    spawns: "spawn-grid",
+    undefined: "undefined-grid",
+  };
+  const CATEGORY_LABELS = {
+    terrain: "Terrain",
+    objects: "Objects",
+    enemies: "Enemies",
+    spawns: "Spawns",
+    undefined: "Undefined",
+  };
+  let paletteContextEntry = null;
+
+  function setUploadStatus(message, state = "idle") {
+    if (!spriteUploadStatus) return;
+    spriteUploadStatus.textContent = message;
+    spriteUploadStatus.dataset.state = state;
+  }
+
+  function getPaletteGrid(category) {
+    const id = CATEGORY_GRID_IDS[category] || CATEGORY_GRID_IDS.undefined || CATEGORY_GRID_IDS.objects;
+    return document.getElementById(id);
+  }
+
+  function createPaletteTile(entry) {
+    const tileEl = document.createElement("div");
+    tileEl.className = "editor-tile";
+    tileEl.dataset.tile = entry.id;
+    tileEl.dataset.custom = "1";
+    tileEl.title = entry.name || "Custom";
+    const canvasEl = document.createElement("canvas");
+    canvasEl.className = "tile-preview";
+    canvasEl.width = 8;
+    canvasEl.height = 8;
+    canvasEl.setAttribute("data-tile", entry.id);
+    tileEl.appendChild(canvasEl);
+    tileEl.addEventListener("click", () => {
+      selectEditorTile(entry.id, tileEl);
+    });
+    tileEl.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openPaletteContextMenu(entry, e.clientX, e.clientY);
+    });
+    return tileEl;
+  }
+
+  function addCustomTileToPalette(entry) {
+    const grid = getPaletteGrid(entry.category);
+    if (!grid) return null;
+    const tileEl = createPaletteTile(entry);
+    grid.appendChild(tileEl);
+    renderPalettePreviews();
+    return tileEl;
+  }
+
+  function clearCustomPaletteEntries() {
+    document.querySelectorAll(".editor-tile[data-custom='1']").forEach((node) => {
+      node.remove();
+    });
+  }
+
+  function sanitizeTileName(name) {
+    const base = (name || "Custom").replace(/\.[^.]+$/, "").trim();
+    const safe = base.replace(/[^\w\- ]+/g, "").trim();
+    return (safe || "Custom").slice(0, 24);
+  }
+
+  function normalizeCategory(raw) {
+    if (raw && CATEGORY_GRID_IDS[raw]) return raw;
+    return "undefined";
+  }
+
+  function categoryLabel(category) {
+    return CATEGORY_LABELS[category] || "Objects";
+  }
+
+  function closePaletteContextMenu() {
+    if (!paletteContextMenu) return;
+    paletteContextMenu.classList.remove("open");
+    paletteContextMenu.setAttribute("aria-hidden", "true");
+    paletteContextEntry = null;
+  }
+
+  function openPaletteContextMenu(entry, clientX, clientY) {
+    if (!paletteContextMenu || !entry) return;
+    paletteContextEntry = entry;
+    paletteContextMenu.classList.add("open");
+    paletteContextMenu.setAttribute("aria-hidden", "false");
+    paletteContextMenu.style.left = "0px";
+    paletteContextMenu.style.top = "0px";
+    const rect = paletteContextMenu.getBoundingClientRect();
+    const maxX = Math.max(8, window.innerWidth - rect.width - 8);
+    const maxY = Math.max(8, window.innerHeight - rect.height - 8);
+    const left = Math.min(Math.max(8, clientX), maxX);
+    const top = Math.min(Math.max(8, clientY), maxY);
+    paletteContextMenu.style.left = `${left}px`;
+    paletteContextMenu.style.top = `${top}px`;
+  }
+
+  function moveCustomTileToCategory(entry, category) {
+    if (!entry) return;
+    const nextCategory = normalizeCategory(category);
+    if (entry.category === nextCategory) return;
+    const wasSelected = editorTile === entry.id;
+    entry.category = nextCategory;
+    document.querySelectorAll(`.editor-tile[data-custom='1'][data-tile="${entry.id}"]`).forEach((node) => {
+      node.remove();
+    });
+    const tileEl = addCustomTileToPalette(entry);
+    if (wasSelected && tileEl) selectEditorTile(entry.id, tileEl);
+    setUploadStatus(`Moved ${entry.name || entry.id} to ${categoryLabel(nextCategory)}.`, "success");
+    queueDraftSave();
+  }
+
+  function nextCustomTileId() {
+    customTileCounter += 1;
+    return `custom:${String(customTileCounter).padStart(3, "0")}`;
+  }
+
+  function estimateDataUrlBytes(dataUrl) {
+    if (typeof dataUrl !== "string") return 0;
+    const idx = dataUrl.indexOf("base64,");
+    if (idx === -1) return 0;
+    const base64 = dataUrl.slice(idx + 7);
+    return Math.floor((base64.length * 3) / 4);
+  }
+
+  function createImageFromDataUrl(dataUrl) {
+    const img = new Image();
+    img.onload = () => {
+      renderPalettePreviews();
+    };
+    img.src = dataUrl;
+    return img;
+  }
+
+  function registerCustomTile(entry, options = {}) {
+    const { skipPalette = false } = options;
+    entry.image = createImageFromDataUrl(entry.png);
+    tileRegistry.set(entry.id, entry);
+    customTiles.push(entry);
+    const match = /^custom:(\d+)/.exec(entry.id);
+    if (match) {
+      const num = Number(match[1]);
+      if (Number.isFinite(num)) customTileCounter = Math.max(customTileCounter, num);
+    }
+    if (!skipPalette) addCustomTileToPalette(entry);
+  }
+
+  function loadCustomTiles(entries) {
+    tileRegistry.clear();
+    customTiles.length = 0;
+    customTileCounter = 0;
+    clearCustomPaletteEntries();
+    (entries || []).forEach((entry) => {
+      registerCustomTile(entry, { skipPalette: true });
+    });
+    customTiles.forEach((entry) => addCustomTileToPalette(entry));
+  }
+
+  function loadImageFromFile(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        resolve(img);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("image_load_failed"));
+      };
+      img.src = url;
+    });
+  }
+
+  async function handleSpriteUpload(file) {
+    if (!file) return;
+    const ext = (file.name || "").toLowerCase().split(".").pop();
+    const typeOk = ALLOWED_UPLOAD_TYPES.has(file.type) || ["png", "jpg", "jpeg"].includes(ext);
+    if (!typeOk) {
+      setUploadStatus("Only PNG or JPG files are allowed.", "error");
+      return;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setUploadStatus(`File too large (max ${Math.round(MAX_UPLOAD_BYTES / 1024)} KB).`, "error");
+      return;
+    }
+    if (customTiles.length >= CUSTOM_TILE_LIMIT) {
+      setUploadStatus("Custom tile limit reached.", "error");
+      return;
+    }
+    let img;
+    try {
+      img = await loadImageFromFile(file);
+    } catch (err) {
+      setUploadStatus("Could not read image file.", "error");
+      return;
+    }
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    if (!w || !h) {
+      setUploadStatus("Invalid image dimensions.", "error");
+      return;
+    }
+    if (w !== h) {
+      setUploadStatus("Image must be square.", "error");
+      return;
+    }
+    if (w > MAX_UPLOAD_DIM) {
+      setUploadStatus(`Max size is ${MAX_UPLOAD_DIM}x${MAX_UPLOAD_DIM}.`, "error");
+      return;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = TILE;
+    canvas.height = TILE;
+    const c = canvas.getContext("2d", { alpha: true });
+    c.imageSmoothingEnabled = false;
+    c.clearRect(0, 0, TILE, TILE);
+    c.drawImage(img, 0, 0, TILE, TILE);
+    const png = canvas.toDataURL("image/png");
+    const category = normalizeCategory(spriteUploadCategory ? spriteUploadCategory.value : "undefined");
+    const entry = {
+      id: nextCustomTileId(),
+      name: sanitizeTileName(file.name),
+      category,
+      source: "custom",
+      w: TILE,
+      h: TILE,
+      png,
+    };
+    registerCustomTile(entry);
+    setUploadStatus(`Uploaded ${entry.name} (${entry.id}).`, "success");
+    queueDraftSave();
+  }
+
+  if (paletteContextMenu) {
+    paletteContextMenu.addEventListener("click", (e) => {
+      const button = e.target.closest("button[data-category]");
+      if (!button || !paletteContextEntry) return;
+      moveCustomTileToCategory(paletteContextEntry, button.getAttribute("data-category"));
+      closePaletteContextMenu();
+    });
+  }
+  document.addEventListener("mousedown", (e) => {
+    if (!paletteContextMenu || !paletteContextMenu.classList.contains("open")) return;
+    if (!paletteContextMenu.contains(e.target)) closePaletteContextMenu();
+  });
+  window.addEventListener("blur", () => {
+    closePaletteContextMenu();
+  });
+  window.addEventListener("keydown", (e) => {
+    if (e.code === "Escape") closePaletteContextMenu();
+  });
+
+  if (spriteUploadInput) {
+    spriteUploadInput.addEventListener("change", () => {
+      const file = spriteUploadInput.files && spriteUploadInput.files[0];
+      spriteUploadInput.value = "";
+      handleSpriteUpload(file);
+    });
+  }
+  if (publishLevelButton) {
+    publishLevelButton.addEventListener("click", () => {
+      publishDraftPayload();
+    });
+  }
+  if (exportLevelButton) {
+    exportLevelButton.addEventListener("click", () => {
+      exportLevelPayload();
+    });
+  }
+  if (importLevelButton && importLevelInput) {
+    importLevelButton.addEventListener("click", () => {
+      importLevelInput.click();
+    });
+  }
+  if (importLevelInput) {
+    importLevelInput.addEventListener("change", () => {
+      const file = importLevelInput.files && importLevelInput.files[0];
+      importLevelInput.value = "";
+      if (file) importLevelPayload(file);
+    });
+  }
+  if (resetLevelButton) {
+    resetLevelButton.addEventListener("click", () => {
+      resetLevelToGolden();
+    });
+  }
   const params = new URLSearchParams(location.search);
   const MP_ENABLED = params.get("mp") !== "0";
   // Default to shared lobby relay; override via ?mpUrl=ws://localhost:3001 for local dev
@@ -887,8 +1309,8 @@
       pushSystemChat("Author login cancelled.");
       return;
     }
-    authorLogin(raw).then((ok) => {
-      pushSystemChat(ok ? "Author mode enabled." : "Author login failed.");
+    authorLogin(raw).then(({ ok, error }) => {
+      pushSystemChat(ok ? "Author mode enabled." : formatAuthorError(error));
     });
   }
   window.addEventListener("keydown", (e) => {
@@ -980,6 +1402,7 @@
   const objectGrid = document.getElementById("object-grid");
   const enemyGrid = document.getElementById("enemy-grid");
   const spawnGrid = document.getElementById("spawn-grid");
+  const undefinedGrid = document.getElementById("undefined-grid");
   const labelInput = document.getElementById("editor-label-input");
   const textStampInput = document.getElementById("editor-text-stamp");
   const textStampButton = document.getElementById("editor-stamp-button");
@@ -1013,8 +1436,9 @@
   wirePaletteGrid(objectGrid);
   wirePaletteGrid(enemyGrid);
   wirePaletteGrid(spawnGrid);
+  wirePaletteGrid(undefinedGrid);
   // default select ground
-  const first = (terrainGrid || objectGrid || enemyGrid || spawnGrid)?.querySelector(".editor-tile");
+  const first = (terrainGrid || objectGrid || enemyGrid || spawnGrid || undefinedGrid)?.querySelector(".editor-tile");
   if (first) selectEditorTile(first.getAttribute("data-tile") || "#", first);
   if (labelInput) {
     // prevent global hotkeys from interfering while typing
@@ -1065,6 +1489,7 @@
     if (!changes || changes.length === 0) return;
     undoStack.push(changes);
     redoStack.length = 0;
+    queueDraftSave();
   }
 
   function applyChanges(changes, useNext=true) {
@@ -1080,6 +1505,7 @@
         broadcastEditChange(c.tx, c.ty, c.prevTile, c.prevLabel);
       }
     }
+    queueDraftSave();
   }
 
   function undoAction() {
@@ -1102,6 +1528,11 @@
     ctx.imageSmoothingEnabled = false;
     const w = ctx.canvas.width;
     const h = ctx.canvas.height;
+    const custom = tileRegistry.get(t);
+    if (custom && custom.image && custom.image.complete) {
+      ctx.drawImage(custom.image, 0, 0, w, h);
+      return;
+    }
     if (t === "#") {
       ctx.fillStyle = "#3b2f2f";
       ctx.fillRect(0, 0, w, h);
@@ -1371,9 +1802,300 @@
   let mapW = LEVEL[0].length;
   const tiles = LEVEL.map(row => row.split(""));
   const labelMap = new Map(); // key: "tx,ty" -> string
+  const GOLDEN_PAYLOAD = {
+    version: PAYLOAD_VERSION,
+    map: {
+      width: mapW,
+      height: mapH,
+      grid: LEVEL.map(row => row.split("")),
+    },
+    labels: [],
+    customTiles: [],
+  };
+
+  function cloneGrid(grid) {
+    return grid.map(row => row.slice());
+  }
+
+  function serializeLabels() {
+    const out = [];
+    for (const [key, text] of labelMap.entries()) {
+      if (!text) continue;
+      const parts = key.split(",");
+      const tx = Number(parts[0]);
+      const ty = Number(parts[1]);
+      if (!Number.isFinite(tx) || !Number.isFinite(ty)) continue;
+      out.push({ tx, ty, text: String(text).slice(0, 24) });
+    }
+    return out;
+  }
+
+  function buildLevelPayload() {
+    return {
+      version: PAYLOAD_VERSION,
+      map: {
+        width: mapW,
+        height: mapH,
+        grid: cloneGrid(tiles),
+      },
+      labels: serializeLabels(),
+      customTiles: customTiles.map((entry) => ({
+        id: entry.id,
+        name: entry.name,
+        category: normalizeCategory(entry.category),
+        w: entry.w || TILE,
+        h: entry.h || TILE,
+        png: entry.png,
+      })),
+    };
+  }
+
+  function normalizeGrid(raw) {
+    if (!raw) return null;
+    let grid = raw.grid;
+    if (!grid && Array.isArray(raw.rows)) grid = raw.rows;
+    if (!Array.isArray(grid) || grid.length === 0) return null;
+    if (typeof grid[0] === "string") {
+      grid = grid.map(row => String(row).split(""));
+    }
+    if (!Array.isArray(grid[0])) return null;
+    const cleaned = grid.map(row => row.map(cell => (typeof cell === "string" ? cell : ".")));
+    const width = Math.max(1, ...cleaned.map(row => row.length));
+    const normalized = cleaned.map(row => {
+      if (row.length < width) return row.concat(new Array(width - row.length).fill("."));
+      if (row.length > width) return row.slice(0, width);
+      return row;
+    });
+    return { grid: normalized, width, height: normalized.length };
+  }
+
+  function normalizeLabels(raw) {
+    if (!Array.isArray(raw)) return [];
+    const out = [];
+    for (const item of raw) {
+      if (!item || typeof item !== "object") continue;
+      const tx = Number(item.tx);
+      const ty = Number(item.ty);
+      if (!Number.isFinite(tx) || !Number.isFinite(ty)) continue;
+      const text = String(item.text || "").trim();
+      if (!text) continue;
+      out.push({ tx, ty, text: text.slice(0, 24) });
+    }
+    return out;
+  }
+
+  function normalizeCustomTiles(raw) {
+    if (!raw) return { ok: true, tiles: [] };
+    if (!Array.isArray(raw)) return { ok: false, error: "Invalid custom tiles." };
+    if (raw.length > CUSTOM_TILE_LIMIT) {
+      return { ok: false, error: "Too many custom tiles." };
+    }
+    const out = [];
+    const seen = new Set();
+    for (const item of raw) {
+      if (!item || typeof item !== "object") continue;
+      const id = String(item.id || "");
+      if (!id.startsWith("custom:")) {
+        return { ok: false, error: "Custom tile id must start with custom:." };
+      }
+      if (seen.has(id)) {
+        return { ok: false, error: "Duplicate custom tile id." };
+      }
+      const png = String(item.png || "");
+      if (!png.startsWith("data:image/")) {
+        return { ok: false, error: "Custom tile PNG is invalid." };
+      }
+      const size = estimateDataUrlBytes(png);
+      if (size <= 0) {
+        return { ok: false, error: "Custom tile PNG is invalid." };
+      }
+      if (size > MAX_UPLOAD_BYTES) {
+        return { ok: false, error: "Custom tile PNG is too large." };
+      }
+      const category = normalizeCategory(item.category);
+      const name = sanitizeTileName(item.name || "Custom");
+      out.push({
+        id,
+        name,
+        category,
+        source: "custom",
+        w: TILE,
+        h: TILE,
+        png,
+      });
+      seen.add(id);
+    }
+    return { ok: true, tiles: out };
+  }
+
+  function normalizePayload(raw) {
+    if (!raw || typeof raw !== "object") return { ok: false, error: "Invalid payload." };
+    const gridInfo = normalizeGrid(raw.map || raw);
+    if (!gridInfo) return { ok: false, error: "Invalid map grid." };
+    const labels = normalizeLabels(raw.labels);
+    const customTilesResult = normalizeCustomTiles(raw.customTiles || []);
+    if (!customTilesResult.ok) return customTilesResult;
+    const customIds = new Set(customTilesResult.tiles.map(tile => tile.id));
+    for (const row of gridInfo.grid) {
+      for (const cell of row) {
+        if (typeof cell === "string" && cell.startsWith("custom:") && !customIds.has(cell)) {
+          return { ok: false, error: "Map references missing custom tile." };
+        }
+      }
+    }
+    return {
+      ok: true,
+      payload: {
+        version: Number(raw.version) || PAYLOAD_VERSION,
+        map: {
+          width: gridInfo.width,
+          height: gridInfo.height,
+          grid: gridInfo.grid,
+        },
+        labels,
+        customTiles: customTilesResult.tiles,
+      },
+    };
+  }
+
+  function applyLevelPayload(payload, options = {}) {
+    if (!payload || !payload.map || !payload.map.grid) return;
+    const { resetPlayer = false } = options;
+    mapH = payload.map.grid.length;
+    mapW = payload.map.width || (payload.map.grid[0] ? payload.map.grid[0].length : 0);
+    tiles.length = 0;
+    payload.map.grid.forEach(row => tiles.push(row.slice()));
+    updateWorldSize();
+    labelMap.clear();
+    (payload.labels || []).forEach((label) => {
+      if (!Number.isFinite(label.tx) || !Number.isFinite(label.ty)) return;
+      if (!label.text) return;
+      labelMap.set(labelKey(label.tx, label.ty), String(label.text));
+    });
+    loadCustomTiles(payload.customTiles || []);
+    const selectedEl = document.querySelector(`.editor-tile[data-tile="${editorTile}"]`);
+    if (!selectedEl) {
+      const fallback = document.querySelector(".editor-tile");
+      if (fallback) selectEditorTile(fallback.getAttribute("data-tile") || "#", fallback);
+    }
+    updateSpawnFromTiles();
+    if (resetPlayer && typeof resetPlayerToSpawn === "function") {
+      resetPlayerToSpawn();
+    }
+    if (typeof updateLabelInput === "function") {
+      updateLabelInput();
+    }
+  }
+
+  function getStoredPayload(key) {
+    if (typeof localStorage === "undefined") return null;
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    try {
+      const data = JSON.parse(raw);
+      const normalized = normalizePayload(data);
+      if (!normalized.ok) {
+        localStorage.removeItem(key);
+        return null;
+      }
+      return normalized.payload;
+    } catch (err) {
+      localStorage.removeItem(key);
+      return null;
+    }
+  }
+
+  function saveDraftPayload() {
+    if (typeof localStorage === "undefined") return;
+    try {
+      const payload = buildLevelPayload();
+      localStorage.setItem(DRAFT_PAYLOAD_KEY, JSON.stringify(payload));
+    } catch (err) {
+      // ignore persistence errors
+    }
+  }
+
+  let draftSaveTimer = null;
+  function queueDraftSave() {
+    if (draftSaveTimer) clearTimeout(draftSaveTimer);
+    draftSaveTimer = setTimeout(() => {
+      saveDraftPayload();
+      draftSaveTimer = null;
+    }, 300);
+  }
+
+  function publishDraftPayload() {
+    if (typeof localStorage === "undefined") return;
+    try {
+      const payload = buildLevelPayload();
+      localStorage.setItem(PUBLISHED_PAYLOAD_KEY, JSON.stringify(payload));
+      localStorage.removeItem(DRAFT_PAYLOAD_KEY);
+      if (draftSaveTimer) {
+        clearTimeout(draftSaveTimer);
+        draftSaveTimer = null;
+      }
+      setUploadStatus("Published draft locally. Export to share.", "success");
+    } catch (err) {
+      setUploadStatus("Publish failed.", "error");
+    }
+  }
+
+  function exportLevelPayload() {
+    const payload = buildLevelPayload();
+    const data = JSON.stringify(payload, null, 2);
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "playfree-level.json";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setUploadStatus("Exported level JSON.", "success");
+  }
+
+  async function importLevelPayload(file) {
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      const normalized = normalizePayload(data);
+      if (!normalized.ok) {
+        setUploadStatus(normalized.error || "Import failed.", "error");
+        return;
+      }
+      applyLevelPayload(normalized.payload, { resetPlayer: true });
+      queueDraftSave();
+      setUploadStatus("Imported level JSON.", "success");
+    } catch (err) {
+      setUploadStatus("Import failed: invalid JSON.", "error");
+    }
+  }
+
+  function resetLevelToGolden() {
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem(DRAFT_PAYLOAD_KEY);
+    }
+    if (draftSaveTimer) {
+      clearTimeout(draftSaveTimer);
+      draftSaveTimer = null;
+    }
+    const published = getStoredPayload(PUBLISHED_PAYLOAD_KEY);
+    const base = published || JSON.parse(JSON.stringify(GOLDEN_PAYLOAD));
+    applyLevelPayload(base, { resetPlayer: true });
+    pushSystemChat("Level reset to original.");
+  }
+
+  function loadInitialPayload() {
+    const published = getStoredPayload(PUBLISHED_PAYLOAD_KEY);
+    const draft = getStoredPayload(DRAFT_PAYLOAD_KEY);
+    const base = draft || published || JSON.parse(JSON.stringify(GOLDEN_PAYLOAD));
+    applyLevelPayload(base);
+  }
 
   function ensureBounds(tx, ty) {
     let grew = false;
+    let grewX = false;
     while (ty >= tiles.length) {
       tiles.push(new Array(mapW).fill("."));
       grew = true;
@@ -1385,7 +2107,9 @@
         for (let i = 0; i < add; i++) row.push(".");
       }
       mapW = tiles[0].length;
+      grewX = true;
     }
+    if (grew || grewX) updateWorldSize();
   }
 
   function inBounds(tx, ty) { return tx >= 0 && ty >= 0 && tx < mapW && ty < mapH; }
@@ -1439,14 +2163,25 @@
     return null;
   }
 
-  const playerSpawn = findChar("P") || { x: 2, y: 2 };
+  const playerSpawn = { x: 2, y: 2 };
 
-  // Replace spawns with empty
-  for (let y = 0; y < mapH; y++) {
-    for (let x = 0; x < mapW; x++) {
-      if (tiles[y][x] === "P") tiles[y][x] = ".";
+  function updateSpawnFromTiles() {
+    const found = findChar("P");
+    if (found) {
+      playerSpawn.x = found.x;
+      playerSpawn.y = found.y;
+    } else {
+      playerSpawn.x = 2;
+      playerSpawn.y = 2;
+    }
+    for (let y = 0; y < mapH; y++) {
+      for (let x = 0; x < mapW; x++) {
+        if (tiles[y][x] === "P") tiles[y][x] = ".";
+      }
     }
   }
+
+  loadInitialPayload();
 
   // Entities
   const entities = [];
@@ -2058,6 +2793,17 @@
     statueTimer: 0,
     statueCooldown: 0,
   };
+  function resetPlayerToSpawn() {
+    player.x = playerSpawn.x * TILE;
+    player.y = playerSpawn.y * TILE;
+    player.vx = 0;
+    player.vy = 0;
+    player.onGround = false;
+    player.hitHead = false;
+    player.state = "ground";
+    player.coyote = 0;
+    player.jumpBuf = 0;
+  }
   let pMeterDisplaySegs = 0;
   let pMeterDecayHold = 0;
   const debugVxEl = document.getElementById("debug-vx");
@@ -2249,8 +2995,12 @@
   // Camera
   // -----------------------------
   const cam = { x: 0, y: 0 };
-  const worldWpx = mapW * TILE;
-  const worldHpx = mapH * TILE;
+  let worldWpx = mapW * TILE;
+  let worldHpx = mapH * TILE;
+  function updateWorldSize() {
+    worldWpx = mapW * TILE;
+    worldHpx = mapH * TILE;
+  }
 
   function updateCamera() {
     const targetX = player.x + player.w/2 - BASE_W/2;
@@ -2263,10 +3013,10 @@
   // -----------------------------
   let deadTimer = 0;
   function restart() {
-    // reset tiles to initial
-    for (let y = 0; y < mapH; y++) tiles[y] = LEVEL[y].split("");
-    // wipe spawns
-    for (let y = 0; y < mapH; y++) for (let x = 0; x < mapW; x++) if (tiles[y][x] === "P") tiles[y][x] = ".";
+    const draft = getStoredPayload(DRAFT_PAYLOAD_KEY);
+    const published = getStoredPayload(PUBLISHED_PAYLOAD_KEY);
+    const base = draft || published || JSON.parse(JSON.stringify(GOLDEN_PAYLOAD));
+    applyLevelPayload(base, { resetPlayer: true });
     // reset coins and blocks
     coinCount = 0;
     questionHits = 0;
@@ -2809,6 +3559,11 @@
     const sy = Math.floor(y - cam.y);
     if (sx < -TILE || sy < -TILE || sx > BASE_W || sy > BASE_H) return;
 
+    const custom = tileRegistry.get(t);
+    if (custom && custom.image && custom.image.complete) {
+      g.drawImage(custom.image, sx, sy, TILE, TILE);
+      return;
+    }
     if (t === "#") { // ground
       g.fillStyle = "#3b2f2f";
       g.fillRect(sx, sy, TILE, TILE);
