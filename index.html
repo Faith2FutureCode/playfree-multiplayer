@@ -132,14 +132,16 @@
       top: 0;
       bottom: 0;
       transform: translateX(-50%);
-      display: flex;
-      align-items: flex-start;
-      gap: 0;
+      display: block;
       margin: 0;
-      width: calc(var(--frame-width) + var(--editor-width));
+      width: var(--frame-width);
       transition: width 0.15s ease;
     }
     .editor-panel {
+      position: absolute;
+      left: 0;
+      top: 0;
+      z-index: 3;
       width: calc(var(--editor-width) / var(--editor-scale));
       max-width: 360px;
       height: var(--frame-height);
