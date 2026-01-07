@@ -39,8 +39,6 @@
       padding: 10px;
       box-sizing: border-box;
       image-rendering: pixelated;
-      height: 100%;
-      overflow-y: auto;
     }
     body.editor-open .editor-panel { display: block; }
     .editor-header {
@@ -61,23 +59,6 @@
       font-size: 11px;
       letter-spacing: 1px;
       color: #9fb3ff;
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .editor-section h4::after {
-      content: "▾";
-      color: #f6d341;
-      font-size: 10px;
-    }
-    .editor-section.collapsed h4::after { content: "▸"; }
-    .editor-section.collapsed .editor-grid,
-    .editor-section.collapsed .editor-field,
-    .editor-section.collapsed .editor-actions,
-    .editor-section.collapsed .tilesheet-panel,
-    .editor-section.collapsed .editor-hint {
-      display: none;
     }
     .editor-grid {
       display: grid;
@@ -124,15 +105,6 @@
       outline: none;
       box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
     }
-    .editor-field select {
-      background: #0f182a;
-      border: 2px solid #000;
-      color: #dfe7ff;
-      padding: 6px 8px;
-      font: 12px "Press Start 2P", "VT323", monospace;
-      outline: none;
-      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
-    }
     .editor-actions {
       margin-top: 10px;
       display: flex;
@@ -156,103 +128,6 @@
       box-shadow: inset 0 0 0 2px #f6d341;
     }
     .editor-hint { margin-top: 10px; font-size: 10px; color: #9fb3ff; }
-    .editor-hint[data-state="error"] { color: #ff9b9b; }
-    .editor-hint[data-state="success"] { color: #b5f7a1; }
-    .tilesheet-panel {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      height: 100%;
-      flex: 1 1 auto;
-    }
-    .tilesheet-popout {
-      position: fixed;
-      top: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      width: var(--canvas-width);
-      height: var(--canvas-height);
-      background: rgba(10, 15, 31, 0.98);
-      border: 2px solid #000;
-      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
-      padding: 10px 12px 12px;
-      display: none;
-      z-index: 260;
-      pointer-events: auto;
-    }
-    .tilesheet-popout.open {
-      display: flex;
-      flex-direction: column;
-    }
-    .tilesheet-popout-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-      color: #f6d341;
-      font-size: 11px;
-      letter-spacing: 1px;
-      position: relative;
-      z-index: 1;
-    }
-    .tilesheet-popout-close {
-      background: #123;
-      border: 2px solid #000;
-      color: #f6d341;
-      font: 11px "Press Start 2P", "VT323", monospace;
-      padding: 4px 6px;
-      cursor: pointer;
-      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
-      position: relative;
-      z-index: 2;
-    }
-    .tilesheet-preview {
-      width: 100%;
-      flex: 1 1 auto;
-      height: 100%;
-      border: 2px solid #000;
-      background: #0f182a;
-      image-rendering: pixelated;
-      position: relative;
-      z-index: 0;
-    }
-    .tilesheet-actions {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-    .tilesheet-actions button {
-      flex: 1 1 auto;
-      min-width: 120px;
-    }
-    .palette-context-menu {
-      position: fixed;
-      display: none;
-      flex-direction: column;
-      gap: 4px;
-      padding: 6px;
-      background: #0f182a;
-      border: 2px solid #000;
-      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
-      z-index: 300;
-      font: 10px/1.3 "Press Start 2P", "VT323", monospace;
-      color: #dfe7ff;
-    }
-    .palette-context-menu.open { display: flex; }
-    .palette-context-menu button {
-      background: #123;
-      border: 2px solid #000;
-      color: #f6d341;
-      padding: 4px 6px;
-      font: inherit;
-      cursor: pointer;
-      text-align: left;
-      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
-    }
-    .palette-context-menu button:hover {
-      background: #1c2f55;
-      color: #fff;
-    }
     body.editor-open .game-shell canvas { cursor: none; }
     /* HUD now rendered on canvas; hide DOM HUD shell */
     .hud { display:none; }
@@ -282,47 +157,14 @@
       padding: 4px 10px;
       box-shadow: inset 0 0 0 3px #7fb7d6;
     }
-    .settings-toggle {
-      position: fixed;
-      top: 12px;
-      right: 12px;
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      border: 2px solid #000;
-      background: rgba(15, 24, 42, 0.9);
-      color: #dfe7ff;
-      font: 16px/1 "Press Start 2P", "VT323", monospace;
-      display: grid;
-      place-items: center;
-      cursor: pointer;
-      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
-      z-index: 260;
+    .hint {
+      position: fixed; left: 12px; bottom: 12px;
+      color: #cbd5e1; font: 12px/1.3 system-ui, sans-serif; opacity: .9;
+      background: rgba(0,0,0,.25); padding: 10px 12px; border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.08);
+      max-width: 520px;
     }
-    .settings-panel {
-      position: fixed;
-      top: 56px;
-      right: 12px;
-      width: 260px;
-      background: rgba(10, 15, 31, 0.95);
-      border: 2px solid #000;
-      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
-      padding: 10px 12px;
-      color: #cbd5e1;
-      font: 11px/1.45 "Press Start 2P", "VT323", monospace;
-      display: none;
-      z-index: 260;
-    }
-    .settings-panel.open { display: block; }
-    .settings-panel h5 {
-      margin: 0 0 6px 0;
-      font-size: 11px;
-      color: #f6d341;
-      letter-spacing: 1px;
-    }
-    .settings-panel .settings-row {
-      margin-bottom: 8px;
-    }
+    .hint b { color:#fff; }
     .debug-panel {
       position: fixed; top: 12px; left: 12px;
       background: rgba(0,0,0,0.6);
@@ -423,11 +265,6 @@
       <span>PALETTE</span>
       <span>Press E</span>
     </div>
-    <div class="editor-section author-only">
-      <div class="editor-actions">
-        <button id="tilesheet-open-button" type="button">Tilesheet Cutter</button>
-      </div>
-    </div>
     <div class="editor-section">
       <h4>TERRAIN</h4>
       <div class="editor-grid" id="terrain-grid">
@@ -457,39 +294,13 @@
         <div class="editor-tile" data-tile="P" title="Player Spawn"><canvas class="tile-preview" width="8" height="8" data-tile="P"></canvas></div>
       </div>
     </div>
-    <div class="editor-section">
-      <h4>UNDEFINED</h4>
-      <div class="editor-grid" id="undefined-grid"></div>
-    </div>
     <div class="editor-section author-only">
       <h4>AUTHOR TOOLS</h4>
       <div class="editor-field">
         <label for="sprite-upload">Sprite Upload</label>
         <input id="sprite-upload" type="file" accept="image/png, image/jpeg"/>
       </div>
-      <div class="editor-field">
-        <label for="sprite-upload-category">Palette Category</label>
-        <select id="sprite-upload-category">
-          <option value="undefined" selected>Undefined</option>
-          <option value="terrain">Terrain</option>
-          <option value="objects">Objects</option>
-          <option value="enemies">Enemies</option>
-          <option value="spawns">Spawns</option>
-        </select>
-      </div>
-      <div class="editor-actions">
-        <button id="publish-level-button" type="button">Publish Draft</button>
-        <button id="export-level-button" type="button">Export Level</button>
-        <button id="import-level-button" type="button">Import Level</button>
-        <input id="import-level-input" type="file" accept="application/json" style="display:none"/>
-      </div>
-      <div id="sprite-upload-status" class="editor-hint" data-state="idle">Upload a square PNG/JPG (max 256x256).</div>
-    </div>
-    <div class="editor-section">
-      <h4>LEVEL</h4>
-      <div class="editor-actions">
-        <button id="reset-level-button" type="button">Reset Level</button>
-      </div>
+      <div class="editor-hint">Author-only tools</div>
     </div>
     <div class="editor-field">
       <label for="editor-label-input">Label</label>
@@ -503,28 +314,6 @@
       </div>
     </div>
     <div class="editor-hint">Left click paint · Right click erase · E to toggle</div>
-  </div>
-  <div id="palette-context-menu" class="palette-context-menu" aria-hidden="true">
-    <button type="button" data-category="terrain">Terrain</button>
-    <button type="button" data-category="objects">Objects</button>
-    <button type="button" data-category="enemies">Enemies</button>
-    <button type="button" data-category="spawns">Spawns</button>
-    <button type="button" data-category="undefined">Undefined</button>
-  </div>
-  <div id="tilesheet-popout" class="tilesheet-popout author-only" aria-hidden="true">
-    <div class="tilesheet-popout-header">
-      <span>TILESHEET CUTTER</span>
-      <button id="tilesheet-close-button" class="tilesheet-popout-close" type="button">Close</button>
-    </div>
-    <div class="tilesheet-panel">
-      <input id="tilesheet-upload" type="file" accept="image/png, image/jpeg"/>
-      <canvas id="tilesheet-preview" class="tilesheet-preview" width="320" height="200"></canvas>
-      <div class="tilesheet-actions">
-        <button id="tilesheet-add-button" type="button">Add Tile to Undefined</button>
-        <button id="tilesheet-clear-button" type="button">Clear Selection</button>
-      </div>
-      <div id="tilesheet-status" class="editor-hint" data-state="idle">Load a tilesheet, drag to select any size, save as 16x16.</div>
-    </div>
   </div>
   <div class="game-shell">
     <canvas id="c" width="912" height="816"></canvas>
@@ -585,14 +374,10 @@
 </div>
 </div>
 </div>
-<button id="settings-toggle" class="settings-toggle" type="button" aria-label="Game info">
-  ⚙
-</button>
-<div id="settings-panel" class="settings-panel" aria-hidden="true">
-  <h5>GAME INFO</h5>
-  <div class="settings-row">Controls: Arrows move · Z jump · X run · C fire/tail/hammer · V statue · R restart</div>
-  <div class="settings-row">Goal: Collect coins, hit ? blocks, stomp enemies.</div>
-  <div class="settings-row">Jump range: Walk <span id="jump-walk">--</span> tiles · Run <span id="jump-run">--</span> tiles</div>
+<div class="hint">
+  <b>Controls:</b> Arrow keys move · <b>Z</b> jump · <b>X</b> run · <b>C</b> fire/tail/hammer · <b>V</b> statue · <b>R</b> restart<br/>
+  <b>Goal:</b> Collect coins, hit ? blocks, stomp enemies.<br/>
+  <b>Jump range:</b> Walk <span id="jump-walk">--</span> tiles · Run <span id="jump-run">--</span> tiles
 </div>
 <div class="debug-panel" id="debug-panel" aria-label="Debug overlay">
   <div><span>vx</span><span id="debug-vx">0</span></div>
@@ -622,7 +407,6 @@
   const AUTHOR_LOGIN_ENDPOINT = "/api/author-login";
   const AUTHOR_LOGOUT_ENDPOINT = "/api/author-logout";
   const AUTHOR_STATUS_ENDPOINT = "/api/author-status";
-  const AUTHOR_DIAGNOSTICS_ENDPOINT = "/api/author-diagnostics";
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d", { alpha: false });
   const setAuthorClass = (enabled) => {
@@ -644,22 +428,8 @@
       return false;
     }
   }
-  function formatAuthorError(error) {
-    if (!error) return "Author login failed.";
-    if (error === "server_misconfigured") {
-      return "Author login failed: server missing config.";
-    }
-    if (error === "network_error") {
-      return "Author login failed: network error.";
-    }
-    if (error.startsWith("http_")) {
-      const code = error.split("_")[1] || "error";
-      return `Author login failed: server error (${code}).`;
-    }
-    return "Author login failed.";
-  }
   async function authorLogin(pass) {
-    if (!pass) return { ok: false, error: "empty" };
+    if (!pass) return false;
     try {
       const res = await fetch(AUTHOR_LOGIN_ENDPOINT, {
         method: "POST",
@@ -667,17 +437,16 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pass }),
       });
-      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setAuthorClass(false);
-        const error = data && data.error ? data.error : `http_${res.status}`;
-        return { ok: false, error };
+        return false;
       }
+      const data = await res.json();
       const enabled = Boolean(data && data.author);
       setAuthorClass(enabled);
-      return { ok: enabled, error: enabled ? null : data && data.error ? data.error : "login_failed" };
+      return enabled;
     } catch (err) {
-      return { ok: false, error: "network_error" };
+      return false;
     }
   }
   async function authorLogout() {
@@ -691,15 +460,6 @@
     }
     setAuthorClass(false);
     return false;
-  }
-  async function authorDiagnostics() {
-    try {
-      const res = await fetch(AUTHOR_DIAGNOSTICS_ENDPOINT, { credentials: "include" });
-      if (!res.ok) return null;
-      return await res.json();
-    } catch (err) {
-      return null;
-    }
   }
   function handleAuthorCommand(text) {
     const raw = text.replace("/author", "").trim();
@@ -718,18 +478,6 @@
     if (action === "status") {
       refreshAuthorStatus().then((enabled) => {
         pushSystemChat(enabled ? "Author mode enabled." : "Author mode disabled.");
-      });
-      return false;
-    }
-    if (action === "diag" || action === "diagnostics") {
-      authorDiagnostics().then((data) => {
-        if (!data) {
-          pushSystemChat("Author diagnostics failed.");
-          return;
-        }
-        const pass = data.hasPassphraseHash ? "yes" : "no";
-        const token = data.hasTokenSecret ? "yes" : "no";
-        pushSystemChat(`Author diagnostics: hash=${pass}, secret=${token}.`);
       });
       return false;
     }
@@ -841,8 +589,6 @@
     }
     editorOpen = next;
     document.body.classList.toggle("editor-open", editorOpen);
-    if (!editorOpen) closePaletteContextMenu();
-    if (!editorOpen) setTilesheetOpen(false);
     applyLayoutVars();
   }
 
@@ -853,596 +599,6 @@
   }
 
   const TILE = 16;
-  const MAX_UPLOAD_BYTES = 128 * 1024;
-  const MAX_UPLOAD_DIM = 256;
-  const CUSTOM_TILE_LIMIT = 32;
-  const ALLOWED_UPLOAD_TYPES = new Set(["image/png", "image/jpeg"]);
-  const tileRegistry = new Map();
-  const customTiles = [];
-  const builtinTiles = [];
-  let customTileCounter = 0;
-  const BUILTIN_TILE_MANIFEST = "/sprites/output/smb3_tiles_1_16x16_manifest.json";
-  const spriteUploadInput = document.getElementById("sprite-upload");
-  const spriteUploadStatus = document.getElementById("sprite-upload-status");
-  const spriteUploadCategory = document.getElementById("sprite-upload-category");
-  const paletteContextMenu = document.getElementById("palette-context-menu");
-  const tilesheetUpload = document.getElementById("tilesheet-upload");
-  const tilesheetPreview = document.getElementById("tilesheet-preview");
-  const tilesheetAddButton = document.getElementById("tilesheet-add-button");
-  const tilesheetClearButton = document.getElementById("tilesheet-clear-button");
-  const tilesheetStatus = document.getElementById("tilesheet-status");
-  const tilesheetOpenButton = document.getElementById("tilesheet-open-button");
-  const tilesheetPopout = document.getElementById("tilesheet-popout");
-  const tilesheetCloseButton = document.getElementById("tilesheet-close-button");
-  const publishLevelButton = document.getElementById("publish-level-button");
-  const exportLevelButton = document.getElementById("export-level-button");
-  const importLevelButton = document.getElementById("import-level-button");
-  const importLevelInput = document.getElementById("import-level-input");
-  const resetLevelButton = document.getElementById("reset-level-button");
-  const DRAFT_PAYLOAD_KEY = "playfree.level.draft.v1";
-  const PUBLISHED_PAYLOAD_KEY = "playfree.level.published.v1";
-  const PAYLOAD_VERSION = 1;
-  const CATEGORY_GRID_IDS = {
-    terrain: "terrain-grid",
-    objects: "object-grid",
-    enemies: "enemy-grid",
-    spawns: "spawn-grid",
-    undefined: "undefined-grid",
-  };
-  const CATEGORY_LABELS = {
-    terrain: "Terrain",
-    objects: "Objects",
-    enemies: "Enemies",
-    spawns: "Spawns",
-    undefined: "Undefined",
-  };
-  let paletteContextEntry = null;
-
-  function setUploadStatus(message, state = "idle") {
-    if (!spriteUploadStatus) return;
-    spriteUploadStatus.textContent = message;
-    spriteUploadStatus.dataset.state = state;
-  }
-
-  function setTilesheetStatus(message, state = "idle") {
-    if (!tilesheetStatus) return;
-    tilesheetStatus.textContent = message;
-    tilesheetStatus.dataset.state = state;
-  }
-
-  function getPaletteGrid(category) {
-    const id = CATEGORY_GRID_IDS[category] || CATEGORY_GRID_IDS.undefined || CATEGORY_GRID_IDS.objects;
-    return document.getElementById(id);
-  }
-
-  function createPaletteTile(entry, options = {}) {
-    const { isCustom = true } = options;
-    const tileEl = document.createElement("div");
-    tileEl.className = "editor-tile";
-    tileEl.dataset.tile = entry.id;
-    if (isCustom) tileEl.dataset.custom = "1";
-    tileEl.title = entry.name || "Custom";
-    const canvasEl = document.createElement("canvas");
-    canvasEl.className = "tile-preview";
-    canvasEl.width = 8;
-    canvasEl.height = 8;
-    canvasEl.setAttribute("data-tile", entry.id);
-    tileEl.appendChild(canvasEl);
-    tileEl.addEventListener("click", () => {
-      selectEditorTile(entry.id, tileEl);
-    });
-    if (isCustom) {
-      tileEl.addEventListener("contextmenu", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        openPaletteContextMenu(entry, e.clientX, e.clientY);
-      });
-    }
-    return tileEl;
-  }
-
-  function addCustomTileToPalette(entry) {
-    const grid = getPaletteGrid(entry.category);
-    if (!grid) return null;
-    const tileEl = createPaletteTile(entry, { isCustom: true });
-    grid.appendChild(tileEl);
-    renderPalettePreviews();
-    return tileEl;
-  }
-
-  function addBuiltinTileToPalette(entry) {
-    const grid = getPaletteGrid(entry.category);
-    if (!grid) return null;
-    const tileEl = createPaletteTile(entry, { isCustom: false });
-    grid.appendChild(tileEl);
-    renderPalettePreviews();
-    return tileEl;
-  }
-
-  function clearCustomPaletteEntries() {
-    document.querySelectorAll(".editor-tile[data-custom='1']").forEach((node) => {
-      node.remove();
-    });
-  }
-
-  function sanitizeTileName(name) {
-    const base = (name || "Custom").replace(/\.[^.]+$/, "").trim();
-    const safe = base.replace(/[^\w\- ]+/g, "").trim();
-    return (safe || "Custom").slice(0, 24);
-  }
-
-  function normalizeCategory(raw) {
-    if (raw && CATEGORY_GRID_IDS[raw]) return raw;
-    return "undefined";
-  }
-
-  function categoryLabel(category) {
-    return CATEGORY_LABELS[category] || "Objects";
-  }
-
-  function closePaletteContextMenu() {
-    if (!paletteContextMenu) return;
-    paletteContextMenu.classList.remove("open");
-    paletteContextMenu.setAttribute("aria-hidden", "true");
-    paletteContextEntry = null;
-  }
-
-  function openPaletteContextMenu(entry, clientX, clientY) {
-    if (!paletteContextMenu || !entry) return;
-    paletteContextEntry = entry;
-    paletteContextMenu.classList.add("open");
-    paletteContextMenu.setAttribute("aria-hidden", "false");
-    paletteContextMenu.style.left = "0px";
-    paletteContextMenu.style.top = "0px";
-    const rect = paletteContextMenu.getBoundingClientRect();
-    const maxX = Math.max(8, window.innerWidth - rect.width - 8);
-    const maxY = Math.max(8, window.innerHeight - rect.height - 8);
-    const left = Math.min(Math.max(8, clientX), maxX);
-    const top = Math.min(Math.max(8, clientY), maxY);
-    paletteContextMenu.style.left = `${left}px`;
-    paletteContextMenu.style.top = `${top}px`;
-  }
-
-  function moveCustomTileToCategory(entry, category) {
-    if (!entry || entry.source !== "custom") return;
-    const nextCategory = normalizeCategory(category);
-    if (entry.category === nextCategory) return;
-    const wasSelected = editorTile === entry.id;
-    entry.category = nextCategory;
-    document.querySelectorAll(`.editor-tile[data-custom='1'][data-tile="${entry.id}"]`).forEach((node) => {
-      node.remove();
-    });
-    const tileEl = addCustomTileToPalette(entry);
-    if (wasSelected && tileEl) selectEditorTile(entry.id, tileEl);
-    setUploadStatus(`Moved ${entry.name || entry.id} to ${categoryLabel(nextCategory)}.`, "success");
-    queueDraftSave();
-  }
-
-  function nextCustomTileId() {
-    customTileCounter += 1;
-    return `custom:${String(customTileCounter).padStart(3, "0")}`;
-  }
-
-  function estimateDataUrlBytes(dataUrl) {
-    if (typeof dataUrl !== "string") return 0;
-    const idx = dataUrl.indexOf("base64,");
-    if (idx === -1) return 0;
-    const base64 = dataUrl.slice(idx + 7);
-    return Math.floor((base64.length * 3) / 4);
-  }
-
-  function createImageFromSource(source) {
-    const img = new Image();
-    img.onload = () => {
-      renderPalettePreviews();
-    };
-    img.src = source;
-    return img;
-  }
-
-  function registerCustomTile(entry, options = {}) {
-    const { skipPalette = false } = options;
-    entry.image = createImageFromSource(entry.png);
-    tileRegistry.set(entry.id, entry);
-    customTiles.push(entry);
-    const match = /^custom:(\d+)/.exec(entry.id);
-    if (match) {
-      const num = Number(match[1]);
-      if (Number.isFinite(num)) customTileCounter = Math.max(customTileCounter, num);
-    }
-    if (!skipPalette) addCustomTileToPalette(entry);
-  }
-
-  function registerBuiltinTile(entry) {
-    entry.image = createImageFromSource(entry.png);
-    tileRegistry.set(entry.id, entry);
-    builtinTiles.push(entry);
-    addBuiltinTileToPalette(entry);
-  }
-
-  function loadBuiltinTileManifest() {
-    if (!BUILTIN_TILE_MANIFEST) return;
-    fetch(BUILTIN_TILE_MANIFEST)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (!data || !Array.isArray(data.entries)) return;
-        data.entries.forEach((raw, index) => {
-          if (!raw || !raw.id || !raw.png) return;
-          const entry = {
-            id: String(raw.id),
-            name: sanitizeTileName(raw.name || `Tile ${index + 1}`),
-            category: normalizeCategory(raw.category || "terrain"),
-            source: "builtin",
-            w: TILE,
-            h: TILE,
-            png: String(raw.png),
-          };
-          registerBuiltinTile(entry);
-        });
-      })
-      .catch(() => {});
-  }
-
-  function loadCustomTiles(entries) {
-    tileRegistry.clear();
-    customTiles.length = 0;
-    customTileCounter = 0;
-    clearCustomPaletteEntries();
-    (entries || []).forEach((entry) => {
-      registerCustomTile(entry, { skipPalette: true });
-    });
-    customTiles.forEach((entry) => addCustomTileToPalette(entry));
-  }
-
-  const tilesheetState = {
-    image: null,
-    scale: 1,
-    offsetX: 0,
-    offsetY: 0,
-    selection: null, // {x, y, w, h} in image coords
-    dragging: false,
-    dragStart: null,
-  };
-
-  function setTilesheetOpen(open) {
-    if (!tilesheetPopout) return;
-    if (!open && tilesheetPopout.contains(document.activeElement)) {
-      document.activeElement.blur();
-    }
-    tilesheetPopout.classList.toggle("open", open);
-    tilesheetPopout.setAttribute("aria-hidden", open ? "false" : "true");
-    tilesheetPopout.inert = !open;
-  }
-
-  function renderTilesheetPreview() {
-    if (!tilesheetPreview) return;
-    const targetW = tilesheetPreview.clientWidth || tilesheetPreview.width;
-    const targetH = tilesheetPreview.clientHeight || tilesheetPreview.height;
-    if (tilesheetPreview.width !== targetW) tilesheetPreview.width = targetW;
-    if (tilesheetPreview.height !== targetH) tilesheetPreview.height = targetH;
-    const ctx = tilesheetPreview.getContext("2d", { alpha: false });
-    ctx.clearRect(0, 0, tilesheetPreview.width, tilesheetPreview.height);
-    ctx.fillStyle = "#0f182a";
-    ctx.fillRect(0, 0, tilesheetPreview.width, tilesheetPreview.height);
-    const img = tilesheetState.image;
-    if (!img) return;
-    const scale = Math.min(
-      tilesheetPreview.width / img.width,
-      tilesheetPreview.height / img.height
-    );
-    const drawW = Math.floor(img.width * scale);
-    const drawH = Math.floor(img.height * scale);
-    const offsetX = Math.floor((tilesheetPreview.width - drawW) / 2);
-    const offsetY = Math.floor((tilesheetPreview.height - drawH) / 2);
-    tilesheetState.scale = scale;
-    tilesheetState.offsetX = offsetX;
-    tilesheetState.offsetY = offsetY;
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
-    if (tilesheetState.selection) {
-      const sel = tilesheetState.selection;
-      const sx = offsetX + Math.floor(sel.x * scale);
-      const sy = offsetY + Math.floor(sel.y * scale);
-      const sw = Math.max(1, Math.floor(sel.w * scale));
-      const sh = Math.max(1, Math.floor(sel.h * scale));
-      ctx.strokeStyle = "#f6d341";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(sx + 1, sy + 1, sw - 2, sh - 2);
-    }
-  }
-
-  function tilesheetCanvasToImage(x, y) {
-    const img = tilesheetState.image;
-    if (!img) return null;
-    const relX = x - tilesheetState.offsetX;
-    const relY = y - tilesheetState.offsetY;
-    if (relX < 0 || relY < 0) return null;
-    if (relX > img.width * tilesheetState.scale || relY > img.height * tilesheetState.scale) return null;
-    const imgX = Math.max(0, Math.min(img.width, Math.floor(relX / tilesheetState.scale)));
-    const imgY = Math.max(0, Math.min(img.height, Math.floor(relY / tilesheetState.scale)));
-    return { x: imgX, y: imgY };
-  }
-
-  function setTilesheetSelection(start, end) {
-    const x1 = Math.min(start.x, end.x);
-    const y1 = Math.min(start.y, end.y);
-    const x2 = Math.max(start.x, end.x);
-    const y2 = Math.max(start.y, end.y);
-    tilesheetState.selection = {
-      x: x1,
-      y: y1,
-      w: Math.max(1, x2 - x1),
-      h: Math.max(1, y2 - y1),
-    };
-    renderTilesheetPreview();
-  }
-
-  function loadImageFromFile(file) {
-    return new Promise((resolve, reject) => {
-      const url = URL.createObjectURL(file);
-      const img = new Image();
-      img.onload = () => {
-        URL.revokeObjectURL(url);
-        resolve(img);
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        reject(new Error("image_load_failed"));
-      };
-      img.src = url;
-    });
-  }
-
-  async function handleSpriteUpload(file) {
-    if (!file) return;
-    const ext = (file.name || "").toLowerCase().split(".").pop();
-    const typeOk = ALLOWED_UPLOAD_TYPES.has(file.type) || ["png", "jpg", "jpeg"].includes(ext);
-    if (!typeOk) {
-      setUploadStatus("Only PNG or JPG files are allowed.", "error");
-      return;
-    }
-    if (file.size > MAX_UPLOAD_BYTES) {
-      setUploadStatus(`File too large (max ${Math.round(MAX_UPLOAD_BYTES / 1024)} KB).`, "error");
-      return;
-    }
-    if (customTiles.length >= CUSTOM_TILE_LIMIT) {
-      setUploadStatus("Custom tile limit reached.", "error");
-      return;
-    }
-    let img;
-    try {
-      img = await loadImageFromFile(file);
-    } catch (err) {
-      setUploadStatus("Could not read image file.", "error");
-      return;
-    }
-    const w = img.naturalWidth || img.width;
-    const h = img.naturalHeight || img.height;
-    if (!w || !h) {
-      setUploadStatus("Invalid image dimensions.", "error");
-      return;
-    }
-    if (w !== h) {
-      setUploadStatus("Image must be square.", "error");
-      return;
-    }
-    if (w > MAX_UPLOAD_DIM) {
-      setUploadStatus(`Max size is ${MAX_UPLOAD_DIM}x${MAX_UPLOAD_DIM}.`, "error");
-      return;
-    }
-    const canvas = document.createElement("canvas");
-    canvas.width = TILE;
-    canvas.height = TILE;
-    const c = canvas.getContext("2d", { alpha: true });
-    c.imageSmoothingEnabled = false;
-    c.clearRect(0, 0, TILE, TILE);
-    c.drawImage(img, 0, 0, TILE, TILE);
-    const png = canvas.toDataURL("image/png");
-    const category = normalizeCategory(spriteUploadCategory ? spriteUploadCategory.value : "undefined");
-    const entry = {
-      id: nextCustomTileId(),
-      name: sanitizeTileName(file.name),
-      category,
-      source: "custom",
-      w: TILE,
-      h: TILE,
-      png,
-    };
-    registerCustomTile(entry);
-    setUploadStatus(`Uploaded ${entry.name} (${entry.id}).`, "success");
-    queueDraftSave();
-  }
-
-  if (paletteContextMenu) {
-    paletteContextMenu.addEventListener("click", (e) => {
-      const button = e.target.closest("button[data-category]");
-      if (!button || !paletteContextEntry) return;
-      moveCustomTileToCategory(paletteContextEntry, button.getAttribute("data-category"));
-      closePaletteContextMenu();
-    });
-  }
-  document.addEventListener("mousedown", (e) => {
-    if (!paletteContextMenu || !paletteContextMenu.classList.contains("open")) return;
-    if (!paletteContextMenu.contains(e.target)) closePaletteContextMenu();
-  });
-  window.addEventListener("blur", () => {
-    closePaletteContextMenu();
-  });
-  window.addEventListener("keydown", (e) => {
-    if (e.code === "Escape") closePaletteContextMenu();
-  });
-
-  if (spriteUploadInput) {
-    spriteUploadInput.addEventListener("change", () => {
-      const file = spriteUploadInput.files && spriteUploadInput.files[0];
-      spriteUploadInput.value = "";
-      handleSpriteUpload(file);
-    });
-  }
-  if (tilesheetOpenButton) {
-    tilesheetOpenButton.addEventListener("click", () => {
-      if (!document.body.classList.contains("author")) {
-        setTilesheetStatus("Author mode required.", "error");
-        return;
-      }
-      setTilesheetOpen(true);
-      renderTilesheetPreview();
-    });
-  }
-  if (tilesheetCloseButton) {
-    const closeHandler = (e) => {
-      if (e) e.stopPropagation();
-      setTilesheetOpen(false);
-    };
-    tilesheetCloseButton.addEventListener("click", closeHandler);
-    tilesheetCloseButton.addEventListener("pointerdown", closeHandler);
-  }
-  if (tilesheetUpload && tilesheetPreview) {
-    tilesheetUpload.addEventListener("change", () => {
-      if (!document.body.classList.contains("author")) {
-        setTilesheetStatus("Author mode required.", "error");
-        return;
-      }
-      const file = tilesheetUpload.files && tilesheetUpload.files[0];
-      tilesheetUpload.value = "";
-      if (!file) return;
-      const ext = (file.name || "").toLowerCase().split(".").pop();
-      const typeOk = ALLOWED_UPLOAD_TYPES.has(file.type) || ["png", "jpg", "jpeg"].includes(ext);
-      if (!typeOk) {
-        setTilesheetStatus("Only PNG or JPG files are allowed.", "error");
-        return;
-      }
-      loadImageFromFile(file)
-        .then((img) => {
-          tilesheetState.image = img;
-          tilesheetState.selection = null;
-          setTilesheetOpen(true);
-          setTilesheetStatus("Drag to select a region, then add it as 16x16.", "success");
-          renderTilesheetPreview();
-        })
-        .catch(() => {
-          setTilesheetStatus("Could not read image file.", "error");
-        });
-    });
-    tilesheetPreview.addEventListener("mousedown", (e) => {
-      if (!document.body.classList.contains("author")) return;
-      if (!tilesheetState.image) return;
-      const rect = tilesheetPreview.getBoundingClientRect();
-      const pos = tilesheetCanvasToImage(e.clientX - rect.left, e.clientY - rect.top);
-      if (!pos) return;
-      tilesheetState.dragging = true;
-      tilesheetState.dragStart = pos;
-      tilesheetState.selection = { x: pos.x, y: pos.y, w: 1, h: 1 };
-      renderTilesheetPreview();
-    });
-    window.addEventListener("mousemove", (e) => {
-      if (!document.body.classList.contains("author")) return;
-      if (!tilesheetState.dragging || !tilesheetState.dragStart) return;
-      if (!tilesheetState.image) return;
-      const rect = tilesheetPreview.getBoundingClientRect();
-      const pos = tilesheetCanvasToImage(e.clientX - rect.left, e.clientY - rect.top);
-      if (!pos) return;
-      setTilesheetSelection(tilesheetState.dragStart, pos);
-    });
-    window.addEventListener("mouseup", () => {
-      tilesheetState.dragging = false;
-      tilesheetState.dragStart = null;
-    });
-  }
-  if (tilesheetAddButton) {
-    tilesheetAddButton.addEventListener("click", () => {
-      if (!document.body.classList.contains("author")) {
-        setTilesheetStatus("Author mode required.", "error");
-        return;
-      }
-      if (!tilesheetState.image || !tilesheetState.selection) {
-        setTilesheetStatus("Select a region first.", "error");
-        return;
-      }
-      if (customTiles.length >= CUSTOM_TILE_LIMIT) {
-        setTilesheetStatus("Custom tile limit reached.", "error");
-        return;
-      }
-      const sel = tilesheetState.selection;
-      if (sel.w < 1 || sel.h < 1) {
-        setTilesheetStatus("Selection too small.", "error");
-        return;
-      }
-      const canvas = document.createElement("canvas");
-      canvas.width = TILE;
-      canvas.height = TILE;
-      const c = canvas.getContext("2d", { alpha: true });
-      c.imageSmoothingEnabled = false;
-      c.clearRect(0, 0, TILE, TILE);
-      c.drawImage(
-        tilesheetState.image,
-        sel.x, sel.y, sel.w, sel.h,
-        0, 0, TILE, TILE
-      );
-      const png = canvas.toDataURL("image/png");
-      const entry = {
-        id: nextCustomTileId(),
-        name: `Tilesheet ${customTileCounter}`,
-        category: "undefined",
-        source: "custom",
-        w: TILE,
-        h: TILE,
-        png,
-      };
-      registerCustomTile(entry);
-      setTilesheetStatus(`Added ${entry.name}.`, "success");
-      queueDraftSave();
-    });
-  }
-  if (tilesheetClearButton) {
-    tilesheetClearButton.addEventListener("click", () => {
-      if (!document.body.classList.contains("author")) {
-        setTilesheetStatus("Author mode required.", "error");
-        return;
-      }
-      tilesheetState.selection = null;
-      renderTilesheetPreview();
-      setTilesheetStatus("Selection cleared.", "idle");
-    });
-  }
-  document.addEventListener("mousedown", (e) => {
-    if (!tilesheetPopout || !tilesheetPopout.classList.contains("open")) return;
-    if (tilesheetPopout.contains(e.target)) return;
-    if (tilesheetOpenButton && tilesheetOpenButton.contains(e.target)) return;
-    setTilesheetOpen(false);
-  });
-  window.addEventListener("keydown", (e) => {
-    if (e.code === "Escape" && tilesheetPopout && tilesheetPopout.classList.contains("open")) {
-      setTilesheetOpen(false);
-    }
-  });
-  if (publishLevelButton) {
-    publishLevelButton.addEventListener("click", () => {
-      publishDraftPayload();
-    });
-  }
-  if (exportLevelButton) {
-    exportLevelButton.addEventListener("click", () => {
-      exportLevelPayload();
-    });
-  }
-  if (importLevelButton && importLevelInput) {
-    importLevelButton.addEventListener("click", () => {
-      importLevelInput.click();
-    });
-  }
-  if (importLevelInput) {
-    importLevelInput.addEventListener("change", () => {
-      const file = importLevelInput.files && importLevelInput.files[0];
-      importLevelInput.value = "";
-      if (file) importLevelPayload(file);
-    });
-  }
-  if (resetLevelButton) {
-    resetLevelButton.addEventListener("click", () => {
-      resetLevelToGolden();
-    });
-  }
   const params = new URLSearchParams(location.search);
   const MP_ENABLED = params.get("mp") !== "0";
   // Default to shared lobby relay; override via ?mpUrl=ws://localhost:3001 for local dev
@@ -1539,8 +695,6 @@
   const inventoryFeedback = document.createElement("div");
   inventoryFeedback.className = "inventory-hint";
   inventoryFeedback.id = "inventory-feedback";
-  const settingsToggle = document.getElementById("settings-toggle");
-  const settingsPanel = document.getElementById("settings-panel");
 
   const INVENTORY_COLS = 7;
   const INVENTORY_ROWS = 4;
@@ -1556,26 +710,6 @@
   let inventoryOpen = false;
   let inventoryCursor = 0;
   const slotEls = [];
-
-  function setSettingsOpen(open) {
-    if (!settingsPanel || !settingsToggle) return;
-    settingsPanel.classList.toggle("open", open);
-    settingsPanel.setAttribute("aria-hidden", open ? "false" : "true");
-  }
-
-  if (settingsToggle && settingsPanel) {
-    settingsToggle.addEventListener("click", () => {
-      setSettingsOpen(!settingsPanel.classList.contains("open"));
-    });
-    document.addEventListener("mousedown", (e) => {
-      if (!settingsPanel.classList.contains("open")) return;
-      if (settingsPanel.contains(e.target) || settingsToggle.contains(e.target)) return;
-      setSettingsOpen(false);
-    });
-    window.addEventListener("keydown", (e) => {
-      if (e.code === "Escape") setSettingsOpen(false);
-    });
-  }
 
   function buildInventoryGrid() {
     inventoryGrid.innerHTML = "";
@@ -1753,8 +887,8 @@
       pushSystemChat("Author login cancelled.");
       return;
     }
-    authorLogin(raw).then(({ ok, error }) => {
-      pushSystemChat(ok ? "Author mode enabled." : formatAuthorError(error));
+    authorLogin(raw).then((ok) => {
+      pushSystemChat(ok ? "Author mode enabled." : "Author login failed.");
     });
   }
   window.addEventListener("keydown", (e) => {
@@ -1846,14 +980,6 @@
   const objectGrid = document.getElementById("object-grid");
   const enemyGrid = document.getElementById("enemy-grid");
   const spawnGrid = document.getElementById("spawn-grid");
-  const undefinedGrid = document.getElementById("undefined-grid");
-  document.querySelectorAll(".editor-section h4").forEach((header) => {
-    header.addEventListener("click", () => {
-      const section = header.closest(".editor-section");
-      if (!section) return;
-      section.classList.toggle("collapsed");
-    });
-  });
   const labelInput = document.getElementById("editor-label-input");
   const textStampInput = document.getElementById("editor-text-stamp");
   const textStampButton = document.getElementById("editor-stamp-button");
@@ -1887,9 +1013,8 @@
   wirePaletteGrid(objectGrid);
   wirePaletteGrid(enemyGrid);
   wirePaletteGrid(spawnGrid);
-  wirePaletteGrid(undefinedGrid);
   // default select ground
-  const first = (terrainGrid || objectGrid || enemyGrid || spawnGrid || undefinedGrid)?.querySelector(".editor-tile");
+  const first = (terrainGrid || objectGrid || enemyGrid || spawnGrid)?.querySelector(".editor-tile");
   if (first) selectEditorTile(first.getAttribute("data-tile") || "#", first);
   if (labelInput) {
     // prevent global hotkeys from interfering while typing
@@ -1929,7 +1054,6 @@
     updateStampButtonUI();
   }
   renderPalettePreviews();
-  loadBuiltinTileManifest();
 
   function setSelection(tx, ty) {
     ensureBounds(tx, ty);
@@ -1941,7 +1065,6 @@
     if (!changes || changes.length === 0) return;
     undoStack.push(changes);
     redoStack.length = 0;
-    queueDraftSave();
   }
 
   function applyChanges(changes, useNext=true) {
@@ -1957,7 +1080,6 @@
         broadcastEditChange(c.tx, c.ty, c.prevTile, c.prevLabel);
       }
     }
-    queueDraftSave();
   }
 
   function undoAction() {
@@ -1980,11 +1102,6 @@
     ctx.imageSmoothingEnabled = false;
     const w = ctx.canvas.width;
     const h = ctx.canvas.height;
-    const custom = tileRegistry.get(t);
-    if (custom && custom.image && custom.image.complete) {
-      ctx.drawImage(custom.image, 0, 0, w, h);
-      return;
-    }
     if (t === "#") {
       ctx.fillStyle = "#3b2f2f";
       ctx.fillRect(0, 0, w, h);
@@ -2254,302 +1371,9 @@
   let mapW = LEVEL[0].length;
   const tiles = LEVEL.map(row => row.split(""));
   const labelMap = new Map(); // key: "tx,ty" -> string
-  let worldWpx = mapW * TILE;
-  let worldHpx = mapH * TILE;
-  const GOLDEN_PAYLOAD = {
-    version: PAYLOAD_VERSION,
-    map: {
-      width: mapW,
-      height: mapH,
-      grid: LEVEL.map(row => row.split("")),
-    },
-    labels: [],
-    customTiles: [],
-  };
-
-  function cloneGrid(grid) {
-    return grid.map(row => row.slice());
-  }
-
-  function serializeLabels() {
-    const out = [];
-    for (const [key, text] of labelMap.entries()) {
-      if (!text) continue;
-      const parts = key.split(",");
-      const tx = Number(parts[0]);
-      const ty = Number(parts[1]);
-      if (!Number.isFinite(tx) || !Number.isFinite(ty)) continue;
-      out.push({ tx, ty, text: String(text).slice(0, 24) });
-    }
-    return out;
-  }
-
-  function buildLevelPayload() {
-    return {
-      version: PAYLOAD_VERSION,
-      map: {
-        width: mapW,
-        height: mapH,
-        grid: cloneGrid(tiles),
-      },
-      labels: serializeLabels(),
-      customTiles: customTiles.map((entry) => ({
-        id: entry.id,
-        name: entry.name,
-        category: normalizeCategory(entry.category),
-        w: entry.w || TILE,
-        h: entry.h || TILE,
-        png: entry.png,
-      })),
-    };
-  }
-
-  function normalizeGrid(raw) {
-    if (!raw) return null;
-    let grid = raw.grid;
-    if (!grid && Array.isArray(raw.rows)) grid = raw.rows;
-    if (!Array.isArray(grid) || grid.length === 0) return null;
-    if (typeof grid[0] === "string") {
-      grid = grid.map(row => String(row).split(""));
-    }
-    if (!Array.isArray(grid[0])) return null;
-    const cleaned = grid.map(row => row.map(cell => (typeof cell === "string" ? cell : ".")));
-    const width = Math.max(1, ...cleaned.map(row => row.length));
-    const normalized = cleaned.map(row => {
-      if (row.length < width) return row.concat(new Array(width - row.length).fill("."));
-      if (row.length > width) return row.slice(0, width);
-      return row;
-    });
-    return { grid: normalized, width, height: normalized.length };
-  }
-
-  function normalizeLabels(raw) {
-    if (!Array.isArray(raw)) return [];
-    const out = [];
-    for (const item of raw) {
-      if (!item || typeof item !== "object") continue;
-      const tx = Number(item.tx);
-      const ty = Number(item.ty);
-      if (!Number.isFinite(tx) || !Number.isFinite(ty)) continue;
-      const text = String(item.text || "").trim();
-      if (!text) continue;
-      out.push({ tx, ty, text: text.slice(0, 24) });
-    }
-    return out;
-  }
-
-  function normalizeCustomTiles(raw) {
-    if (!raw) return { ok: true, tiles: [] };
-    if (!Array.isArray(raw)) return { ok: false, error: "Invalid custom tiles." };
-    if (raw.length > CUSTOM_TILE_LIMIT) {
-      return { ok: false, error: "Too many custom tiles." };
-    }
-    const out = [];
-    const seen = new Set();
-    for (const item of raw) {
-      if (!item || typeof item !== "object") continue;
-      const id = String(item.id || "");
-      if (!id.startsWith("custom:")) {
-        return { ok: false, error: "Custom tile id must start with custom:." };
-      }
-      if (seen.has(id)) {
-        return { ok: false, error: "Duplicate custom tile id." };
-      }
-      const png = String(item.png || "");
-      if (!png.startsWith("data:image/")) {
-        return { ok: false, error: "Custom tile PNG is invalid." };
-      }
-      const size = estimateDataUrlBytes(png);
-      if (size <= 0) {
-        return { ok: false, error: "Custom tile PNG is invalid." };
-      }
-      if (size > MAX_UPLOAD_BYTES) {
-        return { ok: false, error: "Custom tile PNG is too large." };
-      }
-      const category = normalizeCategory(item.category);
-      const name = sanitizeTileName(item.name || "Custom");
-      out.push({
-        id,
-        name,
-        category,
-        source: "custom",
-        w: TILE,
-        h: TILE,
-        png,
-      });
-      seen.add(id);
-    }
-    return { ok: true, tiles: out };
-  }
-
-  function normalizePayload(raw) {
-    if (!raw || typeof raw !== "object") return { ok: false, error: "Invalid payload." };
-    const gridInfo = normalizeGrid(raw.map || raw);
-    if (!gridInfo) return { ok: false, error: "Invalid map grid." };
-    const labels = normalizeLabels(raw.labels);
-    const customTilesResult = normalizeCustomTiles(raw.customTiles || []);
-    if (!customTilesResult.ok) return customTilesResult;
-    const customIds = new Set(customTilesResult.tiles.map(tile => tile.id));
-    for (const row of gridInfo.grid) {
-      for (const cell of row) {
-        if (typeof cell === "string" && cell.startsWith("custom:") && !customIds.has(cell)) {
-          return { ok: false, error: "Map references missing custom tile." };
-        }
-      }
-    }
-    return {
-      ok: true,
-      payload: {
-        version: Number(raw.version) || PAYLOAD_VERSION,
-        map: {
-          width: gridInfo.width,
-          height: gridInfo.height,
-          grid: gridInfo.grid,
-        },
-        labels,
-        customTiles: customTilesResult.tiles,
-      },
-    };
-  }
-
-  function applyLevelPayload(payload, options = {}) {
-    if (!payload || !payload.map || !payload.map.grid) return;
-    const { resetPlayer = false } = options;
-    mapH = payload.map.grid.length;
-    mapW = payload.map.width || (payload.map.grid[0] ? payload.map.grid[0].length : 0);
-    tiles.length = 0;
-    payload.map.grid.forEach(row => tiles.push(row.slice()));
-    updateWorldSize();
-    labelMap.clear();
-    (payload.labels || []).forEach((label) => {
-      if (!Number.isFinite(label.tx) || !Number.isFinite(label.ty)) return;
-      if (!label.text) return;
-      labelMap.set(labelKey(label.tx, label.ty), String(label.text));
-    });
-    loadCustomTiles(payload.customTiles || []);
-    const selectedEl = document.querySelector(`.editor-tile[data-tile="${editorTile}"]`);
-    if (!selectedEl) {
-      const fallback = document.querySelector(".editor-tile");
-      if (fallback) selectEditorTile(fallback.getAttribute("data-tile") || "#", fallback);
-    }
-    updateSpawnFromTiles();
-    if (resetPlayer && typeof resetPlayerToSpawn === "function") {
-      resetPlayerToSpawn();
-    }
-    if (typeof updateLabelInput === "function") {
-      updateLabelInput();
-    }
-  }
-
-  function getStoredPayload(key) {
-    if (typeof localStorage === "undefined") return null;
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    try {
-      const data = JSON.parse(raw);
-      const normalized = normalizePayload(data);
-      if (!normalized.ok) {
-        localStorage.removeItem(key);
-        return null;
-      }
-      return normalized.payload;
-    } catch (err) {
-      localStorage.removeItem(key);
-      return null;
-    }
-  }
-
-  function saveDraftPayload() {
-    if (typeof localStorage === "undefined") return;
-    try {
-      const payload = buildLevelPayload();
-      localStorage.setItem(DRAFT_PAYLOAD_KEY, JSON.stringify(payload));
-    } catch (err) {
-      // ignore persistence errors
-    }
-  }
-
-  let draftSaveTimer = null;
-  function queueDraftSave() {
-    if (draftSaveTimer) clearTimeout(draftSaveTimer);
-    draftSaveTimer = setTimeout(() => {
-      saveDraftPayload();
-      draftSaveTimer = null;
-    }, 300);
-  }
-
-  function publishDraftPayload() {
-    if (typeof localStorage === "undefined") return;
-    try {
-      const payload = buildLevelPayload();
-      localStorage.setItem(PUBLISHED_PAYLOAD_KEY, JSON.stringify(payload));
-      localStorage.removeItem(DRAFT_PAYLOAD_KEY);
-      if (draftSaveTimer) {
-        clearTimeout(draftSaveTimer);
-        draftSaveTimer = null;
-      }
-      setUploadStatus("Published draft locally. Export to share.", "success");
-    } catch (err) {
-      setUploadStatus("Publish failed.", "error");
-    }
-  }
-
-  function exportLevelPayload() {
-    const payload = buildLevelPayload();
-    const data = JSON.stringify(payload, null, 2);
-    const blob = new Blob([data], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "playfree-level.json";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-    setUploadStatus("Exported level JSON.", "success");
-  }
-
-  async function importLevelPayload(file) {
-    try {
-      const text = await file.text();
-      const data = JSON.parse(text);
-      const normalized = normalizePayload(data);
-      if (!normalized.ok) {
-        setUploadStatus(normalized.error || "Import failed.", "error");
-        return;
-      }
-      applyLevelPayload(normalized.payload, { resetPlayer: true });
-      queueDraftSave();
-      setUploadStatus("Imported level JSON.", "success");
-    } catch (err) {
-      setUploadStatus("Import failed: invalid JSON.", "error");
-    }
-  }
-
-  function resetLevelToGolden() {
-    if (typeof localStorage !== "undefined") {
-      localStorage.removeItem(DRAFT_PAYLOAD_KEY);
-    }
-    if (draftSaveTimer) {
-      clearTimeout(draftSaveTimer);
-      draftSaveTimer = null;
-    }
-    const published = getStoredPayload(PUBLISHED_PAYLOAD_KEY);
-    const base = published || JSON.parse(JSON.stringify(GOLDEN_PAYLOAD));
-    applyLevelPayload(base, { resetPlayer: true });
-    pushSystemChat("Level reset to original.");
-  }
-
-  function loadInitialPayload() {
-    const published = getStoredPayload(PUBLISHED_PAYLOAD_KEY);
-    const draft = getStoredPayload(DRAFT_PAYLOAD_KEY);
-    const base = draft || published || JSON.parse(JSON.stringify(GOLDEN_PAYLOAD));
-    applyLevelPayload(base);
-  }
 
   function ensureBounds(tx, ty) {
     let grew = false;
-    let grewX = false;
     while (ty >= tiles.length) {
       tiles.push(new Array(mapW).fill("."));
       grew = true;
@@ -2561,9 +1385,7 @@
         for (let i = 0; i < add; i++) row.push(".");
       }
       mapW = tiles[0].length;
-      grewX = true;
     }
-    if (grew || grewX) updateWorldSize();
   }
 
   function inBounds(tx, ty) { return tx >= 0 && ty >= 0 && tx < mapW && ty < mapH; }
@@ -2617,25 +1439,14 @@
     return null;
   }
 
-  const playerSpawn = { x: 2, y: 2 };
+  const playerSpawn = findChar("P") || { x: 2, y: 2 };
 
-  function updateSpawnFromTiles() {
-    const found = findChar("P");
-    if (found) {
-      playerSpawn.x = found.x;
-      playerSpawn.y = found.y;
-    } else {
-      playerSpawn.x = 2;
-      playerSpawn.y = 2;
-    }
-    for (let y = 0; y < mapH; y++) {
-      for (let x = 0; x < mapW; x++) {
-        if (tiles[y][x] === "P") tiles[y][x] = ".";
-      }
+  // Replace spawns with empty
+  for (let y = 0; y < mapH; y++) {
+    for (let x = 0; x < mapW; x++) {
+      if (tiles[y][x] === "P") tiles[y][x] = ".";
     }
   }
-
-  loadInitialPayload();
 
   // Entities
   const entities = [];
@@ -3247,17 +2058,6 @@
     statueTimer: 0,
     statueCooldown: 0,
   };
-  function resetPlayerToSpawn() {
-    player.x = playerSpawn.x * TILE;
-    player.y = playerSpawn.y * TILE;
-    player.vx = 0;
-    player.vy = 0;
-    player.onGround = false;
-    player.hitHead = false;
-    player.state = "ground";
-    player.coyote = 0;
-    player.jumpBuf = 0;
-  }
   let pMeterDisplaySegs = 0;
   let pMeterDecayHold = 0;
   const debugVxEl = document.getElementById("debug-vx");
@@ -3449,10 +2249,8 @@
   // Camera
   // -----------------------------
   const cam = { x: 0, y: 0 };
-  function updateWorldSize() {
-    worldWpx = mapW * TILE;
-    worldHpx = mapH * TILE;
-  }
+  const worldWpx = mapW * TILE;
+  const worldHpx = mapH * TILE;
 
   function updateCamera() {
     const targetX = player.x + player.w/2 - BASE_W/2;
@@ -3465,10 +2263,10 @@
   // -----------------------------
   let deadTimer = 0;
   function restart() {
-    const draft = getStoredPayload(DRAFT_PAYLOAD_KEY);
-    const published = getStoredPayload(PUBLISHED_PAYLOAD_KEY);
-    const base = draft || published || JSON.parse(JSON.stringify(GOLDEN_PAYLOAD));
-    applyLevelPayload(base, { resetPlayer: true });
+    // reset tiles to initial
+    for (let y = 0; y < mapH; y++) tiles[y] = LEVEL[y].split("");
+    // wipe spawns
+    for (let y = 0; y < mapH; y++) for (let x = 0; x < mapW; x++) if (tiles[y][x] === "P") tiles[y][x] = ".";
     // reset coins and blocks
     coinCount = 0;
     questionHits = 0;
@@ -4011,11 +2809,6 @@
     const sy = Math.floor(y - cam.y);
     if (sx < -TILE || sy < -TILE || sx > BASE_W || sy > BASE_H) return;
 
-    const custom = tileRegistry.get(t);
-    if (custom && custom.image && custom.image.complete) {
-      g.drawImage(custom.image, sx, sy, TILE, TILE);
-      return;
-    }
     if (t === "#") { // ground
       g.fillStyle = "#3b2f2f";
       g.fillRect(sx, sy, TILE, TILE);

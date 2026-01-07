@@ -15,39 +15,10 @@ function hashPass(pass) {
   return createHash("sha256").update(pass).digest("hex");
 }
 
-function normalizeExpectedHash(raw) {
-  if (typeof raw !== "string") return "";
-  return raw.trim().replace(/^sha256:/i, "");
-}
-
-function isHexHash(raw) {
-  return /^[0-9a-fA-F]{64}$/.test(raw);
-}
-
-function toBase64Url(base64) {
-  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
-
-function hasPassConfig() {
-  return Boolean(process.env.AUTHOR_PASSPHRASE_SHA256);
-}
-function hasTokenSecret() {
-  return Boolean(process.env.AUTHOR_TOKEN_SECRET);
-}
-
 function isPassValid(pass) {
-  const expectedRaw = process.env.AUTHOR_PASSPHRASE_SHA256;
-  if (!expectedRaw) return false;
-  const expected = normalizeExpectedHash(expectedRaw);
-  const hex = hashPass(pass);
-  if (isHexHash(expected) && safeEqual(hex, expected.toLowerCase())) return true;
-  const base64 = createHash("sha256").update(pass).digest("base64");
-  if (safeEqual(base64, expectedRaw.trim())) return true;
-  if (safeEqual(base64, expected)) return true;
-  const base64Url = toBase64Url(base64);
-  if (safeEqual(base64Url, expectedRaw.trim())) return true;
-  if (safeEqual(base64Url, expected)) return true;
-  return false;
+  const expectedHash = process.env.AUTHOR_PASSPHRASE_SHA256;
+  if (!expectedHash) return false;
+  return safeEqual(hashPass(pass), expectedHash);
 }
 
 function signToken(expMs) {
@@ -146,8 +117,6 @@ function setNoCache(res) {
 export {
   clearAuthorCookie,
   getAuthorFromRequest,
-  hasPassConfig,
-  hasTokenSecret,
   isPassValid,
   issueAuthorCookie,
   readJson,
