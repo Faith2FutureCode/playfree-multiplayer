@@ -30,6 +30,7 @@
       z-index: 2;
     }
     .tileset-preview.visible { display: flex; }
+    .tileset-preview.panning { cursor: grabbing; }
     .tileset-preview-sidebar {
       width: 160px;
       height: 100%;
@@ -539,6 +540,11 @@
   const tilesetGridPadY = document.getElementById("tileset-grid-pady");
   let tilesetPreviewUrl = null;
   let tilesetZoom = 1;
+  let tilesetPanX = 0;
+  let tilesetPanY = 0;
+  let tilesetPanning = false;
+  let tilesetPanStartX = 0;
+  let tilesetPanStartY = 0;
   const setAuthorClass = (enabled) => {
     document.body.classList.toggle("author", enabled);
   };
@@ -628,6 +634,8 @@
     tilesetPreviewUrl = URL.createObjectURL(file);
     tilesetPreviewImage.src = tilesetPreviewUrl;
     tilesetPreviewPanel.classList.add("visible");
+    tilesetPanX = 0;
+    tilesetPanY = 0;
     setTilesetZoom(1);
     requestAnimationFrame(updateTilesetGrid);
   };
@@ -649,7 +657,7 @@
     tilesetZoom = Math.min(6, Math.max(0.5, nextZoom));
     if (tilesetPreviewStage) {
       tilesetPreviewStage.style.transformOrigin = `${anchorX * 100}% ${anchorY * 100}%`;
-      tilesetPreviewStage.style.transform = `scale(${tilesetZoom})`;
+      tilesetPreviewStage.style.transform = `translate(${tilesetPanX}px, ${tilesetPanY}px) scale(${tilesetZoom})`;
     }
   };
 
@@ -718,6 +726,30 @@
       const anchorY = rect.height ? (e.clientY - rect.top) / rect.height : 0.5;
       setTilesetZoom(tilesetZoom + direction, anchorX, anchorY);
     }, { passive: false });
+
+    tilesetPreviewPanel.addEventListener("mousedown", (e) => {
+      if (!tilesetPreviewPanel.classList.contains("visible")) return;
+      if (e.button !== 1) return;
+      e.preventDefault();
+      tilesetPanning = true;
+      tilesetPanStartX = e.clientX - tilesetPanX;
+      tilesetPanStartY = e.clientY - tilesetPanY;
+      tilesetPreviewPanel.classList.add("panning");
+    });
+    tilesetPreviewPanel.addEventListener("mousemove", (e) => {
+      if (!tilesetPanning) return;
+      tilesetPanX = e.clientX - tilesetPanStartX;
+      tilesetPanY = e.clientY - tilesetPanStartY;
+      setTilesetZoom(tilesetZoom);
+      updateTilesetGrid();
+    });
+    const stopTilesetPan = () => {
+      if (!tilesetPanning) return;
+      tilesetPanning = false;
+      tilesetPreviewPanel.classList.remove("panning");
+    };
+    tilesetPreviewPanel.addEventListener("mouseup", stopTilesetPan);
+    tilesetPreviewPanel.addEventListener("mouseleave", stopTilesetPan);
   }
   window.addEventListener("resize", updateTilesetGrid);
 
