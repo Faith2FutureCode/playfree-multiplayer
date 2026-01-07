@@ -178,6 +178,7 @@
       padding: 10px 12px 12px;
       display: none;
       z-index: 260;
+      pointer-events: auto;
     }
     .tilesheet-popout.open {
       display: flex;
@@ -202,6 +203,8 @@
       padding: 4px 6px;
       cursor: pointer;
       box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
+      position: relative;
+      z-index: 2;
     }
     .tilesheet-preview {
       width: 100%;
@@ -420,6 +423,11 @@
       <span>PALETTE</span>
       <span>Press E</span>
     </div>
+    <div class="editor-section author-only">
+      <div class="editor-actions">
+        <button id="tilesheet-open-button" type="button">Tilesheet Cutter</button>
+      </div>
+    </div>
     <div class="editor-section">
       <h4>TERRAIN</h4>
       <div class="editor-grid" id="terrain-grid">
@@ -473,7 +481,6 @@
         <button id="publish-level-button" type="button">Publish Draft</button>
         <button id="export-level-button" type="button">Export Level</button>
         <button id="import-level-button" type="button">Import Level</button>
-        <button id="tilesheet-open-button" type="button">Tilesheet Cutter</button>
         <input id="import-level-input" type="file" accept="application/json" style="display:none"/>
       </div>
       <div id="sprite-upload-status" class="editor-hint" data-state="idle">Upload a square PNG/JPG (max 256x256).</div>
