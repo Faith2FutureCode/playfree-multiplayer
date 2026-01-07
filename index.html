@@ -14,6 +14,29 @@
     }
     :root { --canvas-width: 960px; --canvas-height: 720px; --editor-width: 0px; --tile: 16px; }
     canvas { display:block; margin:0 auto; image-rendering: pixelated; image-rendering: crisp-edges; }
+    .game-shell {
+      position: relative;
+      width: var(--canvas-width);
+      height: var(--canvas-height);
+    }
+    .tileset-preview {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(5, 8, 16, 0.65);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
+      z-index: 2;
+    }
+    .tileset-preview.visible { display: flex; }
+    .tileset-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
     .app-shell {
       position: absolute;
       left: 50%;
@@ -321,6 +344,9 @@
   </div>
   <div class="game-shell">
     <canvas id="c" width="912" height="816"></canvas>
+    <div class="tileset-preview" id="tileset-preview" aria-label="Tileset preview">
+      <img id="tileset-preview-image" alt="Tileset preview"/>
+    </div>
     <div class="hud" aria-label="HUD">
   <div class="hud-bar">
     <div class="hud-section hud-left">
@@ -407,6 +433,10 @@
   const AUTHOR_STATUS_ENDPOINT = "/api/author-status";
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d", { alpha: false });
+  const tilesetUploadEl = document.getElementById("tileset-upload");
+  const tilesetPreviewPanel = document.getElementById("tileset-preview");
+  const tilesetPreviewImage = document.getElementById("tileset-preview-image");
+  let tilesetPreviewUrl = null;
   const setAuthorClass = (enabled) => {
     document.body.classList.toggle("author", enabled);
   };
@@ -482,6 +512,29 @@
     beginAuthorPrompt();
     return true;
   }
+  const setTilesetPreview = (file) => {
+    if (!tilesetPreviewPanel || !tilesetPreviewImage) return;
+    if (tilesetPreviewUrl) {
+      URL.revokeObjectURL(tilesetPreviewUrl);
+      tilesetPreviewUrl = null;
+    }
+    if (!file) {
+      tilesetPreviewImage.removeAttribute("src");
+      tilesetPreviewPanel.classList.remove("visible");
+      return;
+    }
+    tilesetPreviewUrl = URL.createObjectURL(file);
+    tilesetPreviewImage.src = tilesetPreviewUrl;
+    tilesetPreviewPanel.classList.add("visible");
+  };
+
+  if (tilesetUploadEl) {
+    tilesetUploadEl.addEventListener("change", () => {
+      const file = tilesetUploadEl.files && tilesetUploadEl.files[0];
+      setTilesetPreview(file || null);
+    });
+  }
+
   refreshAuthorStatus();
 
   // Pixel-art vibe: render at low-res then scale up
