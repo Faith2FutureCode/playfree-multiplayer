@@ -1802,6 +1802,8 @@
   let mapW = LEVEL[0].length;
   const tiles = LEVEL.map(row => row.split(""));
   const labelMap = new Map(); // key: "tx,ty" -> string
+  let worldWpx = mapW * TILE;
+  let worldHpx = mapH * TILE;
   const GOLDEN_PAYLOAD = {
     version: PAYLOAD_VERSION,
     map: {
@@ -2995,8 +2997,6 @@
   // Camera
   // -----------------------------
   const cam = { x: 0, y: 0 };
-  let worldWpx = mapW * TILE;
-  let worldHpx = mapH * TILE;
   function updateWorldSize() {
     worldWpx = mapW * TILE;
     worldHpx = mapH * TILE;
