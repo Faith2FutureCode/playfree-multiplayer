@@ -86,9 +86,13 @@
     .tileset-tools-grid {
       display: grid;
       grid-template-columns: repeat(7, auto);
-      align-items: center;
+      align-items: end;
       gap: 6px 8px;
     }
+    .tileset-tools-grid label { grid-row: 1; }
+    .tileset-tools-grid input,
+    .tileset-tools-grid button,
+    .tileset-tools-grid span { grid-row: 2; }
     .tileset-tools-grid input {
       width: 64px;
       min-width: 44px;
