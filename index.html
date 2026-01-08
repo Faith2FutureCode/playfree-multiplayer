@@ -185,10 +185,27 @@
     .tileset-group-list {
       margin-top: 4px;
       display: flex;
-      flex-direction: row;
-      flex-wrap: wrap;
+      flex-direction: column;
       gap: 6px;
       font-size: 11px;
+    }
+    .tileset-group-entry {
+      display: flex;
+      flex-direction: column;
+      padding: 6px;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 6px;
+      background: rgba(255,255,255,0.03);
+    }
+    .tileset-group-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    .tileset-group-detail {
+      font-size: 10px;
+      color: rgba(255,255,255,0.8);
     }
     .tileset-group-entry {
       display: flex;
@@ -968,10 +985,10 @@
     tilesetGroups.forEach((group) => {
       const entry = document.createElement("div");
       entry.className = "tileset-group-entry";
+      const header = document.createElement("div");
+      header.className = "tileset-group-header";
       const title = document.createElement("span");
       title.textContent = group.name;
-      const detail = document.createElement("span");
-      detail.textContent = `${group.x}/${group.y}/${group.w}/${group.h}`;
       const remove = document.createElement("button");
       remove.type = "button";
       remove.className = "tileset-group-remove";
@@ -983,7 +1000,11 @@
           renderTilesetGroups();
         }
       });
-      entry.append(title, detail, remove);
+      header.append(title, remove);
+      const detail = document.createElement("div");
+      detail.className = "tileset-group-detail";
+      detail.textContent = `Pos: ${group.x}/${group.y} · Size: ${group.w}×${group.h}`;
+      entry.append(header, detail);
       tilesetGroupList.appendChild(entry);
     });
   };
