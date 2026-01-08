@@ -1934,7 +1934,7 @@
   canvas.addEventListener("mousemove", (e) => {
     if (!editorOpen) return;
     const cell = screenToCell(e.clientX, e.clientY);
-    hoverCell = (cell && inBounds(cell.tx, cell.ty)) ? cell : null;
+    hoverCell = cell || null;
     if (paintingButton !== null) {
       applyEditorPaint(e.clientX, e.clientY, paintingButton === 2);
     }
