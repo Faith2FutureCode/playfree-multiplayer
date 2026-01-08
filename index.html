@@ -732,6 +732,7 @@
   const demoRecorderDownload = document.getElementById("demo-recorder-download");
   const demoRecorderStatus = document.getElementById("demo-recorder-status");
   const appShell = document.querySelector(".app-shell");
+  const demoCaptureTarget = document.documentElement || document.body || appShell;
   const levelSaveButton = document.getElementById("level-save-button");
   const levelResetButton = document.getElementById("level-reset-button");
   const customPaletteSection = document.getElementById("custom-palette-section");
@@ -893,6 +894,8 @@
   let demoRecorderEnabled = false;
   let demoRecorderCaptureActive = false;
   let demoRecorderPendingCapture = false;
+  let demoRecorderQueued = 0;
+  let demoRecorderRaf = null;
   const updateDemoRecorderToggleUI = () => {
     if (!demoRecorderToggle) return;
     demoRecorderToggle.textContent = demoRecorderEnabled ? "Demo Recorder ON" : "Demo Recorder OFF";
@@ -903,13 +906,24 @@
     demoRecorderStatus.textContent = `${demoRecorderFrames.length} capture${demoRecorderFrames.length === 1 ? "" : "s"}`;
   };
   const captureDemoFrame = () => {
-    if (!demoRecorderEnabled || demoRecorderCaptureActive || !appShell) return;
+    if (!demoRecorderEnabled || demoRecorderCaptureActive || !demoCaptureTarget) return;
     if (typeof html2canvas !== "function") {
       console.warn("Demo recorder requires html2canvas.");
       return;
     }
     demoRecorderCaptureActive = true;
-    html2canvas(appShell, { backgroundColor: "#0b1020" })
+    const viewWidth = document.documentElement ? document.documentElement.clientWidth : window.innerWidth;
+    const viewHeight = document.documentElement ? document.documentElement.clientHeight : window.innerHeight;
+    html2canvas(demoCaptureTarget, {
+      backgroundColor: "#0b1020",
+      windowWidth: window.innerWidth,
+      windowHeight: window.innerHeight,
+      width: viewWidth,
+      height: viewHeight,
+      scrollX: window.scrollX,
+      scrollY: window.scrollY,
+      useCORS: true,
+    })
       .then((canvas) => {
         const dataUrl = canvas.toDataURL("image/png");
         demoRecorderFrames.push(dataUrl);
@@ -923,15 +937,31 @@
       })
       .finally(() => {
         demoRecorderCaptureActive = false;
+        if (demoRecorderQueued > 0) {
+          if (!demoRecorderRaf) {
+            demoRecorderRaf = requestAnimationFrame(() => {
+              demoRecorderRaf = null;
+              flushDemoCapture();
+            });
+          }
+        }
       });
   };
   const scheduleDemoCapture = () => {
-    if (!demoRecorderEnabled || !appShell) return;
+    if (!demoRecorderEnabled || !demoCaptureTarget) return;
     demoRecorderPendingCapture = true;
+    demoRecorderQueued = Math.min(demoRecorderQueued + 1, 10);
+    if (!demoRecorderRaf) {
+      demoRecorderRaf = requestAnimationFrame(() => {
+        demoRecorderRaf = null;
+        flushDemoCapture();
+      });
+    }
   };
   const flushDemoCapture = () => {
     if (!demoRecorderPendingCapture || demoRecorderCaptureActive) return;
     demoRecorderPendingCapture = false;
+    if (demoRecorderQueued > 0) demoRecorderQueued -= 1;
     captureDemoFrame();
   };
   if (appShell) {
