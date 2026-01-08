@@ -1011,8 +1011,10 @@
       const octx = offscreen.getContext("2d");
       if (!octx) return;
       octx.drawImage(tilesetPreviewImage, 0, 0);
+      const tilesToSort = [];
       customPaletteGrid.innerHTML = "";
       customTileSprites.clear();
+      customTileDataUrls.clear();
       customTileMap.clear();
       let poolIndex = 0;
       let cutCount = 0;
@@ -1036,22 +1038,60 @@
           if (!tctx) continue;
           tctx.putImageData(imgData, 0, 0);
           const url = tileCanvas.toDataURL("image/png");
-          const img = new Image();
-          img.src = url;
-          customTileSprites.set(tileId, img);
-          customTileDataUrls.set(tileId, url);
+          let rSum = 0, gSum = 0, bSum = 0, count = 0;
+          for (let i = 0; i < data.length; i += 4) {
+            if (data[i + 3] === 0) continue;
+            rSum += data[i];
+            gSum += data[i + 1];
+            bSum += data[i + 2];
+            count += 1;
+          }
+          const avgR = count ? rSum / count : 0;
+          const avgG = count ? gSum / count : 0;
+          const avgB = count ? bSum / count : 0;
+          const toHsl = (r, g, b) => {
+            const rn = r / 255;
+            const gn = g / 255;
+            const bn = b / 255;
+            const max = Math.max(rn, gn, bn);
+            const min = Math.min(rn, gn, bn);
+            const delta = max - min;
+            let h = 0;
+            if (delta !== 0) {
+              if (max === rn) h = ((gn - bn) / delta) % 6;
+              else if (max === gn) h = (bn - rn) / delta + 2;
+              else h = (rn - gn) / delta + 4;
+              h = Math.round(h * 60);
+              if (h < 0) h += 360;
+            }
+            const l = (max + min) / 2;
+            const s = delta === 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
+            return { h, s, l };
+          };
+          tilesToSort.push({ tileId, url, hsl: toHsl(avgR, avgG, avgB) });
           cutCount += 1;
-          const tileEl = document.createElement("div");
-          tileEl.className = "editor-tile";
-          tileEl.setAttribute("data-tile", tileId);
-          const preview = document.createElement("canvas");
-          preview.className = "tile-preview";
-          preview.width = 8;
-          preview.height = 8;
-          preview.setAttribute("data-tile", tileId);
-          tileEl.appendChild(preview);
-          customPaletteGrid.appendChild(tileEl);
         }
+      }
+      tilesToSort.sort((a, b) => {
+        if (a.hsl.h !== b.hsl.h) return a.hsl.h - b.hsl.h;
+        if (a.hsl.s !== b.hsl.s) return a.hsl.s - b.hsl.s;
+        return a.hsl.l - b.hsl.l;
+      });
+      for (const tile of tilesToSort) {
+        const img = new Image();
+        img.src = tile.url;
+        customTileSprites.set(tile.tileId, img);
+        customTileDataUrls.set(tile.tileId, tile.url);
+        const tileEl = document.createElement("div");
+        tileEl.className = "editor-tile";
+        tileEl.setAttribute("data-tile", tile.tileId);
+        const preview = document.createElement("canvas");
+        preview.className = "tile-preview";
+        preview.width = 8;
+        preview.height = 8;
+        preview.setAttribute("data-tile", tile.tileId);
+        tileEl.appendChild(preview);
+        customPaletteGrid.appendChild(tileEl);
       }
       const paletteName = (tilesetPaletteName && tilesetPaletteName.value.trim()) || "Custom";
       if (customPaletteTitle) customPaletteTitle.textContent = paletteName.toUpperCase();
