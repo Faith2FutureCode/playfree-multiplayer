@@ -50,7 +50,7 @@
       transform: translateX(-50%);
       max-height: calc(100% - 24px);
       width: fit-content;
-      max-width: min(var(--canvas-width), calc(100vw - 24px));
+      width: min(var(--canvas-width), calc(100vw - 24px));
       background: rgba(10, 16, 28, 0.9);
       border: 2px solid rgba(255,255,255,0.08);
       padding: 10px;
@@ -438,6 +438,8 @@
             <input id="tileset-remove-color" type="text" value="#000000"/>
             <button class="tileset-tools-button tileset-eye-dropper" id="tileset-eye-dropper" type="button" aria-label="Pick color from tileset">Pick</button>
           </div>
+          <label for="tileset-remove-tolerance">Tolerance:</label>
+          <input id="tileset-remove-tolerance" type="text" value="0" inputmode="numeric"/>
           <span></span>
           <button class="tileset-tools-button" id="tileset-remove-apply" type="button">Remove Selected Color</button>
         </div>
@@ -611,6 +613,7 @@
   const tilesetRemoveColor = document.getElementById("tileset-remove-color");
   const tilesetEyeDropper = document.getElementById("tileset-eye-dropper");
   const tilesetRemoveApply = document.getElementById("tileset-remove-apply");
+  const tilesetRemoveTolerance = document.getElementById("tileset-remove-tolerance");
   const tilesetToolsClose = document.querySelector(".tileset-tools-close");
   let tilesetPreviewUrl = null;
   let tilesetZoom = 1;
@@ -855,6 +858,8 @@
       const r = parseInt(hex.slice(1, 3), 16);
       const g = parseInt(hex.slice(3, 5), 16);
       const b = parseInt(hex.slice(5, 7), 16);
+      const tolRaw = tilesetRemoveTolerance ? parseInt(tilesetRemoveTolerance.value, 10) : 0;
+      const tol = Number.isFinite(tolRaw) ? Math.max(0, Math.min(255, tolRaw)) : 0;
       const w = tilesetPreviewImage.naturalWidth;
       const h = tilesetPreviewImage.naturalHeight;
       if (!w || !h) {
@@ -869,8 +874,12 @@
       octx.drawImage(tilesetPreviewImage, 0, 0);
       const imgData = octx.getImageData(0, 0, w, h);
       const data = imgData.data;
+      const tolSq = tol * tol;
       for (let i = 0; i < data.length; i += 4) {
-        if (data[i] === r && data[i + 1] === g && data[i + 2] === b) {
+        const dr = data[i] - r;
+        const dg = data[i + 1] - g;
+        const db = data[i + 2] - b;
+        if (dr * dr + dg * dg + db * db <= tolSq) {
           data[i + 3] = 0;
         }
       }
