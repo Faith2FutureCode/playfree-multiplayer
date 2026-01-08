@@ -151,6 +151,74 @@
       height: 0;
       border-top: 2px dotted #5a6b7a;
     }
+    .tileset-group-builder {
+      margin-top: 10px;
+      padding: 6px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 6px;
+      background: rgba(15,24,42,0.85);
+    }
+    .tileset-group-builder-header {
+      font-size: 12px;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+    .tileset-group-meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+      gap: 6px;
+    }
+    .tileset-group-meta label {
+      font-size: 11px;
+    }
+    .tileset-group-meta input {
+      border-radius: 4px;
+    }
+    .tileset-group-list {
+      margin-top: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 11px;
+    }
+    .tileset-group-entry {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 4px 6px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.04);
+    }
+    .tileset-group-entry span:first-child {
+      font-weight: 700;
+    }
+    .tileset-group-remove {
+      border: none;
+      background: #ff6b6b;
+      color: #0b0f1f;
+      font-weight: 700;
+      width: 18px;
+      height: 18px;
+      padding: 0;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3);
+    }
+    .custom-palette-group {
+      margin-top: 10px;
+      border: 1px dotted rgba(255,255,255,0.2);
+      padding: 6px 6px 10px;
+      border-radius: 6px;
+    }
+    .custom-palette-group-header {
+      font-size: 11px;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+      color: #9fb3ff;
+      text-transform: uppercase;
+    }
     .tileset-preview-stage {
       position: relative;
       width: 100%;
@@ -458,7 +526,6 @@
       opacity: 0.9;
     }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 <body>
   <div class="app-shell">
@@ -515,6 +582,23 @@
           </div>
         </div>
         <div class="tileset-tools-divider" aria-hidden="true"></div>
+        <div class="tileset-group-builder">
+          <div class="tileset-group-builder-header">Groups</div>
+          <div class="tileset-group-meta">
+            <label for="tileset-group-name">Name</label>
+            <input id="tileset-group-name" type="text" maxlength="24" placeholder="Ground pieces">
+            <label for="tileset-group-x">X</label>
+            <input id="tileset-group-x" type="text" value="0" inputmode="numeric">
+            <label for="tileset-group-y">Y</label>
+            <input id="tileset-group-y" type="text" value="0" inputmode="numeric">
+            <label for="tileset-group-w">W</label>
+            <input id="tileset-group-w" type="text" value="256" inputmode="numeric">
+            <label for="tileset-group-h">H</label>
+            <input id="tileset-group-h" type="text" value="128" inputmode="numeric">
+            <button class="tileset-tools-button" id="tileset-group-add" type="button">Add Group</button>
+          </div>
+          <div class="tileset-group-list" id="tileset-group-list"></div>
+        </div>
       </div>
       <div class="tileset-preview-stage">
         <img id="tileset-preview-image" alt="Tileset preview"/>
@@ -576,14 +660,6 @@
         <button id="timelapse-download-webm" type="button">Download WebM</button>
       </div>
       <div class="editor-hint" id="timelapse-status">0 frames</div>
-    </div>
-    <div class="editor-section author-only">
-      <h4>DEMO RECORDER</h4>
-      <div class="editor-actions">
-        <button id="demo-recorder-toggle" type="button">Demo Recorder OFF</button>
-        <button id="demo-recorder-download" type="button">Download Frames</button>
-      </div>
-      <div class="editor-hint" id="demo-recorder-status">0 captures</div>
     </div>
     <div class="editor-section author-only">
       <h4>LEVEL CONTROL</h4>
@@ -721,6 +797,13 @@
   const tilesetPaletteName = document.getElementById("tileset-palette-name");
   const tilesetCutSprites = document.getElementById("tileset-cut-sprites");
   const tilesetToolsClose = document.querySelector(".tileset-tools-close");
+  const tilesetGroupName = document.getElementById("tileset-group-name");
+  const tilesetGroupX = document.getElementById("tileset-group-x");
+  const tilesetGroupY = document.getElementById("tileset-group-y");
+  const tilesetGroupW = document.getElementById("tileset-group-w");
+  const tilesetGroupH = document.getElementById("tileset-group-h");
+  const tilesetGroupAdd = document.getElementById("tileset-group-add");
+  const tilesetGroupList = document.getElementById("tileset-group-list");
   const hintToggle = document.getElementById("hint-toggle");
   const hintPanel = document.getElementById("hint-panel");
   const timelapseToggle = document.getElementById("timelapse-toggle");
@@ -728,11 +811,6 @@
   const timelapseDownload = document.getElementById("timelapse-download");
   const timelapseDownloadWebm = document.getElementById("timelapse-download-webm");
   const timelapseStatus = document.getElementById("timelapse-status");
-  const demoRecorderToggle = document.getElementById("demo-recorder-toggle");
-  const demoRecorderDownload = document.getElementById("demo-recorder-download");
-  const demoRecorderStatus = document.getElementById("demo-recorder-status");
-  const appShell = document.querySelector(".app-shell");
-  const demoCaptureTarget = document.documentElement || document.body || appShell;
   const levelSaveButton = document.getElementById("level-save-button");
   const levelResetButton = document.getElementById("level-reset-button");
   const customPaletteSection = document.getElementById("custom-palette-section");
@@ -748,6 +826,8 @@
   const timelapseFrames = [];
   let timelapseEnabled = false;
   let timelapseCaptureActive = false;
+  const tilesetGroups = [];
+  let tilesetGroupCounter = 0;
   let tilesetPreviewUrl = null;
   let tilesetZoom = 1;
   let tilesetPanX = 0;
@@ -781,6 +861,48 @@
       timelapseCaptureActive = false;
     }
   };
+  const parseGroupValue = (el, fallback) => {
+    if (!el) return fallback;
+    const val = Number.parseInt(el.value, 10);
+    return Number.isFinite(val) ? val : fallback;
+  };
+  const renderTilesetGroups = () => {
+    if (!tilesetGroupList) return;
+    tilesetGroupList.innerHTML = "";
+    tilesetGroups.forEach((group) => {
+      const entry = document.createElement("div");
+      entry.className = "tileset-group-entry";
+      const title = document.createElement("span");
+      title.textContent = group.name;
+      const detail = document.createElement("span");
+      detail.textContent = `${group.x}/${group.y}/${group.w}/${group.h}`;
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "tileset-group-remove";
+      remove.textContent = "×";
+      remove.addEventListener("click", () => {
+        const idx = tilesetGroups.findIndex((g) => g.id === group.id);
+        if (idx >= 0) {
+          tilesetGroups.splice(idx, 1);
+          renderTilesetGroups();
+        }
+      });
+      entry.append(title, detail, remove);
+      tilesetGroupList.appendChild(entry);
+    });
+  };
+  if (tilesetGroupAdd) {
+    tilesetGroupAdd.addEventListener("click", () => {
+      const name = (tilesetGroupName ? tilesetGroupName.value.trim() : "") || `Group ${tilesetGroups.length + 1}`;
+      const x = parseGroupValue(tilesetGroupX, 0);
+      const y = parseGroupValue(tilesetGroupY, 0);
+      const w = Math.max(1, parseGroupValue(tilesetGroupW, 16));
+      const h = Math.max(1, parseGroupValue(tilesetGroupH, 16));
+      tilesetGroupCounter += 1;
+      tilesetGroups.push({ id: tilesetGroupCounter, name, x, y, w, h });
+      renderTilesetGroups();
+    });
+  }
   if (timelapseToggle) {
     timelapseToggle.addEventListener("click", () => {
       timelapseEnabled = !timelapseEnabled;
@@ -889,114 +1011,6 @@
       drawNext();
     });
   }
-  const DEMO_RECORDER_MAX_FRAMES = 120;
-  const demoRecorderFrames = [];
-  let demoRecorderEnabled = false;
-  let demoRecorderCaptureActive = false;
-  let demoRecorderPendingCapture = false;
-  let demoRecorderQueued = 0;
-  let demoRecorderRaf = null;
-  const updateDemoRecorderToggleUI = () => {
-    if (!demoRecorderToggle) return;
-    demoRecorderToggle.textContent = demoRecorderEnabled ? "Demo Recorder ON" : "Demo Recorder OFF";
-    demoRecorderToggle.classList.toggle("active", demoRecorderEnabled);
-  };
-  const updateDemoRecorderStatus = () => {
-    if (!demoRecorderStatus) return;
-    demoRecorderStatus.textContent = `${demoRecorderFrames.length} capture${demoRecorderFrames.length === 1 ? "" : "s"}`;
-  };
-  const captureDemoFrame = () => {
-    if (!demoRecorderEnabled || demoRecorderCaptureActive || !demoCaptureTarget) return;
-    if (typeof html2canvas !== "function") {
-      console.warn("Demo recorder requires html2canvas.");
-      return;
-    }
-    demoRecorderCaptureActive = true;
-    const viewWidth = document.documentElement ? document.documentElement.clientWidth : window.innerWidth;
-    const viewHeight = document.documentElement ? document.documentElement.clientHeight : window.innerHeight;
-    html2canvas(demoCaptureTarget, {
-      backgroundColor: "#0b1020",
-      windowWidth: window.innerWidth,
-      windowHeight: window.innerHeight,
-      width: viewWidth,
-      height: viewHeight,
-      scrollX: window.scrollX,
-      scrollY: window.scrollY,
-      useCORS: true,
-    })
-      .then((canvas) => {
-        const dataUrl = canvas.toDataURL("image/png");
-        demoRecorderFrames.push(dataUrl);
-        while (demoRecorderFrames.length > DEMO_RECORDER_MAX_FRAMES) {
-          demoRecorderFrames.shift();
-        }
-        updateDemoRecorderStatus();
-      })
-      .catch((err) => {
-        console.warn("Demo recorder capture failed.", err);
-      })
-      .finally(() => {
-        demoRecorderCaptureActive = false;
-        if (demoRecorderQueued > 0) {
-          if (!demoRecorderRaf) {
-            demoRecorderRaf = requestAnimationFrame(() => {
-              demoRecorderRaf = null;
-              flushDemoCapture();
-            });
-          }
-        }
-      });
-  };
-  const scheduleDemoCapture = () => {
-    if (!demoRecorderEnabled || !demoCaptureTarget) return;
-    demoRecorderPendingCapture = true;
-    demoRecorderQueued = Math.min(demoRecorderQueued + 1, 10);
-    if (!demoRecorderRaf) {
-      demoRecorderRaf = requestAnimationFrame(() => {
-        demoRecorderRaf = null;
-        flushDemoCapture();
-      });
-    }
-  };
-  const flushDemoCapture = () => {
-    if (!demoRecorderPendingCapture || demoRecorderCaptureActive) return;
-    demoRecorderPendingCapture = false;
-    if (demoRecorderQueued > 0) demoRecorderQueued -= 1;
-    captureDemoFrame();
-  };
-  if (appShell) {
-    appShell.addEventListener("click", () => {
-      scheduleDemoCapture();
-    }, true);
-  }
-  document.addEventListener("click", () => {
-    scheduleDemoCapture();
-  }, true);
-  if (demoRecorderToggle) {
-    demoRecorderToggle.addEventListener("click", () => {
-      demoRecorderEnabled = !demoRecorderEnabled;
-      updateDemoRecorderToggleUI();
-      scheduleDemoCapture();
-    });
-    updateDemoRecorderToggleUI();
-  }
-  if (demoRecorderDownload) {
-    demoRecorderDownload.addEventListener("click", () => {
-      if (demoRecorderFrames.length === 0) {
-        pushSystemChat("No demo recorder frames to download.");
-        return;
-      }
-      demoRecorderFrames.forEach((dataUrl, idx) => {
-        const a = document.createElement("a");
-        a.href = dataUrl;
-        a.download = `demo-recording-${String(idx + 1).padStart(4, "0")}.png`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      });
-    });
-  }
-  updateDemoRecorderStatus();
   async function refreshAuthorStatus() {
     try {
       const res = await fetch(AUTHOR_STATUS_ENDPOINT, { credentials: "include" });
@@ -1287,7 +1301,14 @@
       customTileDataUrls.clear();
       customTileMap.clear();
       let poolIndex = 0;
-      let cutCount = 0;
+      const findGroupName = (xPos, yPos) => {
+        for (const group of tilesetGroups) {
+          if (xPos >= group.x && yPos >= group.y && xPos + tileW <= group.x + group.w && yPos + tileH <= group.y + group.h) {
+            return group.name;
+          }
+        }
+        return null;
+      };
       for (let y = gridY; y + tileH <= h; y += stepY) {
         for (let x = gridX; x + tileW <= w; x += stepX) {
           const imgData = octx.getImageData(x, y, tileW, tileH);
@@ -1338,8 +1359,7 @@
             const s = delta === 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
             return { h, s, l };
           };
-          tilesToSort.push({ tileId, url, hsl: toHsl(avgR, avgG, avgB) });
-          cutCount += 1;
+          tilesToSort.push({ tileId, url, hsl: toHsl(avgR, avgG, avgB), group: findGroupName(x, y) });
         }
       }
       tilesToSort.sort((a, b) => {
@@ -1347,7 +1367,22 @@
         if (a.hsl.s !== b.hsl.s) return a.hsl.s - b.hsl.s;
         return a.hsl.l - b.hsl.l;
       });
-      for (const tile of tilesToSort) {
+      const sections = new Map();
+      const sectionOrder = [];
+      const ensureSection = (name) => {
+        if (!sections.has(name)) {
+          sections.set(name, []);
+          sectionOrder.push(name);
+        }
+        return sections.get(name);
+      };
+      const paletteName = (tilesetPaletteName && tilesetPaletteName.value.trim()) || "Custom";
+      tilesToSort.forEach((tile) => {
+        const sectionName = tile.group || paletteName;
+        ensureSection(sectionName).push(tile);
+      });
+      let totalTiles = 0;
+      const createTileElement = (tile) => {
         const img = new Image();
         img.src = tile.url;
         customTileSprites.set(tile.tileId, img);
@@ -1361,14 +1396,31 @@
         preview.height = 8;
         preview.setAttribute("data-tile", tile.tileId);
         tileEl.appendChild(preview);
-        customPaletteGrid.appendChild(tileEl);
+        return tileEl;
+      };
+      for (const sectionName of sectionOrder) {
+        const tiles = sections.get(sectionName);
+        if (!tiles || tiles.length === 0) continue;
+        const groupWrapper = document.createElement("div");
+        groupWrapper.className = "custom-palette-group";
+        const groupHeader = document.createElement("div");
+        groupHeader.className = "custom-palette-group-header";
+        groupHeader.textContent = sectionName;
+        const groupGrid = document.createElement("div");
+        groupGrid.className = "editor-grid";
+        tiles.forEach((tile) => {
+          const tileEl = createTileElement(tile);
+          groupGrid.appendChild(tileEl);
+        });
+        groupWrapper.append(groupHeader, groupGrid);
+        customPaletteGrid.appendChild(groupWrapper);
+        wirePaletteGrid(groupGrid);
+        totalTiles += tiles.length;
       }
-      const paletteName = (tilesetPaletteName && tilesetPaletteName.value.trim()) || "Custom";
       if (customPaletteTitle) customPaletteTitle.textContent = paletteName.toUpperCase();
       document.body.classList.add("has-custom-tiles");
-      wirePaletteGrid(customPaletteGrid);
       renderPalettePreviews();
-      pushSystemChat(`Cut ${cutCount} tiles into ${paletteName}.`);
+      pushSystemChat(`Cut ${totalTiles} tiles into ${paletteName}.`);
     });
   }
   if (tilesetToolsClose) {
@@ -1415,6 +1467,7 @@
   window.addEventListener("resize", updateTilesetGrid);
 
   refreshAuthorStatus();
+  renderTilesetGroups();
 
   // Pixel-art vibe: render at low-res then scale up
   const BASE_W = 304; // 19 tiles wide
@@ -2020,7 +2073,6 @@
     if (!changes || changes.length === 0) return;
     undoStack.push(changes);
     redoStack.length = 0;
-    scheduleDemoCapture();
   }
 
   function applyChanges(changes, useNext=true) {
@@ -2045,7 +2097,6 @@
     redoStack.push(changes);
     updateLabelInput();
     captureTimelapseFrame();
-    scheduleDemoCapture();
   }
 
   function redoAction() {
@@ -2055,7 +2106,6 @@
     undoStack.push(changes);
     updateLabelInput();
     captureTimelapseFrame();
-    scheduleDemoCapture();
   }
 
   function drawTilePreview(ctx, t) {
@@ -2230,7 +2280,6 @@
   let paintingButton = null;
   canvas.addEventListener("mousedown", (e) => {
     if (!editorOpen) return;
-    scheduleDemoCapture();
     const cell = screenToCell(e.clientX, e.clientY);
     if (cell) setSelection(cell.tx, cell.ty);
     if (cell) {
@@ -2475,7 +2524,6 @@
   }
   function setTile(tx, ty, v) {
     setTileRaw(tx, ty, v);
-    if (editorOpen) scheduleDemoCapture();
   }
   function labelKey(tx, ty) { return `${tx},${ty}`; }
   function getLabel(tx, ty) {
