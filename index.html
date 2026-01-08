@@ -573,7 +573,6 @@
         <button id="timelapse-clear" type="button">Clear Frames</button>
         <button id="timelapse-download" type="button">Download Frames</button>
         <button id="timelapse-download-webm" type="button">Download WebM</button>
-        <button id="timelapse-clean-replay" type="button">Clean Replay</button>
       </div>
       <div class="editor-hint" id="timelapse-status">0 frames</div>
     </div>
@@ -716,7 +715,6 @@
   const timelapseClear = document.getElementById("timelapse-clear");
   const timelapseDownload = document.getElementById("timelapse-download");
   const timelapseDownloadWebm = document.getElementById("timelapse-download-webm");
-  const timelapseCleanReplay = document.getElementById("timelapse-clean-replay");
   const timelapseStatus = document.getElementById("timelapse-status");
   const levelSaveButton = document.getElementById("level-save-button");
   const levelResetButton = document.getElementById("level-reset-button");
@@ -732,7 +730,6 @@
   const timelapseFrames = [];
   let timelapseEnabled = false;
   let timelapseCaptureActive = false;
-  const editHistory = [];
   let tilesetPreviewUrl = null;
   let tilesetZoom = 1;
   let tilesetPanX = 0;
@@ -872,37 +869,6 @@
         img.src = timelapseFrames[i];
       };
       drawNext();
-    });
-  }
-  if (timelapseCleanReplay) {
-    timelapseCleanReplay.addEventListener("click", () => {
-      if (editHistory.length === 0) {
-        pushSystemChat("No edits to replay.");
-        return;
-      }
-      const allChanges = editHistory.flat();
-      const cleared = [];
-      for (let ty = 0; ty < mapH; ty++) {
-        for (let tx = 0; tx < mapW; tx++) {
-          const prevTile = getTile(tx, ty);
-          const prevLabel = getLabel(tx, ty);
-          if (prevTile !== "." || prevLabel) {
-            cleared.push({ tx, ty, prevTile, prevLabel, nextTile: ".", nextLabel: "" });
-          }
-        }
-      }
-      applyChanges(cleared, true);
-      let idx = 0;
-      const stepReplay = () => {
-        if (idx >= allChanges.length) {
-          pushSystemChat("Clean replay complete.");
-          return;
-        }
-        applyChanges([allChanges[idx]], true);
-        idx += 1;
-        setTimeout(stepReplay, 80);
-      };
-      stepReplay();
     });
   }
   async function refreshAuthorStatus() {
@@ -1928,7 +1894,6 @@
     if (!changes || changes.length === 0) return;
     undoStack.push(changes);
     redoStack.length = 0;
-    editHistory.push(changes.map(c => ({ ...c })));
   }
 
   function applyChanges(changes, useNext=true) {
