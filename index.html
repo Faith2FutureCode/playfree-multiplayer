@@ -904,22 +904,25 @@
     if (tilesetGroupH) tilesetGroupH.value = `${Math.round(tilesetSelection.h)}`;
   };
   const getTilesetNaturalPoint = (event) => {
-    if (!lastTilesetState || !tilesetPreviewStage) return null;
-    const rect = tilesetPreviewStage.getBoundingClientRect();
-    const localX = (event.clientX - rect.left) / tilesetZoom;
-    const localY = (event.clientY - rect.top) / tilesetZoom;
-    const { bounds, stepX, stepY, naturalW, naturalH } = lastTilesetState;
-    const relX = localX - bounds.offsetX;
-    const relY = localY - bounds.offsetY;
-    if (relX < 0 || relY < 0) return null;
-    const cellX = Math.floor(relX / stepX);
-    const cellY = Math.floor(relY / stepY);
-    if (cellX * stepX >= naturalW || cellY * stepY >= naturalH) return null;
+    if (!lastTilesetState || !tilesetPreviewImage) return null;
+    const imgRect = tilesetPreviewImage.getBoundingClientRect();
+    const relX = event.clientX - imgRect.left;
+    const relY = event.clientY - imgRect.top;
+    if (relX < 0 || relY < 0 || relX > imgRect.width || relY > imgRect.height) return null;
+    const { naturalW, naturalH } = lastTilesetState;
+    const scaleX = naturalW ? imgRect.width / naturalW : 1;
+    const scaleY = naturalH ? imgRect.height / naturalH : 1;
+    const pixelX = relX / scaleX;
+    const pixelY = relY / scaleY;
+    const { stepX, stepY } = lastTilesetState;
+    const cellX = Math.floor(pixelX / stepX);
+    const cellY = Math.floor(pixelY / stepY);
+    if (cellX < 0 || cellY < 0) return null;
     return {
       cellX,
       cellY,
-      pixelX: bounds.offsetX + cellX * stepX,
-      pixelY: bounds.offsetY + cellY * stepY,
+      pixelX: cellX * stepX,
+      pixelY: cellY * stepY,
     };
   };
   const updateSelectionCells = (startCell, endCell) => {
