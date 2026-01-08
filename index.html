@@ -602,6 +602,7 @@
             <label for="tileset-group-h">H</label>
             <input id="tileset-group-h" type="text" value="128" inputmode="numeric">
             <button class="tileset-tools-button" id="tileset-group-add" type="button">Add Group</button>
+            <button class="tileset-tools-button" id="tileset-group-select" type="button">Select Tiles</button>
           </div>
           <div class="tileset-group-list" id="tileset-group-list"></div>
         </div>
@@ -810,6 +811,7 @@
   const tilesetGroupW = document.getElementById("tileset-group-w");
   const tilesetGroupH = document.getElementById("tileset-group-h");
   const tilesetGroupAdd = document.getElementById("tileset-group-add");
+  const tilesetGroupSelect = document.getElementById("tileset-group-select");
   const tilesetGroupList = document.getElementById("tileset-group-list");
   const hintToggle = document.getElementById("hint-toggle");
   const hintPanel = document.getElementById("hint-panel");
@@ -862,6 +864,7 @@
   let tilesetSelecting = false;
   let tilesetSelectionStart = null;
   let tilesetSelectionEnd = null;
+  let tilesetSelectionModeActive = false;
   const captureTimelapseFrame = () => {
     if (!timelapseEnabled) return;
     try {
@@ -972,17 +975,34 @@
       tilesetGroupList.appendChild(entry);
     });
   };
+  const createGroup = (x, y, w, h) => {
+    const name = (tilesetGroupName ? tilesetGroupName.value.trim() : "") || `Group ${tilesetGroups.length + 1}`;
+    tilesetGroupCounter += 1;
+    tilesetGroups.push({ id: tilesetGroupCounter, name, x, y, w, h });
+    renderTilesetGroups();
+    tilesetSelectionModeActive = false;
+    if (tilesetGroupSelect) tilesetGroupSelect.textContent = "Select Tiles";
+    tilesetSelection = null;
+    drawTilesetSelection();
+  };
   if (tilesetGroupAdd) {
     tilesetGroupAdd.addEventListener("click", () => {
-      const name = (tilesetGroupName ? tilesetGroupName.value.trim() : "") || `Group ${tilesetGroups.length + 1}`;
       const fallbackX = parseGroupValue(tilesetGroupX, 0);
       const fallbackY = parseGroupValue(tilesetGroupY, 0);
       const fallbackW = Math.max(1, parseGroupValue(tilesetGroupW, 16));
       const fallbackH = Math.max(1, parseGroupValue(tilesetGroupH, 16));
       const { x, y, w, h } = tilesetSelection || { x: fallbackX, y: fallbackY, w: fallbackW, h: fallbackH };
-      tilesetGroupCounter += 1;
-      tilesetGroups.push({ id: tilesetGroupCounter, name, x, y, w, h });
-      renderTilesetGroups();
+      createGroup(x, y, w, h);
+    });
+  }
+  if (tilesetGroupSelect) {
+    tilesetGroupSelect.addEventListener("click", () => {
+      tilesetSelectionModeActive = !tilesetSelectionModeActive;
+      tilesetGroupSelect.textContent = tilesetSelectionModeActive ? "Selecting..." : "Select Tiles";
+      if (!tilesetSelectionModeActive) {
+        tilesetSelection = null;
+        drawTilesetSelection();
+      }
     });
   }
   if (timelapseToggle) {
@@ -1580,7 +1600,13 @@
     };
     tilesetPreviewStage.addEventListener("mouseup", (e) => {
       stopTilesetPan();
-      if (e.button === 0) tilesetSelecting = false;
+      if (e.button === 0) {
+        tilesetSelecting = false;
+        if (tilesetSelectionModeActive && tilesetSelection) {
+          const { x, y, w, h } = tilesetSelection;
+          createGroup(x, y, w, h);
+        }
+      }
     });
     tilesetPreviewStage.addEventListener("mouseleave", () => {
       stopTilesetPan();
