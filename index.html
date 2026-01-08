@@ -111,6 +111,20 @@
     .tileset-tools-grid span {
       white-space: nowrap;
     }
+    .tileset-color-field {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    #tileset-remove-picker {
+      width: 32px;
+      height: 28px;
+      padding: 0;
+      border: 2px solid #000;
+      background: #0b1222;
+      display: none;
+    }
+    body.picking-color #tileset-remove-picker { display: inline-block; }
     .tileset-tools-button {
       width: 100%;
       border: 2px solid #000;
@@ -424,7 +438,10 @@
           <label for="tileset-grid-pady">Pad Y:</label>
           <input id="tileset-grid-pady" type="text" value="0" inputmode="numeric"/>
           <label for="tileset-remove-color">Remove BG:</label>
-          <input id="tileset-remove-color" type="text" value="#000000"/>
+          <div class="tileset-color-field">
+            <input id="tileset-remove-color" type="text" value="#000000"/>
+            <input id="tileset-remove-picker" type="color" value="#000000" aria-label="Remove background color"/>
+          </div>
           <span></span>
           <button class="tileset-tools-button" id="tileset-remove-apply" type="button">Remove Selected Color</button>
         </div>
@@ -594,6 +611,8 @@
   const tilesetGridH = document.getElementById("tileset-grid-h");
   const tilesetGridPadX = document.getElementById("tileset-grid-padx");
   const tilesetGridPadY = document.getElementById("tileset-grid-pady");
+  const tilesetRemoveColor = document.getElementById("tileset-remove-color");
+  const tilesetRemovePicker = document.getElementById("tileset-remove-picker");
   let tilesetPreviewUrl = null;
   let tilesetZoom = 1;
   let tilesetPanX = 0;
@@ -798,6 +817,33 @@
   if (tilesetGridX && tilesetGridY && tilesetGridW && tilesetGridH && tilesetGridPadX && tilesetGridPadY) {
     [tilesetGridX, tilesetGridY, tilesetGridW, tilesetGridH, tilesetGridPadX, tilesetGridPadY].forEach((inputEl) => {
       inputEl.addEventListener("input", updateTilesetGrid);
+    });
+  }
+  if (tilesetRemoveColor && tilesetRemovePicker) {
+    const normalizeHex = (value) => {
+      if (!value) return "#000000";
+      const v = value.trim();
+      if (/^#[0-9a-f]{6}$/i.test(v)) return v;
+      if (/^#[0-9a-f]{3}$/i.test(v)) {
+        return `#${v[1]}${v[1]}${v[2]}${v[2]}${v[3]}${v[3]}`.toLowerCase();
+      }
+      return "#000000";
+    };
+    const syncPicker = () => {
+      const hex = normalizeHex(tilesetRemoveColor.value);
+      tilesetRemoveColor.value = hex;
+      tilesetRemovePicker.value = hex;
+    };
+    tilesetRemoveColor.addEventListener("focus", () => {
+      document.body.classList.add("picking-color");
+      syncPicker();
+    });
+    tilesetRemoveColor.addEventListener("blur", () => {
+      document.body.classList.remove("picking-color");
+    });
+    tilesetRemoveColor.addEventListener("input", syncPicker);
+    tilesetRemovePicker.addEventListener("input", () => {
+      tilesetRemoveColor.value = tilesetRemovePicker.value;
     });
   }
   if (tilesetPreviewStage) {
