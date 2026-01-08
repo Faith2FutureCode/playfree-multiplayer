@@ -1880,12 +1880,12 @@
     });
   }
 
-  function screenToCell(screenX, screenY, fromEvent=false, evt=null) {
+  function screenToCell(screenX, screenY) {
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-    const px = (fromEvent && evt ? evt.offsetX : (screenX - rect.left)) * scaleX;
-    const py = (fromEvent && evt ? evt.offsetY : (screenY - rect.top)) * scaleY;
+    const px = (screenX - rect.left) * scaleX;
+    const py = (screenY - rect.top) * scaleY;
     const worldX = px + cam.x;
     const worldY = py + cam.y;
     return { tx: Math.floor(worldX / TILE), ty: Math.floor(worldY / TILE) };
@@ -1913,7 +1913,7 @@
   let paintingButton = null;
   canvas.addEventListener("mousedown", (e) => {
     if (!editorOpen) return;
-    const cell = screenToCell(e.clientX, e.clientY, true, e);
+    const cell = screenToCell(e.clientX, e.clientY);
     if (cell) setSelection(cell.tx, cell.ty);
     if (cell) {
       const sx = Math.floor(cell.tx * TILE - cam.x);
@@ -1933,7 +1933,7 @@
   });
   canvas.addEventListener("mousemove", (e) => {
     if (!editorOpen) return;
-    const cell = screenToCell(e.clientX, e.clientY, true, e);
+    const cell = screenToCell(e.clientX, e.clientY);
     hoverCell = (cell && inBounds(cell.tx, cell.ty)) ? cell : null;
     if (paintingButton !== null) {
       applyEditorPaint(e.clientX, e.clientY, paintingButton === 2);
@@ -3880,7 +3880,7 @@
     drawHoverOverlay();
     drawSelectionOverlay();
     drawLabelsOverlay();
-    if (!editorOpen) drawHudCanvas();
+    drawHudCanvas();
     // chat overlay
     if (chatLog.length > 0 && chatVisibleTime > -2) {
       g.save();
