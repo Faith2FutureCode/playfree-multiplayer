@@ -732,6 +732,7 @@
   const timelapseFrames = [];
   let timelapseEnabled = false;
   let timelapseCaptureActive = false;
+  const editHistory = [];
   let tilesetPreviewUrl = null;
   let tilesetZoom = 1;
   let tilesetPanX = 0;
@@ -803,16 +804,41 @@
         pushSystemChat("WebM export not supported in this browser.");
         return;
       }
+      const pickMimeType = () => {
+        const candidates = [
+          "video/webm;codecs=vp9",
+          "video/webm;codecs=vp8",
+          "video/webm",
+        ];
+        for (const type of candidates) {
+          if (MediaRecorder.isTypeSupported(type)) return type;
+        }
+        return "";
+      };
+      const mimeType = pickMimeType();
+      if (!mimeType) {
+        pushSystemChat("No supported WebM encoder found.");
+        return;
+      }
       const renderCanvas = document.createElement("canvas");
       renderCanvas.width = canvas.width;
       renderCanvas.height = canvas.height;
       const rctx = renderCanvas.getContext("2d");
       if (!rctx) return;
       const stream = renderCanvas.captureStream(1); // 1 fps
-      const recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
+      let recorder;
+      try {
+        recorder = new MediaRecorder(stream, { mimeType });
+      } catch (err) {
+        pushSystemChat("WebM recorder failed to старт.");
+        return;
+      }
       const chunks = [];
       recorder.ondataavailable = (ev) => {
         if (ev.data && ev.data.size > 0) chunks.push(ev.data);
+      };
+      recorder.onerror = () => {
+        pushSystemChat("WebM recording error.");
       };
       recorder.onstop = () => {
         const blob = new Blob(chunks, { type: "video/webm" });
@@ -829,13 +855,17 @@
       let i = 0;
       const drawNext = () => {
         if (i >= timelapseFrames.length) {
-          recorder.stop();
+          setTimeout(() => recorder.stop(), 200);
           return;
         }
         const img = new Image();
         img.onload = () => {
           rctx.clearRect(0, 0, renderCanvas.width, renderCanvas.height);
           rctx.drawImage(img, 0, 0, renderCanvas.width, renderCanvas.height);
+          i += 1;
+          setTimeout(drawNext, 1000);
+        };
+        img.onerror = () => {
           i += 1;
           setTimeout(drawNext, 1000);
         };
@@ -846,11 +876,11 @@
   }
   if (timelapseCleanReplay) {
     timelapseCleanReplay.addEventListener("click", () => {
-      if (undoStack.length === 0) {
+      if (editHistory.length === 0) {
         pushSystemChat("No edits to replay.");
         return;
       }
-      const allChanges = undoStack.flat();
+      const allChanges = editHistory.flat();
       const cleared = [];
       for (let ty = 0; ty < mapH; ty++) {
         for (let tx = 0; tx < mapW; tx++) {
@@ -1898,6 +1928,7 @@
     if (!changes || changes.length === 0) return;
     undoStack.push(changes);
     redoStack.length = 0;
+    editHistory.push(changes.map(c => ({ ...c })));
   }
 
   function applyChanges(changes, useNext=true) {
