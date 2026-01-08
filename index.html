@@ -48,10 +48,10 @@
       top: 12px;
       right: auto;
       transform: translateX(-50%);
-      max-height: calc(100% - 24px);
-      width: fit-content;
       width: min(var(--canvas-width), calc(100vw - 24px));
-      background: rgba(10, 16, 28, 0.9);
+      height: min(var(--canvas-height), calc(100vh - 24px));
+      max-height: calc(100% - 24px);
+      background: #0a0f1f;
       border: 2px solid rgba(255,255,255,0.08);
       padding: 10px;
       color: #e6ebff;
@@ -89,17 +89,22 @@
     }
     .tileset-tools-grid {
       display: grid;
-      grid-template-columns: repeat(7, auto);
-      align-items: end;
-      gap: 6px 8px;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      align-items: start;
+      gap: 8px 10px;
     }
-    .tileset-tools-grid label { grid-row: 1; }
-    .tileset-tools-grid input,
-    .tileset-tools-grid button,
-    .tileset-tools-grid span { grid-row: 2; }
+    .tileset-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: stretch;
+    }
+    .tileset-field-actions {
+      gap: 6px;
+    }
     .tileset-tools-grid input {
-      width: 64px;
-      min-width: 44px;
+      width: 100%;
+      min-width: 0;
       border: 2px solid #000;
       background: #0b1222;
       padding: 2px 6px;
@@ -112,6 +117,11 @@
     .tileset-tools-grid span {
       white-space: nowrap;
     }
+    .tileset-tools-grid input,
+    .tileset-tools-grid button,
+    .tileset-color-field {
+      width: 100%;
+    }
     .tileset-color-field {
       display: inline-flex;
       align-items: center;
@@ -121,6 +131,11 @@
       width: 52px;
       text-align: center;
     }
+    .tileset-field-actions .tileset-tools-button {
+      text-align: center;
+    }
+    .custom-palette-section { display: none; }
+    body.author.has-custom-tiles .custom-palette-section { display: block; }
     .tileset-tools-button {
       width: 100%;
       border: 2px solid #000;
@@ -138,11 +153,10 @@
     }
     .tileset-preview-stage {
       position: relative;
-      display: inline-block;
-      max-width: calc(100vw - 24px);
-      max-height: 50vh;
+      width: 100%;
+      height: calc(100% - 118px);
       transform-origin: 0 0;
-      background: rgba(8, 12, 24, 0.6);
+      background: #0a0f1f;
     }
     .tileset-preview-grid {
       position: absolute;
@@ -152,16 +166,15 @@
     }
     .tileset-preview img {
       display: block;
-      max-width: 100%;
-      max-height: 50vh;
-      width: auto;
-      height: auto;
+      width: 100%;
+      height: 100%;
       object-fit: contain;
       object-position: center;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
       z-index: 1;
     }
+    body.tileset-open .game-shell canvas { visibility: hidden; }
     .app-shell {
       position: absolute;
       left: 50%;
@@ -421,27 +434,50 @@
           <span class="tileset-tools-close" aria-hidden="true">X</span>
         </div>
         <div class="tileset-tools-grid">
-          <label for="tileset-grid-x">X:</label>
-          <input id="tileset-grid-x" type="text" value="0" inputmode="numeric"/>
-          <label for="tileset-grid-y">Y:</label>
-          <input id="tileset-grid-y" type="text" value="0" inputmode="numeric"/>
-          <label for="tileset-grid-w">Width:</label>
-          <input id="tileset-grid-w" type="text" value="16" inputmode="numeric"/>
-          <label for="tileset-grid-h">Height:</label>
-          <input id="tileset-grid-h" type="text" value="16" inputmode="numeric"/>
-          <label for="tileset-grid-padx">Pad X:</label>
-          <input id="tileset-grid-padx" type="text" value="0" inputmode="numeric"/>
-          <label for="tileset-grid-pady">Pad Y:</label>
-          <input id="tileset-grid-pady" type="text" value="0" inputmode="numeric"/>
-          <label for="tileset-remove-color">Remove BG:</label>
-          <div class="tileset-color-field">
-            <input id="tileset-remove-color" type="text" value="#000000"/>
-            <button class="tileset-tools-button tileset-eye-dropper" id="tileset-eye-dropper" type="button" aria-label="Pick color from tileset">Pick</button>
+          <div class="tileset-field">
+            <label for="tileset-grid-x">X</label>
+            <input id="tileset-grid-x" type="text" value="0" inputmode="numeric"/>
           </div>
-          <label for="tileset-remove-tolerance">Tolerance:</label>
-          <input id="tileset-remove-tolerance" type="text" value="20" inputmode="numeric"/>
-          <span></span>
-          <button class="tileset-tools-button" id="tileset-remove-apply" type="button">Remove Selected Color</button>
+          <div class="tileset-field">
+            <label for="tileset-grid-y">Y</label>
+            <input id="tileset-grid-y" type="text" value="0" inputmode="numeric"/>
+          </div>
+          <div class="tileset-field">
+            <label for="tileset-grid-w">Width</label>
+            <input id="tileset-grid-w" type="text" value="16" inputmode="numeric"/>
+          </div>
+          <div class="tileset-field">
+            <label for="tileset-grid-h">Height</label>
+            <input id="tileset-grid-h" type="text" value="16" inputmode="numeric"/>
+          </div>
+          <div class="tileset-field">
+            <label for="tileset-grid-padx">Pad X</label>
+            <input id="tileset-grid-padx" type="text" value="0" inputmode="numeric"/>
+          </div>
+          <div class="tileset-field">
+            <label for="tileset-grid-pady">Pad Y</label>
+            <input id="tileset-grid-pady" type="text" value="0" inputmode="numeric"/>
+          </div>
+          <div class="tileset-field">
+            <label for="tileset-remove-color">Remove BG</label>
+            <div class="tileset-color-field">
+              <input id="tileset-remove-color" type="text" value="#000000"/>
+              <button class="tileset-tools-button tileset-eye-dropper" id="tileset-eye-dropper" type="button" aria-label="Pick color from tileset">Pick</button>
+            </div>
+          </div>
+          <div class="tileset-field">
+            <label for="tileset-remove-tolerance">Tolerance</label>
+            <input id="tileset-remove-tolerance" type="text" value="20" inputmode="numeric"/>
+          </div>
+          <div class="tileset-field">
+            <label for="tileset-palette-name">Palette Name</label>
+            <input id="tileset-palette-name" type="text" value="Custom" maxlength="24"/>
+          </div>
+          <div class="tileset-field tileset-field-actions">
+            <label>Actions</label>
+            <button class="tileset-tools-button" id="tileset-remove-apply" type="button">Remove Selected Color</button>
+            <button class="tileset-tools-button" id="tileset-cut-sprites" type="button">Cut Sprites</button>
+          </div>
         </div>
         <div class="tileset-tools-divider" aria-hidden="true"></div>
       </div>
@@ -496,6 +532,10 @@
         </div>
         <div class="editor-hint">Author-only tools</div>
       </div>
+    <div class="editor-section author-only custom-palette-section" id="custom-palette-section">
+      <h4 id="custom-palette-title">CUSTOM</h4>
+      <div class="editor-grid" id="custom-palette-grid"></div>
+    </div>
     <div class="editor-field">
       <label for="editor-label-input">Label</label>
       <input id="editor-label-input" type="text" maxlength="24" placeholder="Type to tag block"/>
@@ -614,6 +654,8 @@
   const tilesetEyeDropper = document.getElementById("tileset-eye-dropper");
   const tilesetRemoveApply = document.getElementById("tileset-remove-apply");
   const tilesetRemoveTolerance = document.getElementById("tileset-remove-tolerance");
+  const tilesetPaletteName = document.getElementById("tileset-palette-name");
+  const tilesetCutSprites = document.getElementById("tileset-cut-sprites");
   const tilesetToolsClose = document.querySelector(".tileset-tools-close");
   let tilesetPreviewUrl = null;
   let tilesetZoom = 1;
@@ -885,6 +927,78 @@
       }
       octx.putImageData(imgData, 0, 0);
       tilesetPreviewImage.src = offscreen.toDataURL("image/png");
+    });
+  }
+  if (tilesetCutSprites && tilesetPreviewImage && customPaletteGrid) {
+    tilesetCutSprites.addEventListener("click", () => {
+      const w = tilesetPreviewImage.naturalWidth;
+      const h = tilesetPreviewImage.naturalHeight;
+      if (!w || !h) {
+        pushSystemChat("Tileset not loaded yet.");
+        return;
+      }
+      const gridX = readGridValue(tilesetGridX, 0);
+      const gridY = readGridValue(tilesetGridY, 0);
+      const tileW = Math.max(1, readGridValue(tilesetGridW, 16));
+      const tileH = Math.max(1, readGridValue(tilesetGridH, 16));
+      const padX = Math.max(0, readGridValue(tilesetGridPadX, 0));
+      const padY = Math.max(0, readGridValue(tilesetGridPadY, 0));
+      const stepX = tileW + padX;
+      const stepY = tileH + padY;
+      const offscreen = document.createElement("canvas");
+      offscreen.width = w;
+      offscreen.height = h;
+      const octx = offscreen.getContext("2d");
+      if (!octx) return;
+      octx.drawImage(tilesetPreviewImage, 0, 0);
+      customPaletteGrid.innerHTML = "";
+      customTileSprites.clear();
+      let poolIndex = 0;
+      for (let y = gridY; y + tileH <= h; y += stepY) {
+        for (let x = gridX; x + tileW <= w; x += stepX) {
+          const imgData = octx.getImageData(x, y, tileW, tileH);
+          const data = imgData.data;
+          let hasPixel = false;
+          for (let i = 3; i < data.length; i += 4) {
+            if (data[i] !== 0) {
+              hasPixel = true;
+              break;
+            }
+          }
+          if (!hasPixel) continue;
+          const tileId = TILE_ID_POOL[poolIndex++];
+          if (!tileId) {
+            pushSystemChat("Tile pool exhausted.");
+            break;
+          }
+          const tileCanvas = document.createElement("canvas");
+          tileCanvas.width = tileW;
+          tileCanvas.height = tileH;
+          const tctx = tileCanvas.getContext("2d");
+          if (!tctx) continue;
+          tctx.putImageData(imgData, 0, 0);
+          const url = tileCanvas.toDataURL("image/png");
+          const img = new Image();
+          img.src = url;
+          customTileSprites.set(tileId, img);
+          const tileEl = document.createElement("div");
+          tileEl.className = "editor-tile";
+          tileEl.setAttribute("data-tile", tileId);
+          const preview = document.createElement("canvas");
+          preview.className = "tile-preview";
+          preview.width = 8;
+          preview.height = 8;
+          preview.setAttribute("data-tile", tileId);
+          tileEl.appendChild(preview);
+          customPaletteGrid.appendChild(tileEl);
+        }
+        if (poolIndex >= TILE_ID_POOL.length) break;
+      }
+      const paletteName = (tilesetPaletteName && tilesetPaletteName.value.trim()) || "Custom";
+      if (customPaletteTitle) customPaletteTitle.textContent = paletteName.toUpperCase();
+      document.body.classList.add("has-custom-tiles");
+      wirePaletteGrid(customPaletteGrid);
+      renderPalettePreviews();
     });
   }
   if (tilesetToolsClose) {
@@ -1573,6 +1687,13 @@
     ctx.imageSmoothingEnabled = false;
     const w = ctx.canvas.width;
     const h = ctx.canvas.height;
+    if (customTileSprites.has(t)) {
+      const img = customTileSprites.get(t);
+      if (img && img.complete) {
+        ctx.drawImage(img, 0, 0, w, h);
+        return;
+      }
+    }
     if (t === "#") {
       ctx.fillStyle = "#3b2f2f";
       ctx.fillRect(0, 0, w, h);
@@ -3280,6 +3401,13 @@
     const sy = Math.floor(y - cam.y);
     if (sx < -TILE || sy < -TILE || sx > BASE_W || sy > BASE_H) return;
 
+    if (customTileSprites.has(t)) {
+      const img = customTileSprites.get(t);
+      if (img && img.complete) {
+        g.drawImage(img, sx, sy, TILE, TILE);
+        return;
+      }
+    }
     if (t === "#") { // ground
       g.fillStyle = "#3b2f2f";
       g.fillRect(sx, sy, TILE, TILE);
@@ -3864,3 +3992,11 @@
 
 
 
+  const customPaletteSection = document.getElementById("custom-palette-section");
+  const customPaletteTitle = document.getElementById("custom-palette-title");
+  const customPaletteGrid = document.getElementById("custom-palette-grid");
+  const customTileSprites = new Map(); // tileId -> Image
+  const RESERVED_TILES = new Set([".", "#", "B", "I", "S", "W", "?", "u", "C", "E", "P"]);
+  const TILE_ID_POOL = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    .split("")
+    .filter(ch => !RESERVED_TILES.has(ch));
