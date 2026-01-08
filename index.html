@@ -50,6 +50,7 @@
       transform: translateX(-50%);
       max-height: calc(100% - 24px);
       width: fit-content;
+      max-width: min(var(--canvas-width), calc(100vw - 24px));
       background: rgba(10, 16, 28, 0.9);
       border: 2px solid rgba(255,255,255,0.08);
       padding: 10px;
@@ -610,6 +611,7 @@
   const tilesetRemoveColor = document.getElementById("tileset-remove-color");
   const tilesetEyeDropper = document.getElementById("tileset-eye-dropper");
   const tilesetRemoveApply = document.getElementById("tileset-remove-apply");
+  const tilesetToolsClose = document.querySelector(".tileset-tools-close");
   let tilesetPreviewUrl = null;
   let tilesetZoom = 1;
   let tilesetPanX = 0;
@@ -737,14 +739,6 @@
     return "#000000";
   };
 
-  const updateTilesetSidebarWidth = () => {
-    if (!tilesetPreviewSidebar || !canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    if (rect.width > 0) {
-      tilesetPreviewSidebar.style.maxWidth = `${Math.floor(rect.width)}px`;
-    }
-  };
-
   const getTilesetImageBounds = () => {
     if (!tilesetPreviewImage) return null;
     const baseW = tilesetPreviewImage.offsetWidth;
@@ -823,7 +817,6 @@
       ctx.lineTo(offsetX + drawW, Math.round(py) + 0.5);
     }
     ctx.stroke();
-    updateTilesetSidebarWidth();
 
   };
 
@@ -864,7 +857,10 @@
       const b = parseInt(hex.slice(5, 7), 16);
       const w = tilesetPreviewImage.naturalWidth;
       const h = tilesetPreviewImage.naturalHeight;
-      if (!w || !h) return;
+      if (!w || !h) {
+        pushSystemChat("Tileset not loaded yet.");
+        return;
+      }
       const offscreen = document.createElement("canvas");
       offscreen.width = w;
       offscreen.height = h;
@@ -880,6 +876,11 @@
       }
       octx.putImageData(imgData, 0, 0);
       tilesetPreviewImage.src = offscreen.toDataURL("image/png");
+    });
+  }
+  if (tilesetToolsClose) {
+    tilesetToolsClose.addEventListener("click", () => {
+      setTilesetPreview(null);
     });
   }
   if (tilesetPreviewStage) {
@@ -919,7 +920,6 @@
 
   }
   window.addEventListener("resize", updateTilesetGrid);
-  window.addEventListener("resize", updateTilesetSidebarWidth);
 
   refreshAuthorStatus();
 
