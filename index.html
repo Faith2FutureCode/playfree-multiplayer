@@ -458,6 +458,7 @@
       opacity: 0.9;
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 <body>
   <div class="app-shell">
@@ -577,6 +578,14 @@
       <div class="editor-hint" id="timelapse-status">0 frames</div>
     </div>
     <div class="editor-section author-only">
+      <h4>DEMO RECORDER</h4>
+      <div class="editor-actions">
+        <button id="demo-recorder-toggle" type="button">Demo Recorder OFF</button>
+        <button id="demo-recorder-download" type="button">Download Frames</button>
+      </div>
+      <div class="editor-hint" id="demo-recorder-status">0 captures</div>
+    </div>
+    <div class="editor-section author-only">
       <h4>LEVEL CONTROL</h4>
       <div class="editor-actions">
         <button id="level-save-button" type="button">Save Level</button>
@@ -585,6 +594,9 @@
     </div>
     <div class="editor-section author-only custom-palette-section" id="custom-palette-section">
       <h4 id="custom-palette-title">CUSTOM</h4>
+      <div class="editor-actions">
+        <button id="custom-palette-clear" type="button">Clear Custom Tiles</button>
+      </div>
       <div class="editor-grid" id="custom-palette-grid"></div>
     </div>
     <div class="editor-field">
@@ -716,11 +728,16 @@
   const timelapseDownload = document.getElementById("timelapse-download");
   const timelapseDownloadWebm = document.getElementById("timelapse-download-webm");
   const timelapseStatus = document.getElementById("timelapse-status");
+  const demoRecorderToggle = document.getElementById("demo-recorder-toggle");
+  const demoRecorderDownload = document.getElementById("demo-recorder-download");
+  const demoRecorderStatus = document.getElementById("demo-recorder-status");
+  const appShell = document.querySelector(".app-shell");
   const levelSaveButton = document.getElementById("level-save-button");
   const levelResetButton = document.getElementById("level-reset-button");
   const customPaletteSection = document.getElementById("custom-palette-section");
   const customPaletteTitle = document.getElementById("custom-palette-title");
   const customPaletteGrid = document.getElementById("custom-palette-grid");
+  const customPaletteClear = document.getElementById("custom-palette-clear");
   const customTileSprites = new Map(); // tileId -> Image
   const customTileMap = new Map(); // key: "tx,ty" -> tileId
   const customTileDataUrls = new Map(); // tileId -> data url
@@ -871,6 +888,85 @@
       drawNext();
     });
   }
+  const DEMO_RECORDER_MAX_FRAMES = 120;
+  const demoRecorderFrames = [];
+  let demoRecorderEnabled = false;
+  let demoRecorderCaptureActive = false;
+  let demoRecorderPendingCapture = false;
+  const updateDemoRecorderToggleUI = () => {
+    if (!demoRecorderToggle) return;
+    demoRecorderToggle.textContent = demoRecorderEnabled ? "Demo Recorder ON" : "Demo Recorder OFF";
+    demoRecorderToggle.classList.toggle("active", demoRecorderEnabled);
+  };
+  const updateDemoRecorderStatus = () => {
+    if (!demoRecorderStatus) return;
+    demoRecorderStatus.textContent = `${demoRecorderFrames.length} capture${demoRecorderFrames.length === 1 ? "" : "s"}`;
+  };
+  const captureDemoFrame = () => {
+    if (!demoRecorderEnabled || demoRecorderCaptureActive || !appShell) return;
+    if (typeof html2canvas !== "function") {
+      console.warn("Demo recorder requires html2canvas.");
+      return;
+    }
+    demoRecorderCaptureActive = true;
+    html2canvas(appShell, { backgroundColor: "#0b1020" })
+      .then((canvas) => {
+        const dataUrl = canvas.toDataURL("image/png");
+        demoRecorderFrames.push(dataUrl);
+        while (demoRecorderFrames.length > DEMO_RECORDER_MAX_FRAMES) {
+          demoRecorderFrames.shift();
+        }
+        updateDemoRecorderStatus();
+      })
+      .catch((err) => {
+        console.warn("Demo recorder capture failed.", err);
+      })
+      .finally(() => {
+        demoRecorderCaptureActive = false;
+      });
+  };
+  const scheduleDemoCapture = () => {
+    if (!demoRecorderEnabled || !appShell) return;
+    demoRecorderPendingCapture = true;
+  };
+  const flushDemoCapture = () => {
+    if (!demoRecorderPendingCapture || demoRecorderCaptureActive) return;
+    demoRecorderPendingCapture = false;
+    captureDemoFrame();
+  };
+  if (appShell) {
+    appShell.addEventListener("click", () => {
+      scheduleDemoCapture();
+    }, true);
+  }
+  document.addEventListener("click", () => {
+    scheduleDemoCapture();
+  }, true);
+  if (demoRecorderToggle) {
+    demoRecorderToggle.addEventListener("click", () => {
+      demoRecorderEnabled = !demoRecorderEnabled;
+      updateDemoRecorderToggleUI();
+      scheduleDemoCapture();
+    });
+    updateDemoRecorderToggleUI();
+  }
+  if (demoRecorderDownload) {
+    demoRecorderDownload.addEventListener("click", () => {
+      if (demoRecorderFrames.length === 0) {
+        pushSystemChat("No demo recorder frames to download.");
+        return;
+      }
+      demoRecorderFrames.forEach((dataUrl, idx) => {
+        const a = document.createElement("a");
+        a.href = dataUrl;
+        a.download = `demo-recording-${String(idx + 1).padStart(4, "0")}.png`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      });
+    });
+  }
+  updateDemoRecorderStatus();
   async function refreshAuthorStatus() {
     try {
       const res = await fetch(AUTHOR_STATUS_ENDPOINT, { credentials: "include" });
@@ -1894,6 +1990,7 @@
     if (!changes || changes.length === 0) return;
     undoStack.push(changes);
     redoStack.length = 0;
+    scheduleDemoCapture();
   }
 
   function applyChanges(changes, useNext=true) {
@@ -1918,6 +2015,7 @@
     redoStack.push(changes);
     updateLabelInput();
     captureTimelapseFrame();
+    scheduleDemoCapture();
   }
 
   function redoAction() {
@@ -1927,6 +2025,7 @@
     undoStack.push(changes);
     updateLabelInput();
     captureTimelapseFrame();
+    scheduleDemoCapture();
   }
 
   function drawTilePreview(ctx, t) {
@@ -2101,6 +2200,7 @@
   let paintingButton = null;
   canvas.addEventListener("mousedown", (e) => {
     if (!editorOpen) return;
+    scheduleDemoCapture();
     const cell = screenToCell(e.clientX, e.clientY);
     if (cell) setSelection(cell.tx, cell.ty);
     if (cell) {
@@ -2289,6 +2389,24 @@
       return false;
     }
   };
+  const clearCustomTiles = () => {
+    if (!customPaletteGrid) return;
+    customPaletteGrid.innerHTML = "";
+    customTileSprites.clear();
+    customTileDataUrls.clear();
+    customTileMap.clear();
+    document.body.classList.remove("has-custom-tiles");
+    if (tilesetPaletteName) tilesetPaletteName.value = "Custom";
+    if (customPaletteTitle) customPaletteTitle.textContent = "CUSTOM";
+    renderPalettePreviews();
+    saveLevelSnapshot();
+    pushSystemChat("Custom tiles cleared.");
+  };
+  if (customPaletteClear) {
+    customPaletteClear.addEventListener("click", () => {
+      clearCustomTiles();
+    });
+  }
 
   function ensureBounds(tx, ty) {
     let grew = false;
@@ -2327,6 +2445,7 @@
   }
   function setTile(tx, ty, v) {
     setTileRaw(tx, ty, v);
+    if (editorOpen) scheduleDemoCapture();
   }
   function labelKey(tx, ty) { return `${tx},${ty}`; }
   function getLabel(tx, ty) {
@@ -4286,6 +4405,7 @@
     // chat fade timer
     if (chatVisibleTime > 0) chatVisibleTime -= dt;
     render();
+    flushDemoCapture();
     requestAnimationFrame(frame);
   }
 
