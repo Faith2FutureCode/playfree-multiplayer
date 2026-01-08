@@ -207,6 +207,14 @@
       transform: scale(var(--editor-scale));
       transform-origin: top left;
     }
+    .custom-palette-section {
+      max-height: 260px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    #custom-palette-grid {
+      grid-auto-rows: minmax(32px, auto);
+    }
     body.editor-open .editor-panel { display: block; }
     .editor-header {
       display: flex;
@@ -324,14 +332,40 @@
       padding: 4px 10px;
       box-shadow: inset 0 0 0 3px #7fb7d6;
     }
-    .hint {
-      position: fixed; left: 12px; bottom: 12px;
-      color: #cbd5e1; font: 12px/1.3 system-ui, sans-serif; opacity: .9;
-      background: rgba(0,0,0,.25); padding: 10px 12px; border-radius: 10px;
+    .hint-toggle {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      width: 32px;
+      height: 32px;
+      border: 2px solid #000;
+      border-radius: 8px;
+      background: #1a2640;
+      color: #dfe7ff;
+      font: 16px/1 "VT323", monospace;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      z-index: 1001;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
+    }
+    .hint-panel {
+      position: fixed;
+      top: 52px;
+      right: 12px;
+      color: #cbd5e1;
+      font: 12px/1.3 system-ui, sans-serif;
+      opacity: .95;
+      background: rgba(0,0,0,.65);
+      padding: 10px 12px;
+      border-radius: 10px;
       border: 1px solid rgba(255,255,255,.08);
       max-width: 520px;
+      display: none;
+      z-index: 1001;
     }
-    .hint b { color:#fff; }
+    .hint-panel.open { display: block; }
+    .hint-panel b { color:#fff; }
     .debug-panel {
       position: fixed; top: 12px; left: 12px;
       background: rgba(0,0,0,0.6);
@@ -609,10 +643,11 @@
 </div>
 </div>
 </div>
-<div class="hint">
-  <b>Controls:</b> Arrow keys move · <b>Z</b> jump · <b>X</b> run · <b>C</b> fire/tail/hammer · <b>V</b> statue · <b>R</b> restart<br/>
+<button class="hint-toggle" id="hint-toggle" type="button" aria-label="Toggle hints">?</button>
+<div class="hint-panel" id="hint-panel">
+  <b>Controls:</b> Arrow keys move A? <b>Z</b> jump A? <b>X</b> run A? <b>C</b> fire/tail/hammer A? <b>V</b> statue A? <b>R</b> restart<br/>
   <b>Goal:</b> Collect coins, hit ? blocks, stomp enemies.<br/>
-  <b>Jump range:</b> Walk <span id="jump-walk">--</span> tiles · Run <span id="jump-run">--</span> tiles
+  <b>Jump range:</b> Walk <span id="jump-walk">--</span> tiles A? Run <span id="jump-run">--</span> tiles
 </div>
   <div class="inventory-overlay" id="inventory-overlay" aria-label="Inventory">
   <div class="inventory-panel">
@@ -657,6 +692,8 @@
   const tilesetPaletteName = document.getElementById("tileset-palette-name");
   const tilesetCutSprites = document.getElementById("tileset-cut-sprites");
   const tilesetToolsClose = document.querySelector(".tileset-tools-close");
+  const hintToggle = document.getElementById("hint-toggle");
+  const hintPanel = document.getElementById("hint-panel");
   const customPaletteSection = document.getElementById("custom-palette-section");
   const customPaletteTitle = document.getElementById("custom-palette-title");
   const customPaletteGrid = document.getElementById("custom-palette-grid");
@@ -675,6 +712,11 @@
   const setAuthorClass = (enabled) => {
     document.body.classList.toggle("author", enabled);
   };
+  if (hintToggle && hintPanel) {
+    hintToggle.addEventListener("click", () => {
+      hintPanel.classList.toggle("open");
+    });
+  }
   async function refreshAuthorStatus() {
     try {
       const res = await fetch(AUTHOR_STATUS_ENDPOINT, { credentials: "include" });
