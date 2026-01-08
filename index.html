@@ -3877,11 +3877,11 @@
       g.fillRect(sx, sy, size, size);
     }
 
+    drawHudCanvas();
     drawGridOverlay();
     drawHoverOverlay();
     drawSelectionOverlay();
     drawLabelsOverlay();
-    drawHudCanvas();
     // chat overlay
     if (chatLog.length > 0 && chatVisibleTime > -2) {
       g.save();
