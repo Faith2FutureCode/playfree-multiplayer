@@ -175,11 +175,19 @@
     .tileset-group-meta input {
       border-radius: 4px;
     }
-    .tileset-group-list {
+    .tileset-group-list-label {
       margin-top: 6px;
+      font-size: 11px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #9fb3ff;
+    }
+    .tileset-group-list {
+      margin-top: 4px;
       display: flex;
-      flex-direction: column;
-      gap: 4px;
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 6px;
       font-size: 11px;
     }
     .tileset-group-entry {
@@ -604,6 +612,7 @@
             <button class="tileset-tools-button" id="tileset-group-add" type="button">Add Group</button>
             <button class="tileset-tools-button" id="tileset-group-select" type="button">Select Tiles</button>
           </div>
+          <div class="tileset-group-list-label">Saved groups</div>
           <div class="tileset-group-list" id="tileset-group-list"></div>
         </div>
       </div>
