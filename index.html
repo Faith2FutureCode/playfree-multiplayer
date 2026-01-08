@@ -662,7 +662,7 @@
   const customPaletteGrid = document.getElementById("custom-palette-grid");
   const customTileSprites = new Map(); // tileId -> Image
   const RESERVED_TILES = new Set([".", "#", "B", "I", "S", "W", "?", "u", "C", "E", "P"]);
-  const TILE_ID_POOL = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  const TILE_ID_POOL = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ!$%&()*+-/:;<=>@[]^_{}|~"
     .split("")
     .filter(ch => !RESERVED_TILES.has(ch));
   let tilesetPreviewUrl = null;
