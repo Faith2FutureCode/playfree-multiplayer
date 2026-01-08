@@ -208,7 +208,7 @@
       transform-origin: top left;
     }
     .custom-palette-section {
-      max-height: 260px;
+      max-height: 45vh;
       overflow-y: auto;
       padding-right: 4px;
     }
@@ -1004,6 +1004,7 @@
       customTileSprites.clear();
       customTileMap.clear();
       let poolIndex = 0;
+      let cutCount = 0;
       for (let y = gridY; y + tileH <= h; y += stepY) {
         for (let x = gridX; x + tileW <= w; x += stepX) {
           const imgData = octx.getImageData(x, y, tileW, tileH);
@@ -1027,6 +1028,7 @@
           const img = new Image();
           img.src = url;
           customTileSprites.set(tileId, img);
+          cutCount += 1;
           const tileEl = document.createElement("div");
           tileEl.className = "editor-tile";
           tileEl.setAttribute("data-tile", tileId);
@@ -1044,6 +1046,7 @@
       document.body.classList.add("has-custom-tiles");
       wirePaletteGrid(customPaletteGrid);
       renderPalettePreviews();
+      pushSystemChat(`Cut ${cutCount} tiles into ${paletteName}.`);
     });
   }
   if (tilesetToolsClose) {
