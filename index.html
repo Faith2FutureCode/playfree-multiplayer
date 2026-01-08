@@ -2066,7 +2066,10 @@
   function setLabel(tx, ty, text) {
     setLabelRaw(tx, ty, text);
   }
-  function isSolid(t) { return t === "#" || t === "B" || t === "?" || t === "u" || t === "I" || t === "S"; }
+  function isSolid(t) {
+    if (isCustomTileId(t)) return true;
+    return t === "#" || t === "B" || t === "?" || t === "u" || t === "I" || t === "S";
+  }
   function isQuestion(t){ return t === "?"; }
   function isCoinTile(t){ return t === "C"; }
   function surfaceType(t) {
