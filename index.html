@@ -421,6 +421,10 @@
         </div>
         <div class="tileset-tools-divider" aria-hidden="true"></div>
       </div>
+      <div class="tileset-preview-stage">
+        <img id="tileset-preview-image" alt="Tileset preview"/>
+        <canvas class="tileset-preview-grid" id="tileset-preview-grid"></canvas>
+      </div>
     </div>
     <div id="editor-panel" class="editor-panel" aria-label="Level editor palette">
     <div class="editor-header">
@@ -483,12 +487,7 @@
   </div>
   <div class="game-shell">
     <canvas id="c" width="912" height="816"></canvas>
-    <div class="tileset-preview" id="tileset-preview" aria-label="Tileset preview">
-      <div class="tileset-preview-stage">
-        <img id="tileset-preview-image" alt="Tileset preview"/>
-        <canvas class="tileset-preview-grid" id="tileset-preview-grid"></canvas>
-      </div>
-    </div>
+    <div class="tileset-preview" id="tileset-preview" aria-label="Tileset preview"></div>
     <div class="hud" aria-label="HUD">
   <div class="hud-bar">
     <div class="hud-section hud-left">
@@ -735,7 +734,7 @@
 
   const updateTilesetGrid = () => {
     if (!tilesetPreviewGrid || !tilesetPreviewImage) return;
-    if (!tilesetPreviewPanel || !tilesetPreviewPanel.classList.contains("visible")) {
+    if (!document.body.classList.contains("tileset-open")) {
       const ctx = tilesetPreviewGrid.getContext("2d");
       ctx && ctx.clearRect(0, 0, tilesetPreviewGrid.width, tilesetPreviewGrid.height);
       return;
@@ -792,27 +791,27 @@
       inputEl.addEventListener("input", updateTilesetGrid);
     });
   }
-  if (tilesetPreviewPanel) {
-    tilesetPreviewPanel.addEventListener("wheel", (e) => {
-      if (!tilesetPreviewPanel.classList.contains("visible")) return;
+  if (tilesetPreviewStage) {
+    tilesetPreviewStage.addEventListener("wheel", (e) => {
+      if (!document.body.classList.contains("tileset-open")) return;
       e.preventDefault();
       const direction = e.deltaY > 0 ? -0.1 : 0.1;
-      const rect = tilesetPreviewPanel.getBoundingClientRect();
+      const rect = tilesetPreviewStage.getBoundingClientRect();
       const anchorX = rect.width ? (e.clientX - rect.left) / rect.width : 0.5;
       const anchorY = rect.height ? (e.clientY - rect.top) / rect.height : 0.5;
       setTilesetZoom(tilesetZoom + direction, anchorX, anchorY);
     }, { passive: false });
 
-    tilesetPreviewPanel.addEventListener("mousedown", (e) => {
-      if (!tilesetPreviewPanel.classList.contains("visible")) return;
+    tilesetPreviewStage.addEventListener("mousedown", (e) => {
+      if (!document.body.classList.contains("tileset-open")) return;
       if (e.button !== 1) return;
       e.preventDefault();
       tilesetPanning = true;
       tilesetPanStartX = e.clientX - tilesetPanX;
       tilesetPanStartY = e.clientY - tilesetPanY;
-      tilesetPreviewPanel.classList.add("panning");
+      tilesetPreviewStage.classList.add("panning");
     });
-    tilesetPreviewPanel.addEventListener("mousemove", (e) => {
+    tilesetPreviewStage.addEventListener("mousemove", (e) => {
       if (!tilesetPanning) return;
       tilesetPanX = e.clientX - tilesetPanStartX;
       tilesetPanY = e.clientY - tilesetPanStartY;
@@ -822,10 +821,10 @@
     const stopTilesetPan = () => {
       if (!tilesetPanning) return;
       tilesetPanning = false;
-      tilesetPreviewPanel.classList.remove("panning");
+      tilesetPreviewStage.classList.remove("panning");
     };
-    tilesetPreviewPanel.addEventListener("mouseup", stopTilesetPan);
-    tilesetPreviewPanel.addEventListener("mouseleave", stopTilesetPan);
+    tilesetPreviewStage.addEventListener("mouseup", stopTilesetPan);
+    tilesetPreviewStage.addEventListener("mouseleave", stopTilesetPan);
 
   }
   window.addEventListener("resize", updateTilesetGrid);
