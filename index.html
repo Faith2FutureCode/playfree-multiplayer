@@ -567,6 +567,15 @@
         <div class="editor-hint">Author-only tools</div>
       </div>
     <div class="editor-section author-only">
+      <h4>TIMELAPSE</h4>
+      <div class="editor-actions">
+        <button id="timelapse-toggle" type="button">Timelapse OFF</button>
+        <button id="timelapse-clear" type="button">Clear Frames</button>
+        <button id="timelapse-download" type="button">Download Frames</button>
+      </div>
+      <div class="editor-hint" id="timelapse-status">0 frames</div>
+    </div>
+    <div class="editor-section author-only">
       <h4>LEVEL CONTROL</h4>
       <div class="editor-actions">
         <button id="level-save-button" type="button">Save Level</button>
@@ -701,6 +710,10 @@
   const tilesetToolsClose = document.querySelector(".tileset-tools-close");
   const hintToggle = document.getElementById("hint-toggle");
   const hintPanel = document.getElementById("hint-panel");
+  const timelapseToggle = document.getElementById("timelapse-toggle");
+  const timelapseClear = document.getElementById("timelapse-clear");
+  const timelapseDownload = document.getElementById("timelapse-download");
+  const timelapseStatus = document.getElementById("timelapse-status");
   const levelSaveButton = document.getElementById("level-save-button");
   const levelResetButton = document.getElementById("level-reset-button");
   const customPaletteSection = document.getElementById("custom-palette-section");
@@ -712,6 +725,9 @@
   const RESERVED_TILES = new Set([".", "#", "B", "I", "S", "W", "?", "u", "C", "E", "P"]);
   const customIdForIndex = (index) => `~${index}`;
   const LEVEL_SAVE_KEY = "smb3-level-snapshot";
+  const timelapseFrames = [];
+  let timelapseEnabled = false;
+  let timelapseCaptureActive = false;
   let tilesetPreviewUrl = null;
   let tilesetZoom = 1;
   let tilesetPanX = 0;
@@ -725,6 +741,52 @@
   if (hintToggle && hintPanel) {
     hintToggle.addEventListener("click", () => {
       hintPanel.classList.toggle("open");
+    });
+  }
+  const updateTimelapseStatus = () => {
+    if (!timelapseStatus) return;
+    timelapseStatus.textContent = `${timelapseFrames.length} frame${timelapseFrames.length === 1 ? "" : "s"}`;
+  };
+  const captureTimelapseFrame = () => {
+    if (!timelapseEnabled) return;
+    try {
+      timelapseCaptureActive = true;
+      render();
+      timelapseFrames.push(off.toDataURL("image/png"));
+      timelapseCaptureActive = false;
+      render();
+      updateTimelapseStatus();
+    } catch (err) {
+      // ignore capture failures
+      timelapseCaptureActive = false;
+    }
+  };
+  if (timelapseToggle) {
+    timelapseToggle.addEventListener("click", () => {
+      timelapseEnabled = !timelapseEnabled;
+      timelapseToggle.textContent = timelapseEnabled ? "Timelapse ON" : "Timelapse OFF";
+    });
+  }
+  if (timelapseClear) {
+    timelapseClear.addEventListener("click", () => {
+      timelapseFrames.length = 0;
+      updateTimelapseStatus();
+    });
+  }
+  if (timelapseDownload) {
+    timelapseDownload.addEventListener("click", () => {
+      if (timelapseFrames.length === 0) {
+        pushSystemChat("No timelapse frames to download.");
+        return;
+      }
+      timelapseFrames.forEach((dataUrl, idx) => {
+        const a = document.createElement("a");
+        a.href = dataUrl;
+        a.download = `timelapse-${String(idx + 1).padStart(4, "0")}.png`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      });
     });
   }
   async function refreshAuthorStatus() {
@@ -1773,6 +1835,7 @@
     applyChanges(changes, false);
     redoStack.push(changes);
     updateLabelInput();
+    captureTimelapseFrame();
   }
 
   function redoAction() {
@@ -1781,6 +1844,7 @@
     applyChanges(changes, true);
     undoStack.push(changes);
     updateLabelInput();
+    captureTimelapseFrame();
   }
 
   function drawTilePreview(ctx, t) {
@@ -1909,6 +1973,7 @@
       cursorX += glyphW + 1; // 1 tile gap
     }
     recordAction(changes);
+    captureTimelapseFrame();
   }
 
   function renderPalettePreviews() {
@@ -1948,6 +2013,7 @@
       prevTile, prevLabel,
       nextTile, nextLabel: prevLabel,
     }]);
+    captureTimelapseFrame();
   }
 
   let paintingButton = null;
@@ -3678,7 +3744,7 @@
   }
 
   function drawGridOverlay() {
-    if (!showGrid) return;
+    if (!showGrid || timelapseCaptureActive) return;
     // Grid locked to world coordinates, not screen overlay
     const step = TILE; // 16px per tile
     const startX = -(cam.x % step);
