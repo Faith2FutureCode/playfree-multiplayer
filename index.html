@@ -566,6 +566,13 @@
         </div>
         <div class="editor-hint">Author-only tools</div>
       </div>
+    <div class="editor-section author-only">
+      <h4>LEVEL CONTROL</h4>
+      <div class="editor-actions">
+        <button id="level-save-button" type="button">Save Level</button>
+        <button id="level-reset-button" type="button">Reset Level</button>
+      </div>
+    </div>
     <div class="editor-section author-only custom-palette-section" id="custom-palette-section">
       <h4 id="custom-palette-title">CUSTOM</h4>
       <div class="editor-grid" id="custom-palette-grid"></div>
@@ -694,13 +701,17 @@
   const tilesetToolsClose = document.querySelector(".tileset-tools-close");
   const hintToggle = document.getElementById("hint-toggle");
   const hintPanel = document.getElementById("hint-panel");
+  const levelSaveButton = document.getElementById("level-save-button");
+  const levelResetButton = document.getElementById("level-reset-button");
   const customPaletteSection = document.getElementById("custom-palette-section");
   const customPaletteTitle = document.getElementById("custom-palette-title");
   const customPaletteGrid = document.getElementById("custom-palette-grid");
   const customTileSprites = new Map(); // tileId -> Image
   const customTileMap = new Map(); // key: "tx,ty" -> tileId
+  const customTileDataUrls = new Map(); // tileId -> data url
   const RESERVED_TILES = new Set([".", "#", "B", "I", "S", "W", "?", "u", "C", "E", "P"]);
   const customIdForIndex = (index) => `~${index}`;
+  const LEVEL_SAVE_KEY = "smb3-level-snapshot";
   let tilesetPreviewUrl = null;
   let tilesetZoom = 1;
   let tilesetPanX = 0;
@@ -1028,6 +1039,7 @@
           const img = new Image();
           img.src = url;
           customTileSprites.set(tileId, img);
+          customTileDataUrls.set(tileId, url);
           cutCount += 1;
           const tileEl = document.createElement("div");
           tileEl.className = "editor-tile";
@@ -2012,6 +2024,82 @@
   const tiles = LEVEL.map(row => row.split(""));
   const labelMap = new Map(); // key: "tx,ty" -> string
   const isCustomTileId = (t) => typeof t === "string" && t.startsWith("~");
+  const serializeLevelSnapshot = () => {
+    return {
+      tiles: tiles.map(row => row.join("")),
+      labels: Array.from(labelMap.entries()),
+      customTiles: Array.from(customTileMap.entries()),
+      customSprites: Array.from(customTileDataUrls.entries()),
+      paletteName: (tilesetPaletteName && tilesetPaletteName.value.trim()) || "Custom",
+    };
+  };
+
+  const loadLevelSnapshot = () => {
+    if (typeof localStorage === "undefined") return false;
+    const raw = localStorage.getItem(LEVEL_SAVE_KEY);
+    if (!raw) return false;
+    try {
+      const data = JSON.parse(raw);
+      if (Array.isArray(data.tiles)) {
+        tiles.length = 0;
+        for (const row of data.tiles) tiles.push(row.split(""));
+        mapH = tiles.length;
+        mapW = tiles[0]?.length || 0;
+      }
+      labelMap.clear();
+      if (Array.isArray(data.labels)) {
+        for (const [key, value] of data.labels) labelMap.set(key, value);
+      }
+      customTileMap.clear();
+      if (Array.isArray(data.customTiles)) {
+        for (const [key, value] of data.customTiles) customTileMap.set(key, value);
+      }
+      customTileSprites.clear();
+      customTileDataUrls.clear();
+      if (Array.isArray(data.customSprites)) {
+        for (const [tileId, url] of data.customSprites) {
+          const img = new Image();
+          img.src = url;
+          customTileSprites.set(tileId, img);
+          customTileDataUrls.set(tileId, url);
+        }
+      }
+      if (customPaletteGrid) {
+        customPaletteGrid.innerHTML = "";
+        for (const tileId of customTileSprites.keys()) {
+          const tileEl = document.createElement("div");
+          tileEl.className = "editor-tile";
+          tileEl.setAttribute("data-tile", tileId);
+          const preview = document.createElement("canvas");
+          preview.className = "tile-preview";
+          preview.width = 8;
+          preview.height = 8;
+          preview.setAttribute("data-tile", tileId);
+          tileEl.appendChild(preview);
+          customPaletteGrid.appendChild(tileEl);
+        }
+        wirePaletteGrid(customPaletteGrid);
+      }
+      const paletteName = data.paletteName || "Custom";
+      if (customPaletteTitle) customPaletteTitle.textContent = paletteName.toUpperCase();
+      if (tilesetPaletteName) tilesetPaletteName.value = paletteName;
+      if (customTileSprites.size > 0) document.body.classList.add("has-custom-tiles");
+      renderPalettePreviews();
+      return true;
+    } catch (err) {
+      return false;
+    }
+  };
+
+  const saveLevelSnapshot = () => {
+    if (typeof localStorage === "undefined") return false;
+    try {
+      localStorage.setItem(LEVEL_SAVE_KEY, JSON.stringify(serializeLevelSnapshot()));
+      return true;
+    } catch (err) {
+      return false;
+    }
+  };
 
   function ensureBounds(tx, ty) {
     let grew = false;
@@ -2970,6 +3058,19 @@
     savePlayerSnapshot();
   }
 
+  if (levelSaveButton) {
+    levelSaveButton.addEventListener("click", () => {
+      const ok = saveLevelSnapshot();
+      pushSystemChat(ok ? "Level saved." : "Level save failed.");
+    });
+  }
+  if (levelResetButton) {
+    levelResetButton.addEventListener("click", () => {
+      const loaded = loadLevelSnapshot();
+      pushSystemChat(loaded ? "Level reset to saved state." : "No saved level found.");
+    });
+  }
+
   function killPlayer() {
     deadTimer = 0.8;
     player.vx = 0;
@@ -3779,7 +3880,7 @@
     drawHoverOverlay();
     drawSelectionOverlay();
     drawLabelsOverlay();
-    drawHudCanvas();
+    if (!editorOpen) drawHudCanvas();
     // chat overlay
     if (chatLog.length > 0 && chatVisibleTime > -2) {
       g.save();
@@ -4043,6 +4144,7 @@
 
   loadPlayerSnapshot();
   savePlayerSnapshot();
+  loadLevelSnapshot();
   updateCamera();
   requestAnimationFrame(frame);
 
