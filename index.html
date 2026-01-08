@@ -226,12 +226,18 @@
       transform-origin: 0 0;
       background: transparent;
     }
-    .tileset-preview-grid {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      z-index: 2;
-    }
+  .tileset-preview-grid {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .tileset-selection {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 3;
+  }
     .tileset-preview img {
       display: block;
       width: 100%;
@@ -602,8 +608,9 @@
       </div>
       <div class="tileset-preview-stage">
         <img id="tileset-preview-image" alt="Tileset preview"/>
-        <canvas class="tileset-preview-grid" id="tileset-preview-grid"></canvas>
-      </div>
+      <canvas class="tileset-preview-grid" id="tileset-preview-grid"></canvas>
+      <canvas class="tileset-selection" id="tileset-selection-canvas"></canvas>
+    </div>
     </div>
     <div id="editor-panel" class="editor-panel" aria-label="Level editor palette">
     <div class="editor-header">
@@ -848,6 +855,13 @@
     timelapseStatus.textContent = `${timelapseFrames.length} frame${timelapseFrames.length === 1 ? "" : "s"}`;
   };
   const demoCaptureQueue = [];
+  const tilesetSelectionCanvas = document.getElementById("tileset-selection-canvas");
+  const tilesetSelectionCtx = tilesetSelectionCanvas ? tilesetSelectionCanvas.getContext("2d") : null;
+  let lastTilesetState = null;
+  let tilesetSelection = null;
+  let tilesetSelecting = false;
+  let tilesetSelectionStart = null;
+  let tilesetSelectionEnd = null;
   const captureTimelapseFrame = () => {
     if (!timelapseEnabled) return;
     try {
@@ -861,6 +875,67 @@
       // ignore capture failures
       timelapseCaptureActive = false;
     }
+  };
+  const drawTilesetSelection = () => {
+    if (!tilesetSelectionCtx || !lastTilesetState) return;
+    const { bounds, stepX, stepY } = lastTilesetState;
+    if (!tilesetSelection) {
+      tilesetSelectionCtx.clearRect(0, 0, tilesetSelectionCanvas.width, tilesetSelectionCanvas.height);
+      return;
+    }
+    const { x, y, w, h } = tilesetSelection;
+    const rectX = x;
+    const rectY = y;
+    tilesetSelectionCtx.clearRect(0, 0, tilesetSelectionCanvas.width, tilesetSelectionCanvas.height);
+    tilesetSelectionCtx.fillStyle = "rgba(246, 211, 65, 0.2)";
+    tilesetSelectionCtx.strokeStyle = "rgba(246, 211, 65, 0.7)";
+    tilesetSelectionCtx.lineWidth = 2 / Math.max(tilesetZoom, 1);
+    tilesetSelectionCtx.fillRect(rectX, rectY, w, h);
+    tilesetSelectionCtx.strokeRect(rectX + 0.5, rectY + 0.5, w - 1, h - 1);
+  };
+  const applySelectionToInputs = () => {
+    if (!tilesetSelection) return;
+    if (tilesetGroupX) tilesetGroupX.value = `${Math.round(tilesetSelection.x)}`;
+    if (tilesetGroupY) tilesetGroupY.value = `${Math.round(tilesetSelection.y)}`;
+    if (tilesetGroupW) tilesetGroupW.value = `${Math.round(tilesetSelection.w)}`;
+    if (tilesetGroupH) tilesetGroupH.value = `${Math.round(tilesetSelection.h)}`;
+  };
+  const getTilesetNaturalPoint = (event) => {
+    if (!lastTilesetState || !tilesetPreviewStage) return null;
+    const rect = tilesetPreviewStage.getBoundingClientRect();
+    const localX = (event.clientX - rect.left) / tilesetZoom;
+    const localY = (event.clientY - rect.top) / tilesetZoom;
+    const { bounds, stepX, stepY, naturalW, naturalH } = lastTilesetState;
+    const relX = localX - bounds.offsetX;
+    const relY = localY - bounds.offsetY;
+    if (relX < 0 || relY < 0) return null;
+    const cellX = Math.floor(relX / stepX);
+    const cellY = Math.floor(relY / stepY);
+    if (cellX * stepX >= naturalW || cellY * stepY >= naturalH) return null;
+    return {
+      cellX,
+      cellY,
+      pixelX: bounds.offsetX + cellX * stepX,
+      pixelY: bounds.offsetY + cellY * stepY,
+    };
+  };
+  const updateSelectionCells = (startCell, endCell) => {
+    if (!lastTilesetState || !startCell || !endCell) return;
+    const { stepX, stepY, bounds } = lastTilesetState;
+    const minX = Math.min(startCell.cellX, endCell.cellX);
+    const minY = Math.min(startCell.cellY, endCell.cellY);
+    const width = (Math.abs(startCell.cellX - endCell.cellX) + 1) * stepX;
+    const height = (Math.abs(startCell.cellY - endCell.cellY) + 1) * stepY;
+    tilesetSelection = {
+      x: bounds.offsetX + minX * stepX,
+      y: bounds.offsetY + minY * stepY,
+      w: width,
+      h: height,
+      startCell,
+      endCell,
+    };
+    drawTilesetSelection();
+    applySelectionToInputs();
   };
   const flushDemoCapture = () => {
     if (demoCaptureQueue.length === 0) return;
@@ -900,10 +975,11 @@
   if (tilesetGroupAdd) {
     tilesetGroupAdd.addEventListener("click", () => {
       const name = (tilesetGroupName ? tilesetGroupName.value.trim() : "") || `Group ${tilesetGroups.length + 1}`;
-      const x = parseGroupValue(tilesetGroupX, 0);
-      const y = parseGroupValue(tilesetGroupY, 0);
-      const w = Math.max(1, parseGroupValue(tilesetGroupW, 16));
-      const h = Math.max(1, parseGroupValue(tilesetGroupH, 16));
+      const fallbackX = parseGroupValue(tilesetGroupX, 0);
+      const fallbackY = parseGroupValue(tilesetGroupY, 0);
+      const fallbackW = Math.max(1, parseGroupValue(tilesetGroupW, 16));
+      const fallbackH = Math.max(1, parseGroupValue(tilesetGroupH, 16));
+      const { x, y, w, h } = tilesetSelection || { x: fallbackX, y: fallbackY, w: fallbackW, h: fallbackH };
       tilesetGroupCounter += 1;
       tilesetGroups.push({ id: tilesetGroupCounter, name, x, y, w, h });
       renderTilesetGroups();
@@ -1194,6 +1270,8 @@
     const padY = Math.max(0, readGridValue(tilesetGridPadY, 0));
     const stepX = w + padX;
     const stepY = h + padY;
+    const stepX = w + padX;
+    const stepY = h + padY;
     ctx.strokeStyle = "rgba(255,255,255,0.25)";
     ctx.lineWidth = 1 / Math.max(0.5, tilesetZoom);
     ctx.beginPath();
@@ -1212,6 +1290,26 @@
       ctx.lineTo(offsetX + drawW, Math.round(py) + 0.5);
     }
     ctx.stroke();
+
+    lastTilesetState = {
+      bounds,
+      scale,
+      stepX,
+      stepY,
+      tileW: w,
+      tileH: h,
+      padX,
+      padY,
+      naturalW,
+      naturalH,
+    };
+    if (tilesetSelectionCanvas) {
+      tilesetSelectionCanvas.width = Math.round(bounds.baseW * dpr);
+      tilesetSelectionCanvas.height = Math.round(bounds.baseH * dpr);
+      tilesetSelectionCanvas.style.width = `${Math.round(bounds.baseW)}px`;
+      tilesetSelectionCanvas.style.height = `${Math.round(bounds.baseH)}px`;
+    }
+    drawTilesetSelection();
 
   };
 
@@ -1447,6 +1545,15 @@
 
     tilesetPreviewStage.addEventListener("mousedown", (e) => {
       if (!document.body.classList.contains("tileset-open")) return;
+      if (e.button === 0) {
+        const cell = getTilesetNaturalPoint(e);
+        if (!cell) return;
+        tilesetSelectionStart = cell;
+        tilesetSelectionEnd = cell;
+        tilesetSelecting = true;
+        updateSelectionCells(cell, cell);
+        return;
+      }
       if (e.button !== 1) return;
       e.preventDefault();
       tilesetPanning = true;
@@ -1455,6 +1562,12 @@
       tilesetPreviewStage.classList.add("panning");
     });
     tilesetPreviewStage.addEventListener("mousemove", (e) => {
+      if (tilesetSelecting) {
+        const cell = getTilesetNaturalPoint(e);
+        if (!cell) return;
+        tilesetSelectionEnd = cell;
+        updateSelectionCells(tilesetSelectionStart, cell);
+      }
       if (!tilesetPanning) return;
       tilesetPanX = e.clientX - tilesetPanStartX;
       tilesetPanY = e.clientY - tilesetPanStartY;
@@ -1462,12 +1575,22 @@
       updateTilesetGrid();
     });
     const stopTilesetPan = () => {
-      if (!tilesetPanning) return;
-      tilesetPanning = false;
-      tilesetPreviewStage.classList.remove("panning");
+      if (tilesetPanning) {
+        tilesetPanning = false;
+        tilesetPreviewStage.classList.remove("panning");
+      }
     };
-    tilesetPreviewStage.addEventListener("mouseup", stopTilesetPan);
-    tilesetPreviewStage.addEventListener("mouseleave", stopTilesetPan);
+    tilesetPreviewStage.addEventListener("mouseup", (e) => {
+      stopTilesetPan();
+      if (e.button === 0) tilesetSelecting = false;
+    });
+    tilesetPreviewStage.addEventListener("mouseleave", () => {
+      stopTilesetPan();
+      tilesetSelecting = false;
+    });
+    document.addEventListener("mouseup", () => {
+      tilesetSelecting = false;
+    });
 
   }
   window.addEventListener("resize", updateTilesetGrid);
