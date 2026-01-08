@@ -1336,6 +1336,8 @@
 
   if (tilesetPreviewImage) {
     tilesetPreviewImage.addEventListener("load", updateTilesetGrid);
+    tilesetPreviewImage.draggable = false;
+    tilesetPreviewImage.addEventListener("dragstart", (e) => e.preventDefault());
   }
   if (tilesetGridX && tilesetGridY && tilesetGridW && tilesetGridH && tilesetGridPadX && tilesetGridPadY) {
     [tilesetGridX, tilesetGridY, tilesetGridW, tilesetGridH, tilesetGridPadX, tilesetGridPadY].forEach((inputEl) => {
