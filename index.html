@@ -698,10 +698,9 @@
   const customPaletteTitle = document.getElementById("custom-palette-title");
   const customPaletteGrid = document.getElementById("custom-palette-grid");
   const customTileSprites = new Map(); // tileId -> Image
+  const customTileMap = new Map(); // key: "tx,ty" -> tileId
   const RESERVED_TILES = new Set([".", "#", "B", "I", "S", "W", "?", "u", "C", "E", "P"]);
-  const TILE_ID_POOL = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ!$%&()*+-/:;<=>@[]^_{}|~"
-    .split("")
-    .filter(ch => !RESERVED_TILES.has(ch));
+  const customIdForIndex = (index) => `~${index}`;
   let tilesetPreviewUrl = null;
   let tilesetZoom = 1;
   let tilesetPanX = 0;
@@ -1003,6 +1002,7 @@
       octx.drawImage(tilesetPreviewImage, 0, 0);
       customPaletteGrid.innerHTML = "";
       customTileSprites.clear();
+      customTileMap.clear();
       let poolIndex = 0;
       for (let y = gridY; y + tileH <= h; y += stepY) {
         for (let x = gridX; x + tileW <= w; x += stepX) {
@@ -1016,11 +1016,7 @@
             }
           }
           if (!hasPixel) continue;
-          const tileId = TILE_ID_POOL[poolIndex++];
-          if (!tileId) {
-            pushSystemChat("Tile pool exhausted.");
-            break;
-          }
+          const tileId = customIdForIndex(poolIndex++);
           const tileCanvas = document.createElement("canvas");
           tileCanvas.width = tileW;
           tileCanvas.height = tileH;
@@ -1042,7 +1038,6 @@
           tileEl.appendChild(preview);
           customPaletteGrid.appendChild(tileEl);
         }
-        if (poolIndex >= TILE_ID_POOL.length) break;
       }
       const paletteName = (tilesetPaletteName && tilesetPaletteName.value.trim()) || "Custom";
       if (customPaletteTitle) customPaletteTitle.textContent = paletteName.toUpperCase();
@@ -2013,6 +2008,7 @@
   let mapW = LEVEL[0].length;
   const tiles = LEVEL.map(row => row.split(""));
   const labelMap = new Map(); // key: "tx,ty" -> string
+  const isCustomTileId = (t) => typeof t === "string" && t.startsWith("~");
 
   function ensureBounds(tx, ty) {
     let grew = false;
@@ -2034,11 +2030,20 @@
 
   function getTile(tx, ty) {
     if (!inBounds(tx, ty)) return "#"; // treat out-of-bounds as solid wall
+    const key = labelKey(tx, ty);
+    if (customTileMap.has(key)) return customTileMap.get(key);
     return tiles[ty][tx];
   }
   function setTileRaw(tx, ty, v) {
     ensureBounds(tx, ty);
-    tiles[ty][tx] = v;
+    const key = labelKey(tx, ty);
+    if (isCustomTileId(v)) {
+      customTileMap.set(key, v);
+      tiles[ty][tx] = ".";
+    } else {
+      customTileMap.delete(key);
+      tiles[ty][tx] = v;
+    }
   }
   function setTile(tx, ty, v) {
     setTileRaw(tx, ty, v);
