@@ -656,6 +656,9 @@
   const tilesetPaletteName = document.getElementById("tileset-palette-name");
   const tilesetCutSprites = document.getElementById("tileset-cut-sprites");
   const tilesetToolsClose = document.querySelector(".tileset-tools-close");
+  const customPaletteSection = document.getElementById("custom-palette-section");
+  const customPaletteTitle = document.getElementById("custom-palette-title");
+  const customPaletteGrid = document.getElementById("custom-palette-grid");
   let tilesetPreviewUrl = null;
   let tilesetZoom = 1;
   let tilesetPanX = 0;
@@ -3991,9 +3994,6 @@
 
 
 
-  const customPaletteSection = document.getElementById("custom-palette-section");
-  const customPaletteTitle = document.getElementById("custom-palette-title");
-  const customPaletteGrid = document.getElementById("custom-palette-grid");
   const customTileSprites = new Map(); // tileId -> Image
   const RESERVED_TILES = new Set([".", "#", "B", "I", "S", "W", "?", "u", "C", "E", "P"]);
   const TILE_ID_POOL = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
