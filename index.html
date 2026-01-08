@@ -55,7 +55,9 @@
       font: 12px/1.4 "VT323", monospace;
       box-sizing: border-box;
       z-index: 1000;
+      display: none;
     }
+    body.tileset-open .tileset-preview-sidebar { display: block; }
     .tileset-tools {
       background: #0f182a;
       border: 2px solid #000;
@@ -671,11 +673,13 @@
     if (!file) {
       tilesetPreviewImage.removeAttribute("src");
       tilesetPreviewPanel.classList.remove("visible");
+      document.body.classList.remove("tileset-open");
       return;
     }
     tilesetPreviewUrl = URL.createObjectURL(file);
     tilesetPreviewImage.src = tilesetPreviewUrl;
     tilesetPreviewPanel.classList.add("visible");
+    document.body.classList.add("tileset-open");
     tilesetPanX = 0;
     tilesetPanY = 0;
     setTilesetZoom(1);
