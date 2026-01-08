@@ -43,7 +43,7 @@
     .tileset-preview.visible { display: flex; }
     .tileset-preview.panning { cursor: grabbing; }
     .tileset-preview-sidebar {
-      position: absolute;
+      position: fixed;
       left: 12px;
       right: 12px;
       top: 12px;
@@ -454,32 +454,32 @@
       <div class="tileset-preview-stage">
         <img id="tileset-preview-image" alt="Tileset preview"/>
         <canvas class="tileset-preview-grid" id="tileset-preview-grid"></canvas>
-        <div class="tileset-preview-sidebar">
-          <div class="tileset-tools" aria-label="Grid settings">
-            <div class="tileset-tools-header">
-              <span>Grid Settings</span>
-              <span class="tileset-tools-close" aria-hidden="true">X</span>
-            </div>
-            <div class="tileset-tools-grid">
-              <label for="tileset-grid-x">X:</label>
-              <input id="tileset-grid-x" type="text" value="0" inputmode="numeric"/>
-              <label for="tileset-grid-y">Y:</label>
-              <input id="tileset-grid-y" type="text" value="0" inputmode="numeric"/>
-              <label for="tileset-grid-w">Width:</label>
-              <input id="tileset-grid-w" type="text" value="16" inputmode="numeric"/>
-              <label for="tileset-grid-h">Height:</label>
-              <input id="tileset-grid-h" type="text" value="16" inputmode="numeric"/>
-              <label for="tileset-grid-padx">Pad X:</label>
-              <input id="tileset-grid-padx" type="text" value="0" inputmode="numeric"/>
-              <label for="tileset-grid-pady">Pad Y:</label>
-              <input id="tileset-grid-pady" type="text" value="0" inputmode="numeric"/>
-              <label for="tileset-remove-color">Remove BG:</label>
-              <input id="tileset-remove-color" type="text" value="#000000"/>
-              <span></span>
-              <button class="tileset-tools-button" id="tileset-remove-apply" type="button">Remove Selected Color</button>
-            </div>
-            <div class="tileset-tools-divider" aria-hidden="true"></div>
+      </div>
+      <div class="tileset-preview-sidebar">
+        <div class="tileset-tools" aria-label="Grid settings">
+          <div class="tileset-tools-header">
+            <span>Grid Settings</span>
+            <span class="tileset-tools-close" aria-hidden="true">X</span>
           </div>
+          <div class="tileset-tools-grid">
+            <label for="tileset-grid-x">X:</label>
+            <input id="tileset-grid-x" type="text" value="0" inputmode="numeric"/>
+            <label for="tileset-grid-y">Y:</label>
+            <input id="tileset-grid-y" type="text" value="0" inputmode="numeric"/>
+            <label for="tileset-grid-w">Width:</label>
+            <input id="tileset-grid-w" type="text" value="16" inputmode="numeric"/>
+            <label for="tileset-grid-h">Height:</label>
+            <input id="tileset-grid-h" type="text" value="16" inputmode="numeric"/>
+            <label for="tileset-grid-padx">Pad X:</label>
+            <input id="tileset-grid-padx" type="text" value="0" inputmode="numeric"/>
+            <label for="tileset-grid-pady">Pad Y:</label>
+            <input id="tileset-grid-pady" type="text" value="0" inputmode="numeric"/>
+            <label for="tileset-remove-color">Remove BG:</label>
+            <input id="tileset-remove-color" type="text" value="#000000"/>
+            <span></span>
+            <button class="tileset-tools-button" id="tileset-remove-apply" type="button">Remove Selected Color</button>
+          </div>
+          <div class="tileset-tools-divider" aria-hidden="true"></div>
         </div>
       </div>
     </div>
