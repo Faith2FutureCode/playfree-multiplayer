@@ -1811,6 +1811,7 @@
   let showJumpGuide = params.get("jumpGuide") !== "0";
   const CHAT_BUBBLE_TIME = 4;
   const FORM_STATS_MAX_ROWS = 8;
+  const COLUMN_COLORS = ["#3b82f6", "#22c55e", "#f97316", "#a855f7", "#eab308"];
   let PLAYER_NAME = (params.get("name") || `P${Math.floor(Math.random() * 900 + 100)}`).slice(0, 20);
   const STATE_SEND_INTERVAL = 0.05; // seconds
   const PEER_STALE_TIME = 6; // seconds
@@ -2699,7 +2700,7 @@
   const worldRng = createRng(worldSeed);
 
   function makeColumn(tx, ground = defaultGroundY, tilesForCol = [], entities = []) {
-    return { tx, ground, tiles: tilesForCol, entities };
+    return { tx, ground, tiles: tilesForCol, entities, color: null };
   }
 
   const worldBuffer = {
@@ -2711,11 +2712,17 @@
     nextTx: mapW,
   };
 
+  const columnColorMap = new Map(); // tx -> color
+  const columnColorState = { colorIndex: 0, spanRemaining: 0 };
+
   function resetWorldBuffer() {
     worldBuffer.columns.length = 0;
     worldBuffer.startTx = mapW;
     worldBuffer.nextTx = mapW;
     defaultGroundY = Math.max(4, mapH - 2);
+    columnColorMap.clear();
+    columnColorState.colorIndex = 0;
+    columnColorState.spanRemaining = 0;
   }
 
   const difficultyTuning = Object.freeze({
@@ -2900,6 +2907,17 @@
 
   function applyColumnToWorld(col) {
     if (col.applied) return;
+    if (ENDLESS_ENABLED) {
+      if (columnColorState.spanRemaining <= 0) {
+        columnColorState.spanRemaining = worldRng.int(1, 5);
+        // pick a new color index different from current
+        const next = worldRng.int(0, COLUMN_COLORS.length - 1);
+        columnColorState.colorIndex = next;
+      }
+      columnColorState.spanRemaining -= 1;
+      col.color = COLUMN_COLORS[columnColorState.colorIndex];
+      columnColorMap.set(col.tx, col.color);
+    }
     ensureBounds(col.tx, 0);
     for (const { t, y } of col.tiles) {
       setTileRaw(col.tx, y, t);
@@ -4650,7 +4668,13 @@
       }
     }
     if (t === "#") { // ground
-      g.fillStyle = "#3b2f2f";
+      let color = "#3b2f2f";
+      if (ENDLESS_ENABLED) {
+        const tx = Math.floor(x / TILE);
+        const col = columnColorMap.get(tx);
+        if (col) color = col;
+      }
+      g.fillStyle = color;
       g.fillRect(sx, sy, TILE, TILE);
       g.fillStyle = "#2a2020";
       g.fillRect(sx, sy + 12, TILE, 4);
