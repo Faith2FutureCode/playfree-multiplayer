@@ -2998,6 +2998,12 @@
     return { ok: errors.length === 0, errors, sample: snapshotA ? snapshotA.slice(0, 12) : [] };
   }
 
+  const jumpMetrics = {
+    startTx: null,
+    lastJump: 0,
+    maxJump: 0,
+  };
+
   window.endlessSnapshot = endlessSnapshot;
   window.runEndlessSelfTest = runEndlessSelfTest;
   window.endlessReseed = (seed = worldRng.seed) => {
@@ -4733,12 +4739,6 @@
     g.fillText(`P    ${jumpPSpeedTiles.toFixed(1)}`, ox + 6, oy + 36);
     g.restore();
   }
-
-  const jumpMetrics = {
-    startTx: null,
-    lastJump: 0,
-    maxJump: 0,
-  };
 
   function trackJumpDistance(wasGrounded, grounded) {
     const centerTx = Math.floor((player.x + player.w / 2) / TILE);
