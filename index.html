@@ -4718,27 +4718,7 @@
     }
   }
 
-  function drawJumpGuideOverlay() {
-    if (!showJumpGuide) return;
-    const ox = BASE_W - 160;
-    const oy = 10;
-    const w = 150;
-    const h = 52;
-    g.save();
-    g.fillStyle = "rgba(0,0,0,0.55)";
-    g.fillRect(ox, oy, w, h);
-    g.strokeStyle = "rgba(255,255,255,0.35)";
-    g.strokeRect(ox, oy, w, h);
-    g.font = "8px 'Press Start 2P', 'VT323', monospace";
-    g.textAlign = "left";
-    g.textBaseline = "top";
-    g.fillStyle = "#f2f5ff";
-    g.fillText("Jump range (tiles)", ox + 6, oy + 4);
-    g.fillText(`Walk ${jumpWalkTiles.toFixed(1)}`, ox + 6, oy + 16);
-    g.fillText(`Run  ${jumpRunTiles.toFixed(1)}`, ox + 6, oy + 26);
-    g.fillText(`P    ${jumpPSpeedTiles.toFixed(1)}`, ox + 6, oy + 36);
-    g.restore();
-  }
+  function drawJumpGuideOverlay() {}
 
   function trackJumpDistance(wasGrounded, grounded) {
     const centerTx = Math.floor((player.x + player.w / 2) / TILE);
@@ -5046,7 +5026,6 @@
     drawSelectionOverlay();
     drawLabelsOverlay();
     drawJumpReachOverlay();
-    drawJumpGuideOverlay();
     drawEndlessDebugOverlay();
     // chat overlay
     if (chatLog.length > 0 && chatVisibleTime > -2) {
