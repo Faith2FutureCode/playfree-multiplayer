@@ -2982,6 +2982,14 @@
     maxJump: 0,
   };
 
+  function jumpCenterTile() {
+    return (player.x + player.w / 2) / TILE;
+  }
+
+  function startJumpTrack() {
+    jumpMetrics.startTx = jumpCenterTile();
+  }
+
   window.endlessSnapshot = endlessSnapshot;
   window.runEndlessSelfTest = runEndlessSelfTest;
   window.endlessReseed = (seed = worldRng.seed) => {
@@ -4438,6 +4446,7 @@
       player.state = "jumping";
       player.coyote = 0;
       player.jumpBuf = 0;
+      startJumpTrack();
       // Capture takeoff speed so airborne clamp preserves P-speed until air drag/braking trims it
       player.airCarryMax = Math.max(player.airCarryMax || 0, Math.abs(player.vx));
     }
@@ -4699,9 +4708,9 @@
   function drawJumpGuideOverlay() {}
 
   function trackJumpDistance(wasGrounded, grounded) {
-    const centerTx = Math.floor((player.x + player.w / 2) / TILE);
+    const centerTx = Math.floor(jumpCenterTile());
     if (!grounded && wasGrounded) {
-      jumpMetrics.startTx = centerTx;
+      startJumpTrack();
     } else if (grounded && !wasGrounded && jumpMetrics.startTx !== null) {
       const dx = centerTx - jumpMetrics.startTx;
       jumpMetrics.lastJump = dx;
