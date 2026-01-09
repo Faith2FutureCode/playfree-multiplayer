@@ -2997,7 +2997,9 @@
     pStartTx: null,
     pDistance: 0,
     pBuildStartTx: null,
-    pReachTiles: 0,
+    pReachTilesRun: 0,
+    pReachTilesWalk: 0,
+    pLastMode: "none",
   };
   let showJumpMode = false;
 
@@ -4773,7 +4775,7 @@
       jumpMetrics.startTx = null;
       jumpMetrics.startTy = null;
       if (showJumpMode) {
-        pushSystemChat(`Jump: ${dx.toFixed(1)} wide; ${dy.toFixed(1)} high; P=${jumpMetrics.pReachTiles.toFixed(1)}`);
+        pushSystemChat(`Jump: ${dx.toFixed(1)} wide; ${dy.toFixed(1)} high; Pwalk=${jumpMetrics.pReachTilesWalk.toFixed(1)}; Prun=${jumpMetrics.pReachTilesRun.toFixed(1)}`);
       }
     }
   }
@@ -4782,12 +4784,19 @@
     const center = jumpCenterTile();
     const atPSpeed = player.pCharge >= 1;
 
-    if (grounded && wantsRun) {
+    const mode = wantsRun ? "run" : "walk";
+
+    if (grounded) {
       if (!atPSpeed) {
-        if (jumpMetrics.pBuildStartTx === null) jumpMetrics.pBuildStartTx = center;
+        if (jumpMetrics.pBuildStartTx === null || jumpMetrics.pLastMode !== mode) {
+          jumpMetrics.pBuildStartTx = center;
+          jumpMetrics.pLastMode = mode;
+        }
       } else {
-        if (jumpMetrics.pBuildStartTx !== null && jumpMetrics.pReachTiles === 0) {
-          jumpMetrics.pReachTiles = center - jumpMetrics.pBuildStartTx;
+        if (jumpMetrics.pBuildStartTx !== null) {
+          const reach = center - jumpMetrics.pBuildStartTx;
+          if (mode === "run") jumpMetrics.pReachTilesRun = reach;
+          else jumpMetrics.pReachTilesWalk = reach;
         }
         if (jumpMetrics.pStartTx === null) jumpMetrics.pStartTx = center;
         jumpMetrics.pDistance = center - (jumpMetrics.pStartTx ?? center);
