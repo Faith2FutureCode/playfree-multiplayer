@@ -3228,21 +3228,27 @@
     }
     labelMap.clear();
     customTileMap.clear();
+    // ensure tiles grid exists
     for (let y = 0; y < mapH; y++) {
-      for (let x = 0; x < mapW; x++) {
-        setTileRaw(x, y, ".");
-      }
+      if (!tiles[y]) tiles[y] = new Array(mapW).fill(".");
+      else tiles[y].fill(".");
     }
     // add a simple ground row so players don't fall forever
-    const groundY = mapH - 1;
+    const groundY = Math.max(0, mapH - 1);
     for (let x = 0; x < mapW; x++) {
       setTileRaw(x, groundY, "#");
     }
+    // wipe entities/particles
+    entities.length = 0;
+    particles.length = 0;
+    coinCount = 0;
+    questionHits = 0;
     // reset player to start of level
     player.x = 0;
     player.y = Math.max(0, (groundY - 2) * TILE);
     player.vx = 0;
     player.vy = 0;
+    updateCamera();
     pushSystemChat("Level cleared.");
   }
   const pushChatEntry = (name, text, ts = Date.now(), pin = false) => {
