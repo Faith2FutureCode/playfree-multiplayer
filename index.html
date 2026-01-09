@@ -2585,6 +2585,255 @@
   let mapW = LEVEL[0].length;
   const tiles = LEVEL.map(row => row.split(""));
   const labelMap = new Map(); // key: "tx,ty" -> string
+
+  // -----------------------------
+  // Endless world data
+  // -----------------------------
+  const VIEW_TILES = Math.ceil(BASE_W / TILE);
+  const WORLD_AHEAD_TILES = 24;
+  const WORLD_BUFFER_TILES = VIEW_TILES + WORLD_AHEAD_TILES;
+  const DEFAULT_GROUND_Y = Math.max(4, mapH - 2);
+
+  function hashSeed(str) {
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return () => {
+      a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function createRng(seedStr = "endless") {
+    let rand = mulberry32(hashSeed(seedStr));
+    return {
+      seed: seedStr,
+      next() { return rand(); },
+      range(min, max) { return min + (max - min) * rand(); },
+      int(min, max) { return Math.floor(rand() * (max - min + 1)) + min; },
+      reseed(nextSeed) {
+        this.seed = nextSeed;
+        rand = mulberry32(hashSeed(nextSeed));
+      },
+    };
+  }
+
+  const worldSeed = params.get("seed") || params.get("worldSeed") || "endless";
+  const worldRng = createRng(worldSeed);
+  const ENDLESS_ENABLED = params.get("endless") === "1" || params.get("endless") === "true" || params.get("mode") === "endless";
+
+  function makeColumn(tx, ground = DEFAULT_GROUND_Y, tilesForCol = [], entities = []) {
+    return { tx, ground, tiles: tilesForCol, entities };
+  }
+
+  const worldBuffer = {
+    columns: [],
+    view: VIEW_TILES,
+    ahead: WORLD_AHEAD_TILES,
+    target: WORLD_BUFFER_TILES,
+    startTx: mapW,
+    nextTx: mapW,
+  };
+
+  function resetWorldBuffer() {
+    worldBuffer.columns.length = 0;
+    worldBuffer.startTx = mapW;
+    worldBuffer.nextTx = mapW;
+  }
+
+  const difficultyTuning = Object.freeze({
+    baseSpeed: WALK_MAX,
+    maxSpeed: P_SPEED_MAX,
+    speedRampPerSecond: 0.5,
+    baseBudget: 1,
+    budgetRampPerChunk: 0.15,
+    budgetCap: 12,
+  });
+
+  function createDifficultyState() {
+    return {
+      distance: 0,
+      hazardBudget: difficultyTuning.baseBudget,
+      hazardCooldown: 0,
+      enemyCooldown: 0,
+      gapCooldown: 0,
+      speed: difficultyTuning.baseSpeed,
+      groundY: DEFAULT_GROUND_Y,
+      gapRemaining: 0,
+      safeLanding: 0,
+    };
+  }
+
+  let difficultyState = createDifficultyState();
+
+  function resetDifficultyState() {
+    difficultyState = createDifficultyState();
+  }
+
+  resetWorldBuffer();
+
+  // -----------------------------
+  // Endless column generator
+  // -----------------------------
+  const GROUND_MIN = 2;
+  const GROUND_MAX = Math.max(GROUND_MIN + 2, mapH - 2);
+  const SLOPE_LIMIT = 1;
+  const GAP_MIN = 1;
+  const GAP_MAX_SAFE = 5; // generous run jump; tune with player jump charts
+  const LANDING_PAD = 2;
+  const ENEMY_COST = 1;
+  const ENEMY_COOLDOWN_COLS = 3;
+  const GAP_COOLDOWN_COLS = 6;
+  const HAZARD_COOLDOWN_COLS = 2;
+
+  function clampGround(y) {
+    return clamp(y, GROUND_MIN, GROUND_MAX);
+  }
+
+  function canAfford(state, cost) {
+    if (state.hazardBudget < cost) return false;
+    state.hazardBudget -= cost;
+    return true;
+  }
+
+  function regenBudget(state) {
+    state.hazardBudget = Math.min(difficultyTuning.budgetCap, state.hazardBudget + difficultyTuning.budgetRampPerChunk);
+  }
+
+  function genColumn(state, tx) {
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const nextState = { ...state };
+      const tilesForCol = [];
+      const entitiesForCol = [];
+      let groundY = nextState.groundY;
+
+      // Respect ongoing gap
+      if (nextState.gapRemaining > 0) {
+        nextState.gapRemaining -= 1;
+        nextState.safeLanding = Math.max(nextState.safeLanding, LANDING_PAD);
+        nextState.gapCooldown = Math.max(nextState.gapCooldown - 1, 0);
+        regenBudget(nextState);
+        return [makeColumn(tx, groundY, tilesForCol, entitiesForCol), nextState];
+      }
+
+      // Optionally start a gap if allowed
+      const canStartGap = nextState.gapCooldown === 0 && nextState.safeLanding === 0;
+      if (canStartGap && worldRng.next() < 0.12) {
+        const gapWidth = worldRng.int(GAP_MIN, GAP_MAX_SAFE);
+        nextState.gapRemaining = gapWidth; // this column plus remaining
+        nextState.gapCooldown = GAP_COOLDOWN_COLS;
+        nextState.safeLanding = LANDING_PAD;
+        regenBudget(nextState);
+        return [makeColumn(tx, groundY, tilesForCol, entitiesForCol), nextState];
+      }
+
+      // Drift ground height
+      groundY = clampGround(groundY + worldRng.int(-SLOPE_LIMIT, SLOPE_LIMIT));
+      nextState.groundY = groundY;
+
+      // Build solid floor from ground to bottom
+      for (let y = groundY; y < mapH; y++) {
+        tilesForCol.push({ t: "#", y });
+      }
+
+      // Try to place an enemy on top of ground
+      const canPlaceEnemy = nextState.enemyCooldown === 0 && nextState.safeLanding === 0;
+      if (canPlaceEnemy && worldRng.next() < 0.28 && canAfford(nextState, ENEMY_COST)) {
+        entitiesForCol.push({ type: "goon", x: tx * TILE + 1, y: (groundY - 1) * TILE });
+        nextState.enemyCooldown = ENEMY_COOLDOWN_COLS;
+        nextState.hazardCooldown = HAZARD_COOLDOWN_COLS;
+      }
+
+      // Landings after hazards
+      if (nextState.safeLanding > 0) {
+        nextState.safeLanding -= 1;
+      }
+
+      // Cooldowns tick
+      nextState.enemyCooldown = Math.max(0, nextState.enemyCooldown - 1);
+      nextState.gapCooldown = Math.max(0, nextState.gapCooldown - 1);
+      nextState.hazardCooldown = Math.max(0, nextState.hazardCooldown - 1);
+      nextState.distance += 1;
+      regenBudget(nextState);
+
+      // Column is valid; return
+      return [makeColumn(tx, groundY, tilesForCol, entitiesForCol), nextState];
+    }
+
+    // Fallback: return flat column if all attempts failed
+    const fallbackGround = clampGround(state.groundY);
+    const flatTiles = [];
+    for (let y = fallbackGround; y < mapH; y++) flatTiles.push({ t: "#", y });
+    const safeState = { ...state, groundY: fallbackGround, gapRemaining: 0, safeLanding: LANDING_PAD };
+    regenBudget(safeState);
+    return [makeColumn(tx, fallbackGround, flatTiles, []), safeState];
+  }
+
+  function applyColumnToWorld(col) {
+    if (col.applied) return;
+    ensureBounds(col.tx, 0);
+    for (const { t, y } of col.tiles) {
+      setTileRaw(col.tx, y, t);
+    }
+    for (const e of col.entities) {
+      if (e.type === "goon") {
+        const tx = Math.floor(e.x / TILE);
+        const ty = Math.floor(e.y / TILE);
+        spawnEnemy(tx, ty);
+      }
+    }
+    col.applied = true;
+    updateWorldWidth();
+  }
+
+  function updateEndlessWorld(dt) {
+    if (!ENDLESS_ENABLED) return;
+
+    // Ramp player speed targets over time; generator uses budget per column.
+    difficultyState.speed = clamp(
+      difficultyState.speed + difficultyTuning.speedRampPerSecond * dt,
+      difficultyTuning.baseSpeed,
+      difficultyTuning.maxSpeed
+    );
+
+    const viewLeftTx = Math.floor(cam.x / TILE);
+    const viewRightTx = viewLeftTx + worldBuffer.view;
+    const needUpTo = viewRightTx + worldBuffer.ahead;
+
+    while (worldBuffer.nextTx <= needUpTo) {
+      const [col, nextState] = genColumn(difficultyState, worldBuffer.nextTx);
+      difficultyState = nextState;
+      worldBuffer.columns.push(col);
+      applyColumnToWorld(col);
+      worldBuffer.nextTx += 1;
+    }
+
+    // drop old columns from buffer to bound memory; keep a small margin behind view
+    const minKeepTx = Math.max(0, viewLeftTx - 4);
+    while (worldBuffer.columns.length > worldBuffer.target || (worldBuffer.columns[0] && worldBuffer.columns[0].tx < minKeepTx)) {
+      worldBuffer.columns.shift();
+    }
+
+    // Despawn non-player entities well behind the camera
+    const despawnX = Math.max(0, (viewLeftTx - 6) * TILE);
+    if (despawnX > 0) {
+      for (const e of entities) {
+        if (!e.alive) continue;
+        if (e.type === "player") continue;
+        if (e.x + e.w < despawnX) e.alive = false;
+      }
+    }
+  }
+
   const isCustomTileId = (t) => typeof t === "string" && t.startsWith("~");
   const serializeLevelSnapshot = () => {
     return {
@@ -2607,6 +2856,11 @@
         for (const row of data.tiles) tiles.push(row.split(""));
         mapH = tiles.length;
         mapW = tiles[0]?.length || 0;
+        updateWorldWidth();
+        if (ENDLESS_ENABLED) {
+          resetDifficultyState();
+          resetWorldBuffer();
+        }
       }
       labelMap.clear();
       if (Array.isArray(data.labels)) {
@@ -3570,8 +3824,12 @@
   // Camera
   // -----------------------------
   const cam = { x: 0, y: 0 };
-  const worldWpx = mapW * TILE;
+  let worldWpx = mapW * TILE;
   const worldHpx = mapH * TILE;
+
+  function updateWorldWidth() {
+    worldWpx = mapW * TILE;
+  }
 
   function updateCamera() {
     const targetX = player.x + player.w/2 - BASE_W/2;
@@ -3585,7 +3843,13 @@
   let deadTimer = 0;
   function restart() {
     // reset tiles to initial
-    for (let y = 0; y < mapH; y++) tiles[y] = LEVEL[y].split("");
+    tiles.length = 0;
+    for (const row of LEVEL) tiles.push(row.split(""));
+    mapH = tiles.length;
+    mapW = tiles[0]?.length || 0;
+    updateWorldWidth();
+    resetDifficultyState();
+    resetWorldBuffer();
     // wipe spawns
     for (let y = 0; y < mapH; y++) for (let x = 0; x < mapW; x++) if (tiles[y][x] === "P") tiles[y][x] = ".";
     // reset coins and blocks
@@ -3757,6 +4021,8 @@
       if (deadTimer <= 0) restart();
       return;
     }
+
+    updateEndlessWorld(dt);
 
     // Update invuln
     player.invuln = Math.max(0, player.invuln - dt);
