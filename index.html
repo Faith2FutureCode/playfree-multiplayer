@@ -2139,6 +2139,9 @@
           pushSystemChat(`Jump mode ${showJumpMode ? "ON" : "OFF"} — last jump ${jumpMetrics.lastJump.toFixed(1)} tiles`);
         } else if (text.startsWith("/clear")) {
           clearLevelForAuthor();
+        } else if (text.startsWith("/save")) {
+          const ok = saveLevelSnapshot();
+          pushSystemChat(ok ? "Level saved." : "Level save failed.");
         } else {
           sendChat(text);
         }
@@ -2997,8 +3000,9 @@
     pStartTx: null,
     pDistance: 0,
     pBuildStartTx: null,
-    pReachTilesRun: 0,
-    pReachTilesWalk: 0,
+    pReachTilesFromZero: 0,
+    pReachTilesFrom180: 0,
+    pHit180Tx: null,
     pLastMode: "none",
   };
   let showJumpMode = false;
@@ -4775,39 +4779,48 @@
       jumpMetrics.startTx = null;
       jumpMetrics.startTy = null;
       if (showJumpMode) {
-        pushSystemChat(`Jump: ${dx.toFixed(1)} wide; ${dy.toFixed(1)} high; Pwalk=${jumpMetrics.pReachTilesWalk.toFixed(1)}; Prun=${jumpMetrics.pReachTilesRun.toFixed(1)}`);
+        const p0 = jumpMetrics.pReachTilesFromZero.toFixed(1);
+        const p180 = jumpMetrics.pReachTilesFrom180.toFixed(1);
+        pushSystemChat(`Jump: ${dx.toFixed(1)} wide; ${dy.toFixed(1)} high; P0=${p0}; P180=${p180}`);
       }
     }
   }
 
   function trackPSpeedDistance(grounded, wantsRun) {
     const center = jumpCenterTile();
+    const speedAbs = Math.abs(player.vx);
     const atPSpeed = player.pCharge >= 1;
 
-    const mode = wantsRun ? "run" : "walk";
-
-    if (grounded) {
-      if (!atPSpeed) {
-        if (jumpMetrics.pBuildStartTx === null || jumpMetrics.pLastMode !== mode) {
-          jumpMetrics.pBuildStartTx = center;
-          jumpMetrics.pLastMode = mode;
-        }
-      } else {
-        if (jumpMetrics.pBuildStartTx !== null) {
-          const reach = center - jumpMetrics.pBuildStartTx;
-          if (mode === "run") jumpMetrics.pReachTilesRun = reach;
-          else jumpMetrics.pReachTilesWalk = reach;
-        }
-        if (jumpMetrics.pStartTx === null) jumpMetrics.pStartTx = center;
-        jumpMetrics.pDistance = center - (jumpMetrics.pStartTx ?? center);
-      }
-    } else {
+    if (!grounded || !wantsRun) {
       jumpMetrics.pBuildStartTx = null;
       jumpMetrics.pStartTx = null;
       jumpMetrics.pDistance = 0;
+      jumpMetrics.pHit180Tx = null;
+      return;
     }
 
-    if (!atPSpeed) {
+    // mark start from standstill
+    if (speedAbs < 5) {
+      jumpMetrics.pBuildStartTx = center;
+      jumpMetrics.pHit180Tx = null;
+      jumpMetrics.pReachTilesFromZero = 0;
+      jumpMetrics.pReachTilesFrom180 = 0;
+    }
+    // mark 180 hit
+    if (speedAbs >= 180 && jumpMetrics.pHit180Tx === null) {
+      jumpMetrics.pHit180Tx = center;
+    }
+
+    if (atPSpeed) {
+      if (jumpMetrics.pBuildStartTx !== null && jumpMetrics.pReachTilesFromZero === 0) {
+        jumpMetrics.pReachTilesFromZero = Math.abs(center - jumpMetrics.pBuildStartTx);
+      }
+      if (jumpMetrics.pHit180Tx !== null && jumpMetrics.pReachTilesFrom180 === 0) {
+        jumpMetrics.pReachTilesFrom180 = Math.abs(center - jumpMetrics.pHit180Tx);
+      }
+      if (jumpMetrics.pStartTx === null) jumpMetrics.pStartTx = center;
+      jumpMetrics.pDistance = center - (jumpMetrics.pStartTx ?? center);
+    } else {
       jumpMetrics.pStartTx = null;
       jumpMetrics.pDistance = 0;
     }
