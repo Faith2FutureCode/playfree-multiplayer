@@ -3063,6 +3063,7 @@
   };
 
   const loadLevelSnapshot = () => {
+    if (ENDLESS_ENABLED) return false; // never override endless seed with local save
     if (typeof localStorage === "undefined") return false;
     const raw = localStorage.getItem(LEVEL_SAVE_KEY);
     if (!raw) return false;
