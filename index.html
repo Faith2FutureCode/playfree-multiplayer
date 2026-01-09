@@ -3113,6 +3113,7 @@
     if (typeof localStorage === "undefined") return false;
     try {
       localStorage.setItem(LEVEL_SAVE_KEY, JSON.stringify(serializeLevelSnapshot()));
+      hasLocalSnapshot = true;
       return true;
     } catch (err) {
       return false;
@@ -3233,6 +3234,7 @@
   const chatMax = 30;
   let chatVisibleTime = 0;
   let selfChatBubble = null; // {text, timer}
+  let hasLocalSnapshot = false;
   function clearLevelForAuthor() {
     if (!isAuthor()) {
       pushSystemChat("Author only. Use /author to login.");
