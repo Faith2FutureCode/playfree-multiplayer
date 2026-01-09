@@ -2127,7 +2127,15 @@
             sendChat(msg, { pin: true });
           }
         } else if (text.startsWith("/showjump")) {
-          pushSystemChat(`Last jump: ${jumpMetrics.lastJump.toFixed(1)} tiles`);
+          const arg = text.replace("/showjump", "").trim().toLowerCase();
+          if (["on", "1", "true"].includes(arg)) {
+            showJumpMode = true;
+          } else if (["off", "0", "false"].includes(arg)) {
+            showJumpMode = false;
+          } else if (arg.length === 0) {
+            showJumpMode = !showJumpMode;
+          }
+          pushSystemChat(`Jump mode ${showJumpMode ? "ON" : "OFF"} — last jump ${jumpMetrics.lastJump.toFixed(1)} tiles`);
         } else {
           sendChat(text);
         }
@@ -2981,6 +2989,7 @@
     lastJump: 0,
     maxJump: 0,
   };
+  let showJumpMode = false;
 
   function jumpCenterTile() {
     return (player.x + player.w / 2) / TILE;
@@ -4716,6 +4725,9 @@
       jumpMetrics.lastJump = dx;
       jumpMetrics.maxJump = Math.max(jumpMetrics.maxJump, dx);
       jumpMetrics.startTx = null;
+      if (showJumpMode) {
+        pushSystemChat(`Jump: ${dx.toFixed(1)} tiles`);
+      }
     }
   }
 
