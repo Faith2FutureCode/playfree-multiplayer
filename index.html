@@ -2126,6 +2126,8 @@
           if (msg) {
             sendChat(msg, { pin: true });
           }
+        } else if (text.startsWith("/showjump")) {
+          pushSystemChat(`Last jump: ${jumpMetrics.lastJump.toFixed(1)} tiles`);
         } else {
           sendChat(text);
         }
