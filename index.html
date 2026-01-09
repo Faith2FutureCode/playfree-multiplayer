@@ -1807,6 +1807,7 @@
   const MP_SERVER = params.get("mpUrl") || "wss://ws.playfree.dev";
   const MP_ROOM = params.get("room") || "lobby";
   const ENDLESS_ENABLED = params.get("endless") === "1" || params.get("endless") === "true" || params.get("mode") === "endless";
+  const ENDLESS_DEBUG = params.get("endlessDebug") === "1" || params.get("edebug") === "1";
   let PLAYER_NAME = (params.get("name") || `P${Math.floor(Math.random() * 900 + 100)}`).slice(0, 20);
   const STATE_SEND_INTERVAL = 0.05; // seconds
   const PEER_STALE_TIME = 6; // seconds
@@ -2692,6 +2693,7 @@
   const BUDGET_DISTANCE_SCALE = 0.002;
   const SPEED_DISTANCE_GAIN = 0.08; // px/s per tile of distance
   const PATTERN_BASE_WEIGHTS = { flat: 1, gap: 1, enemy: 1.1 };
+  let showEndlessDebug = ENDLESS_DEBUG;
 
   function createDifficultyState() {
     return {
@@ -2739,7 +2741,7 @@
     );
   }
 
-  function pickPattern(state, choices) {
+  function pickPattern(state, choices, rng = worldRng) {
     if (!choices || choices.length === 0) return "flat";
     const usage = state.patternUse || {};
     let total = 0;
@@ -2750,14 +2752,14 @@
       total += w;
       return { name, w };
     });
-    let r = worldRng.range(0, total);
+    let r = rng.range(0, total);
     for (const entry of weights) {
       if ((r -= entry.w) <= 0) return entry.name;
     }
     return choices[choices.length - 1];
   }
 
-  function genColumn(state, tx) {
+  function genColumn(state, tx, rng = worldRng) {
     for (let attempt = 0; attempt < 6; attempt++) {
       const nextState = { ...state };
       const tilesForCol = [];
@@ -2776,7 +2778,7 @@
       const mustRest = nextState.restCountdown <= 0;
 
       // Drift ground height
-      groundY = clampGround(groundY + worldRng.int(-SLOPE_LIMIT, SLOPE_LIMIT));
+      groundY = clampGround(groundY + rng.int(-SLOPE_LIMIT, SLOPE_LIMIT));
       nextState.groundY = groundY;
 
       // Pattern selection with weighted bias to underused
@@ -2784,11 +2786,11 @@
       const hazardFree = nextState.safeLanding === 0 && nextState.hazardCooldown === 0 && !mustRest;
       if (hazardFree && nextState.gapCooldown === 0) patternChoices.push("gap");
       if (hazardFree && nextState.enemyCooldown === 0 && nextState.hazardBudget >= ENEMY_COST) patternChoices.push("enemy");
-      const pattern = mustRest ? "flat" : pickPattern(nextState, patternChoices);
+      const pattern = mustRest ? "flat" : pickPattern(nextState, patternChoices, rng);
       nextState.patternUse = { ...nextState.patternUse, [pattern]: (nextState.patternUse?.[pattern] || 0) + 1 };
 
       if (pattern === "gap") {
-        const gapWidth = worldRng.int(GAP_MIN, GAP_MAX_SAFE);
+        const gapWidth = rng.int(GAP_MIN, GAP_MAX_SAFE);
         nextState.gapRemaining = gapWidth; // this column plus remaining
         nextState.gapCooldown = GAP_COOLDOWN_COLS;
         nextState.safeLanding = LANDING_PAD;
@@ -2884,7 +2886,7 @@
     const needUpTo = viewRightTx + worldBuffer.ahead;
 
     while (worldBuffer.nextTx <= needUpTo) {
-      const [col, nextState] = genColumn(difficultyState, worldBuffer.nextTx);
+      const [col, nextState] = genColumn(difficultyState, worldBuffer.nextTx, worldRng);
       difficultyState = nextState;
       worldBuffer.columns.push(col);
       applyColumnToWorld(col);
@@ -2907,6 +2909,63 @@
       }
     }
   }
+
+  function endlessSnapshot(seed = "test", columns = 120) {
+    const rng = createRng(seed);
+    let state = createDifficultyState();
+    const signature = [];
+    let gapLen = 0;
+    let prevGround = state.groundY;
+    for (let i = 0; i < columns; i++) {
+      const [col, next] = genColumn(state, i, rng);
+      state = next;
+      const isGap = col.tiles.length === 0;
+      gapLen = isGap ? gapLen + 1 : 0;
+      signature.push({ g: col.ground, gap: isGap, budget: Number(state.hazardBudget.toFixed(2)) });
+      if (Math.abs(col.ground - prevGround) > SLOPE_LIMIT) {
+        throw new Error(`Slope too steep at col ${i}`);
+      }
+      if (gapLen > GAP_MAX_SAFE) {
+        throw new Error(`Gap too wide at col ${i} (len ${gapLen})`);
+      }
+      if (!isGap) prevGround = col.ground;
+    }
+    return signature;
+  }
+
+  function runEndlessSelfTest(seed = "test", columns = 200) {
+    const errors = [];
+    let snapshotA, snapshotB;
+    try {
+      snapshotA = endlessSnapshot(seed, columns);
+      snapshotB = endlessSnapshot(seed, columns);
+    } catch (err) {
+      errors.push(err.message || String(err));
+    }
+    if (snapshotA && snapshotB && JSON.stringify(snapshotA) !== JSON.stringify(snapshotB)) {
+      errors.push("Determinism check failed");
+    }
+    return { ok: errors.length === 0, errors, sample: snapshotA ? snapshotA.slice(0, 12) : [] };
+  }
+
+  window.endlessSnapshot = endlessSnapshot;
+  window.runEndlessSelfTest = runEndlessSelfTest;
+  window.endlessReseed = (seed = worldRng.seed) => {
+    if (!ENDLESS_ENABLED) {
+      console.warn("Endless reseed ignored; not in endless mode");
+      return false;
+    }
+    const nextSeed = seed || worldRng.seed || "endless";
+    worldRng.reseed(nextSeed);
+    resetDifficultyState();
+    resetWorldBuffer();
+    restart();
+    return nextSeed;
+  };
+  window.toggleEndlessDebug = (on) => {
+    showEndlessDebug = typeof on === "boolean" ? on : !showEndlessDebug;
+    return showEndlessDebug;
+  };
 
   const isCustomTileId = (t) => typeof t === "string" && t.startsWith("~");
   const serializeLevelSnapshot = () => {
@@ -4010,6 +4069,15 @@
     player.statueCooldown = 0;
     levelTimer = HUD_TIMER_START;
     savePlayerSnapshot();
+    if (ENDLESS_ENABLED) {
+      const deathTx = player.x / TILE;
+      console.info("[ENDLESS] death", {
+        seed: worldRng.seed,
+        tx: Number.isFinite(deathTx) ? +deathTx.toFixed(2) : deathTx,
+        distance: difficultyState.distance,
+        speed: difficultyState.speed,
+      });
+    }
   }
 
   function handlePlayerHit() {
@@ -4656,6 +4724,54 @@
     g.restore();
   }
 
+  function drawEndlessDebugOverlay() {
+    if (!ENDLESS_ENABLED || !showEndlessDebug) return;
+    const cols = worldBuffer.columns;
+    if (!cols.length) return;
+    const overlayW = 220;
+    const overlayH = 60;
+    const ox = 8;
+    const oy = 8;
+    const minTx = cols[0].tx;
+    const maxTx = cols[cols.length - 1].tx;
+    const span = Math.max(1, maxTx - minTx + 1);
+    const scaleX = overlayW / span;
+    const scaleY = overlayH / Math.max(1, mapH);
+    g.save();
+    g.globalAlpha = 0.92;
+    g.fillStyle = "rgba(0,0,0,0.55)";
+    g.fillRect(ox - 2, oy - 2, overlayW + 4, overlayH + 22);
+    g.strokeStyle = "rgba(255,255,255,0.35)";
+    g.strokeRect(ox - 2, oy - 2, overlayW + 4, overlayH + 22);
+
+    for (const col of cols) {
+      const cx = ox + (col.tx - minTx) * scaleX;
+      if (col.tiles.length === 0) {
+        g.fillStyle = "#ff6b6b";
+        g.fillRect(cx, oy, Math.max(1, scaleX), overlayH);
+      } else {
+        const gy = oy + overlayH - col.ground * scaleY;
+        g.fillStyle = "#7dd3fc";
+        g.fillRect(cx, gy, Math.max(1, scaleX), overlayH - (gy - oy));
+      }
+    }
+    const camTx = cam.x / TILE;
+    const playerTx = player.x / TILE;
+    const camX = ox + (camTx - minTx) * scaleX;
+    const pX = ox + (playerTx - minTx) * scaleX;
+    g.fillStyle = "#f2f5ff";
+    g.fillRect(camX - 1, oy - 2, 2, overlayH + 4);
+    g.fillStyle = "#fbbf24";
+    g.fillRect(pX - 1, oy - 2, 2, overlayH + 4);
+    g.fillStyle = "#f2f5ff";
+    g.font = "8px 'Press Start 2P', 'VT323', monospace";
+    g.textAlign = "left";
+    g.textBaseline = "top";
+    g.fillText(`seed:${worldRng.seed}`, ox, oy + overlayH + 4);
+    g.fillText(`d:${Math.floor(difficultyState.distance)}`, ox, oy + overlayH + 14);
+    g.restore();
+  }
+
   function render() {
     // sky
     g.fillStyle = "#4b79ff";
@@ -4804,6 +4920,7 @@
     drawHoverOverlay();
     drawSelectionOverlay();
     drawLabelsOverlay();
+    drawEndlessDebugOverlay();
     // chat overlay
     if (chatLog.length > 0 && chatVisibleTime > -2) {
       g.save();
