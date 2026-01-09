@@ -1808,6 +1808,8 @@
   const MP_ROOM = params.get("room") || "lobby";
   const ENDLESS_ENABLED = params.get("endless") === "1" || params.get("endless") === "true" || params.get("mode") === "endless";
   const ENDLESS_DEBUG = params.get("endlessDebug") === "1" || params.get("edebug") === "1";
+  let showJumpGuide = params.get("jumpGuide") !== "0";
+  const CHAT_BUBBLE_TIME = 4;
   let PLAYER_NAME = (params.get("name") || `P${Math.floor(Math.random() * 900 + 100)}`).slice(0, 20);
   const STATE_SEND_INTERVAL = 0.05; // seconds
   const PEER_STALE_TIME = 6; // seconds
@@ -2035,6 +2037,7 @@
   const jumpFlightTime = (2 * JUMP_V) / GRAVITY;
   const jumpWalkTiles = (WALK_MAX * jumpFlightTime) / TILE;
   const jumpRunTiles = (RUN_MAX * jumpFlightTime) / TILE;
+  const jumpPSpeedTiles = (P_SPEED_MAX * jumpFlightTime) / TILE;
 
   // -----------------------------
   // Input
@@ -2118,6 +2121,11 @@
           if (!keepOpen) toggleChatInput(false);
           e.preventDefault();
           return;
+        } else if (text.startsWith("/status")) {
+          const msg = text.replace("/status", "").trim();
+          if (msg) {
+            sendChat(msg, { pin: true });
+          }
         } else {
           sendChat(text);
         }
@@ -2158,6 +2166,11 @@
       e.preventDefault();
       return;
     }
+    if (e.code === "KeyJ") {
+      showJumpGuide = !showJumpGuide;
+      e.preventDefault();
+      return;
+    }
     if (!keys.has(e.code)) pressed.add(e.code);
     keys.add(e.code);
     if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(e.code)) e.preventDefault();
@@ -2173,6 +2186,19 @@
     keys.clear();
     pressed.clear();
   });
+
+  function decayChatBubbles(dt) {
+    if (selfChatBubble) {
+      selfChatBubble.timer -= dt;
+      if (selfChatBubble.timer <= 0) selfChatBubble = null;
+    }
+    for (const peer of peers.values()) {
+      if (peer.bubble) {
+        peer.bubble.timer -= dt;
+        if (peer.bubble.timer <= 0) delete peer.bubble;
+      }
+    }
+  }
 
   const down = (code) => keys.has(code);
   const tap = (code) => pressed.has(code);
@@ -3165,11 +3191,24 @@
   const chatLog = [];
   const chatMax = 30;
   let chatVisibleTime = 0;
+  let selfChatBubble = null; // {text, timer}
+  const pushChatEntry = (name, text, ts = Date.now(), pin = false) => {
+    if (!text) return;
+    chatLog.push({ name, text, ts, seq: chatLog.length, pin });
+    while (chatLog.length > chatMax) chatLog.shift();
+    chatVisibleTime = pin ? 9999 : 6;
+  };
+  const setSelfBubble = (text) => {
+    if (!text) return;
+    selfChatBubble = { text: text.slice(0, 120), timer: CHAT_BUBBLE_TIME };
+  };
+  const setPeerBubble = (peer, text) => {
+    if (!peer || !text) return;
+    peer.bubble = { text: text.slice(0, 120), timer: CHAT_BUBBLE_TIME };
+  };
   function pushSystemChat(text) {
     if (!text) return;
-    chatLog.push({ name: "SYSTEM", text, ts: Date.now(), seq: chatLog.length });
-    while (chatLog.length > chatMax) chatLog.shift();
-    chatVisibleTime = 6;
+    pushChatEntry("SYSTEM", text);
   }
   const tagLayer = document.createElement("div");
   tagLayer.style.position = "fixed";
@@ -3339,9 +3378,21 @@
       return;
     }
     if (msg.type === "chat" && typeof msg.text === "string") {
-      chatLog.push({ name: msg.name || "Player", text: msg.text, ts: msg.ts || Date.now(), seq: msg.seq || chatLog.length });
-      while (chatLog.length > chatMax) chatLog.shift();
-      chatVisibleTime = 6;
+      const isSelf = (msg.id && msg.id === clientId) || (!msg.id && msg.name === PLAYER_NAME);
+      if (!isSelf) pushChatEntry(msg.name || "Player", msg.text, msg.ts || Date.now(), !!msg.pin);
+      const bubbleText = msg.text;
+      if (isSelf) {
+        setSelfBubble(bubbleText);
+      } else {
+        let target = null;
+        if (msg.id && peers.has(msg.id)) target = peers.get(msg.id);
+        else {
+          for (const peer of peers.values()) {
+            if (peer.name === msg.name) { target = peer; break; }
+          }
+        }
+        if (target) setPeerBubble(target, bubbleText);
+      }
       return;
     }
     if (msg.type === "leave" && msg.id) {
@@ -3436,10 +3487,15 @@
     netSocket.send(JSON.stringify(payload));
   }
 
-  function sendChat(text) {
+  function sendChat(text, options = {}) {
+    const { pin = false } = options;
     if (!MP_ENABLED || !netSocket || netSocket.readyState !== WebSocket.OPEN) return;
     if (!text || !text.trim()) return;
-    netSocket.send(JSON.stringify({ type: "chat", room: MP_ROOM, name: PLAYER_NAME, text: text.slice(0, 200) }));
+    const trimmed = text.trim().slice(0, 200);
+    const ts = Date.now();
+    pushChatEntry(PLAYER_NAME, trimmed, ts, pin);
+    setSelfBubble(trimmed);
+    netSocket.send(JSON.stringify({ type: "chat", room: MP_ROOM, name: PLAYER_NAME, text: trimmed, ts, id: clientId, pin }));
   }
 
   function smoothPeers(dt) {
@@ -4627,6 +4683,28 @@
     }
   }
 
+  function drawJumpGuideOverlay() {
+    if (!showJumpGuide) return;
+    const ox = BASE_W - 160;
+    const oy = 10;
+    const w = 150;
+    const h = 52;
+    g.save();
+    g.fillStyle = "rgba(0,0,0,0.55)";
+    g.fillRect(ox, oy, w, h);
+    g.strokeStyle = "rgba(255,255,255,0.35)";
+    g.strokeRect(ox, oy, w, h);
+    g.font = "8px 'Press Start 2P', 'VT323', monospace";
+    g.textAlign = "left";
+    g.textBaseline = "top";
+    g.fillStyle = "#f2f5ff";
+    g.fillText("Jump range (tiles)", ox + 6, oy + 4);
+    g.fillText(`Walk ${jumpWalkTiles.toFixed(1)}`, ox + 6, oy + 16);
+    g.fillText(`Run  ${jumpRunTiles.toFixed(1)}`, ox + 6, oy + 26);
+    g.fillText(`P    ${jumpPSpeedTiles.toFixed(1)}`, ox + 6, oy + 36);
+    g.restore();
+  }
+
   function drawGridOverlay() {
     if (!showGrid || timelapseCaptureActive) return;
     // Grid locked to world coordinates, not screen overlay
@@ -4920,6 +4998,7 @@
     drawHoverOverlay();
     drawSelectionOverlay();
     drawLabelsOverlay();
+    drawJumpGuideOverlay();
     drawEndlessDebugOverlay();
     // chat overlay
     if (chatLog.length > 0 && chatVisibleTime > -2) {
@@ -4933,11 +5012,11 @@
       for (let i = Math.max(0, chatLog.length - 8); i < chatLog.length; i++) {
         const entry = chatLog[i];
         const line = `${entry.name}: ${entry.text}`;
-        const alpha = Math.max(0, Math.min(1, chatVisibleTime / 2));
+        const alpha = entry.pin ? 1 : Math.max(0, Math.min(1, chatVisibleTime / 2));
         g.fillStyle = `rgba(0,0,0,${0.5 * alpha})`;
-        g.fillRect(startX - 4, y - 2, Math.min(200, line.length * 6 + 8), 12);
+        g.fillRect(startX - 4, y - 2, Math.min(240, line.length * 6 + 8), 12);
         g.fillStyle = `rgba(242,245,255,${alpha})`;
-        g.fillText(line.slice(0, 64), startX, y);
+        g.fillText(line.slice(0, 128), startX, y);
         y += 12;
       }
       g.restore();
@@ -4975,13 +5054,37 @@
       el.style.pointerEvents = "none";
       tagLayer.appendChild(el);
     };
+    const addBubble = (text, worldX, worldY, color = "#f2f5ff") => {
+      if (!text) return;
+      const screenX = (worldX - cam.x) * scaleX;
+      const screenY = (worldY - cam.y) * scaleY;
+      const el = document.createElement("div");
+      el.textContent = text;
+      el.style.position = "absolute";
+      el.style.left = `${rect.left + screenX}px`;
+      el.style.top = `${rect.top + screenY}px`;
+      el.style.transform = "translate(-50%, -120%)";
+      el.style.font = "14px 'Press Start 2P', 'VT323', monospace";
+      el.style.color = color;
+      el.style.background = "rgba(0,0,0,0.75)";
+      el.style.border = "1px solid rgba(255,255,255,0.35)";
+      el.style.padding = "4px 6px";
+      el.style.borderRadius = "6px";
+      el.style.maxWidth = "220px";
+      el.style.whiteSpace = "nowrap";
+      el.style.textShadow = "1px 1px 0 #000";
+      el.style.pointerEvents = "none";
+      tagLayer.appendChild(el);
+    };
     // self
     addTag(`${PLAYER_NAME}`, player.x + player.w / 2, player.y - 4, "#f6d341");
+    if (selfChatBubble) addBubble(selfChatBubble.text, player.x + player.w / 2, player.y - 14, "#f6d341");
     // peers
     for (const peer of peers.values()) {
       const px = peer.x ?? peer.targetX ?? 0;
       const py = peer.y ?? peer.targetY ?? 0;
       addTag(`${peer.name || "P"}`, px + 6, py - 4, "#f2f5ff");
+      if (peer.bubble) addBubble(peer.bubble.text, px + 6, py - 14, "#f2f5ff");
     }
   }
 
@@ -5135,7 +5238,8 @@
     updateHudDom();
     updateDebugOverlay();
     // chat fade timer
-    if (chatVisibleTime > 0) chatVisibleTime -= dt;
+    if (chatVisibleTime > 0) chatVisibleTime = Math.max(0, chatVisibleTime - dt);
+    decayChatBubbles(dt);
     render();
     flushDemoCapture();
     requestAnimationFrame(frame);
