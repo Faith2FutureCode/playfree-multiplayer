@@ -3103,6 +3103,7 @@
       if (tilesetPaletteName) tilesetPaletteName.value = paletteName;
       if (customTileSprites.size > 0) document.body.classList.add("has-custom-tiles");
       renderPalettePreviews();
+      hasLocalSnapshot = true;
       return true;
     } catch (err) {
       return false;
@@ -3257,6 +3258,8 @@
     particles.length = 0;
     coinCount = 0;
     questionHits = 0;
+    hasLocalSnapshot = true;
+    saveLevelSnapshot();
     // reset player to start of level
     player.x = 0;
     player.y = Math.max(0, (groundY - 2) * TILE);
@@ -3423,6 +3426,7 @@
     } catch (e) {
       return;
     }
+    const ignoreRemoteTiles = ENDLESS_ENABLED || hasLocalSnapshot;
     if (msg.type === "welcome") {
       clientId = msg.id || null;
       if (Array.isArray(msg.players)) {
@@ -3430,14 +3434,14 @@
           recordPeerState(p.id, p, p.name);
         }
       }
-      if (Array.isArray(msg.tiles)) {
+      if (Array.isArray(msg.tiles) && !ignoreRemoteTiles) {
         for (const t of msg.tiles) {
           if (typeof t.tx === "number" && typeof t.ty === "number") {
             setTile(t.tx, t.ty, t.value ?? ".");
           }
         }
       }
-      if (Array.isArray(msg.labels)) {
+      if (Array.isArray(msg.labels) && !ignoreRemoteTiles) {
         for (const t of msg.labels) {
           if (typeof t.tx === "number" && typeof t.ty === "number") {
             setLabel(t.tx, t.ty, t.label ?? "");
@@ -3473,9 +3477,11 @@
       return;
     }
     if (msg.type === "tile" && typeof msg.tx === "number" && typeof msg.ty === "number") {
+      if (ignoreRemoteTiles) return;
       setTile(msg.tx, msg.ty, msg.value ?? ".");
     }
     if (msg.type === "edit" && typeof msg.tx === "number" && typeof msg.ty === "number") {
+      if (ignoreRemoteTiles) return;
       if (msg.value !== undefined) setTile(msg.tx, msg.ty, msg.value ?? ".");
       if (msg.label !== undefined) setLabel(msg.tx, msg.ty, msg.label ?? "");
     }
