@@ -1810,8 +1810,6 @@
   const ENDLESS_DEBUG = params.get("endlessDebug") === "1" || params.get("edebug") === "1";
   let showJumpGuide = params.get("jumpGuide") !== "0";
   const CHAT_BUBBLE_TIME = 4;
-  const FORM_STATS_MAX_ROWS = 8;
-  const COLUMN_COLORS = ["#3b82f6", "#22c55e", "#f97316", "#a855f7", "#eab308"];
   let PLAYER_NAME = (params.get("name") || `P${Math.floor(Math.random() * 900 + 100)}`).slice(0, 20);
   const STATE_SEND_INTERVAL = 0.05; // seconds
   const PEER_STALE_TIME = 6; // seconds
@@ -2041,22 +2039,28 @@
   const jumpRunTiles = (RUN_MAX * jumpFlightTime) / TILE;
   const jumpPSpeedTiles = (P_SPEED_MAX * jumpFlightTime) / TILE;
 
-  function getRunDistance() {
-    if (ENDLESS_ENABLED) return difficultyState.distance;
-    return player.x / TILE;
-  }
-
-  function trackFormDistance() {
-    const dist = getRunDistance();
-    if (player.form !== lastForm) {
-      currentFormEntryDist = dist;
-      lastForm = player.form;
-    }
-    const stat = powerFormStats.get(player.form) || { maxDistance: 0, enterDistance: currentFormEntryDist };
-    stat.enterDistance = Math.min(stat.enterDistance, currentFormEntryDist);
-    stat.maxDistance = Math.max(stat.maxDistance, dist);
-    stat.lastSeen = Date.now();
-    powerFormStats.set(player.form, stat);
+  function drawJumpReachOverlay() {
+    const reaches = [
+      { label: "Walk", tiles: jumpWalkTiles, color: "rgba(64, 196, 255, 0.35)" },
+      { label: "Run", tiles: jumpRunTiles, color: "rgba(80, 255, 144, 0.35)" },
+      { label: "P", tiles: jumpPSpeedTiles, color: "rgba(255, 200, 64, 0.35)" },
+    ];
+    const footY = player.y + player.h - cam.y;
+    const baseX = player.x + player.w / 2 - cam.x;
+    g.save();
+    reaches.forEach((r, idx) => {
+      const px = baseX;
+      const w = r.tiles * TILE;
+      const y0 = footY - 6 - idx * 4;
+      g.fillStyle = r.color;
+      g.fillRect(px, y0, w, 3);
+      g.fillStyle = "rgba(0,0,0,0.5)";
+      g.font = "7px 'Press Start 2P', 'VT323', monospace";
+      g.textAlign = "left";
+      g.textBaseline = "bottom";
+      g.fillText(r.label, px + 2, y0 - 1);
+    });
+    g.restore();
   }
 
   // -----------------------------
@@ -2146,11 +2150,6 @@
           if (msg) {
             sendChat(msg, { pin: true });
           }
-        } else if (text.startsWith("/powerstats")) {
-          const rows = Array.from(powerFormStats.entries())
-            .slice(0, FORM_STATS_MAX_ROWS)
-            .map(([form, stat]) => `${form.slice(0, 3)} max:${stat.maxDistance.toFixed(1)}`);
-          pushSystemChat(rows.length ? `Forms: ${rows.join(" | ")}` : "No form stats yet.");
         } else {
           sendChat(text);
         }
@@ -2700,7 +2699,7 @@
   const worldRng = createRng(worldSeed);
 
   function makeColumn(tx, ground = defaultGroundY, tilesForCol = [], entities = []) {
-    return { tx, ground, tiles: tilesForCol, entities, color: null };
+    return { tx, ground, tiles: tilesForCol, entities };
   }
 
   const worldBuffer = {
@@ -2712,17 +2711,11 @@
     nextTx: mapW,
   };
 
-  const columnColorMap = new Map(); // tx -> color
-  const columnColorState = { colorIndex: 0, spanRemaining: 0 };
-
   function resetWorldBuffer() {
     worldBuffer.columns.length = 0;
     worldBuffer.startTx = mapW;
     worldBuffer.nextTx = mapW;
     defaultGroundY = Math.max(4, mapH - 2);
-    columnColorMap.clear();
-    columnColorState.colorIndex = 0;
-    columnColorState.spanRemaining = 0;
   }
 
   const difficultyTuning = Object.freeze({
@@ -2907,17 +2900,6 @@
 
   function applyColumnToWorld(col) {
     if (col.applied) return;
-    if (ENDLESS_ENABLED) {
-      if (columnColorState.spanRemaining <= 0) {
-        columnColorState.spanRemaining = worldRng.int(1, 5);
-        // pick a new color index different from current
-        const next = worldRng.int(0, COLUMN_COLORS.length - 1);
-        columnColorState.colorIndex = next;
-      }
-      columnColorState.spanRemaining -= 1;
-      col.color = COLUMN_COLORS[columnColorState.colorIndex];
-      columnColorMap.set(col.tx, col.color);
-    }
     ensureBounds(col.tx, 0);
     for (const { t, y } of col.tiles) {
       setTileRaw(col.tx, y, t);
@@ -3034,6 +3016,7 @@
     showEndlessDebug = typeof on === "boolean" ? on : !showEndlessDebug;
     return showEndlessDebug;
   };
+  window.jumpMetrics = jumpMetrics;
 
   const isCustomTileId = (t) => typeof t === "string" && t.startsWith("~");
   const serializeLevelSnapshot = () => {
@@ -3909,10 +3892,6 @@
     const { skipSave = false } = options;
     const nextForm = isValidForm(form) ? form : PowerUpForm.Small;
     const willBeBig = formIsBig(nextForm);
-    const distNow = getRunDistance();
-    // Record form transition stats
-    currentFormEntryDist = distNow;
-    lastForm = nextForm;
     player.form = nextForm;
     player.big = willBeBig;
     // adjust hitbox height; keep feet position stable when size changes
@@ -4415,6 +4394,7 @@
     const skiddingActive = isSkidding && grounded;
     player.state = grounded ? (skiddingActive ? "skid" : "ground") : "jumping";
     if (player.statueActive) player.state = "statue";
+    trackJumpDistance(wasGrounded, grounded);
 
     if (skiddingActive && Math.abs(player.vx) > 20) {
       player.skidDust -= dt;
@@ -4484,7 +4464,6 @@
 
     // Collect coin tiles
     collectCoinTileAtPlayer(player);
-    trackFormDistance();
 
     // Entity updates
     for (const e of entities) {
@@ -4668,13 +4647,7 @@
       }
     }
     if (t === "#") { // ground
-      let color = "#3b2f2f";
-      if (ENDLESS_ENABLED) {
-        const tx = Math.floor(x / TILE);
-        const col = columnColorMap.get(tx);
-        if (col) color = col;
-      }
-      g.fillStyle = color;
+      g.fillStyle = "#3b2f2f";
       g.fillRect(sx, sy, TILE, TILE);
       g.fillStyle = "#2a2020";
       g.fillRect(sx, sy + 12, TILE, 4);
@@ -4759,6 +4732,24 @@
     g.fillText(`Run  ${jumpRunTiles.toFixed(1)}`, ox + 6, oy + 26);
     g.fillText(`P    ${jumpPSpeedTiles.toFixed(1)}`, ox + 6, oy + 36);
     g.restore();
+  }
+
+  const jumpMetrics = {
+    startTx: null,
+    lastJump: 0,
+    maxJump: 0,
+  };
+
+  function trackJumpDistance(wasGrounded, grounded) {
+    const centerTx = Math.floor((player.x + player.w / 2) / TILE);
+    if (!grounded && wasGrounded) {
+      jumpMetrics.startTx = centerTx;
+    } else if (grounded && !wasGrounded && jumpMetrics.startTx !== null) {
+      const dx = centerTx - jumpMetrics.startTx;
+      jumpMetrics.lastJump = dx;
+      jumpMetrics.maxJump = Math.max(jumpMetrics.maxJump, dx);
+      jumpMetrics.startTx = null;
+    }
   }
 
   function drawGridOverlay() {
@@ -5054,6 +5045,7 @@
     drawHoverOverlay();
     drawSelectionOverlay();
     drawLabelsOverlay();
+    drawJumpReachOverlay();
     drawJumpGuideOverlay();
     drawEndlessDebugOverlay();
     // chat overlay
