@@ -879,6 +879,7 @@
   const setAuthorClass = (enabled) => {
     document.body.classList.toggle("author", enabled);
   };
+  const isAuthor = () => document.body.classList.contains("author");
   if (hintToggle && hintPanel) {
     hintToggle.addEventListener("click", () => {
       hintPanel.classList.toggle("open");
@@ -2136,6 +2137,8 @@
             showJumpMode = !showJumpMode;
           }
           pushSystemChat(`Jump mode ${showJumpMode ? "ON" : "OFF"} — last jump ${jumpMetrics.lastJump.toFixed(1)} tiles`);
+        } else if (text.startsWith("/clear")) {
+          clearLevelForAuthor();
         } else {
           sendChat(text);
         }
@@ -3218,6 +3221,30 @@
   const chatMax = 30;
   let chatVisibleTime = 0;
   let selfChatBubble = null; // {text, timer}
+  function clearLevelForAuthor() {
+    if (!isAuthor()) {
+      pushSystemChat("Author only. Use /author to login.");
+      return;
+    }
+    labelMap.clear();
+    customTileMap.clear();
+    for (let y = 0; y < mapH; y++) {
+      for (let x = 0; x < mapW; x++) {
+        setTileRaw(x, y, ".");
+      }
+    }
+    // add a simple ground row so players don't fall forever
+    const groundY = mapH - 1;
+    for (let x = 0; x < mapW; x++) {
+      setTileRaw(x, groundY, "#");
+    }
+    // reset player to start of level
+    player.x = 0;
+    player.y = Math.max(0, (groundY - 2) * TILE);
+    player.vx = 0;
+    player.vy = 0;
+    pushSystemChat("Level cleared.");
+  }
   const pushChatEntry = (name, text, ts = Date.now(), pin = false) => {
     if (!text) return;
     chatLog.push({ name, text, ts, seq: chatLog.length, pin });
