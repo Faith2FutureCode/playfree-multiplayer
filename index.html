@@ -2989,7 +2989,10 @@
 
   const jumpMetrics = {
     startTx: null,
+    startTy: null,
     lastJump: 0,
+    lastJumpDx: 0,
+    lastJumpDy: 0,
     maxJump: 0,
   };
   let showJumpMode = false;
@@ -3000,6 +3003,7 @@
 
   function startJumpTrack() {
     jumpMetrics.startTx = jumpCenterTile();
+    jumpMetrics.startTy = Math.floor((player.y + player.h - 1) / TILE);
   }
 
   window.endlessSnapshot = endlessSnapshot;
@@ -4751,15 +4755,20 @@
 
   function trackJumpDistance(wasGrounded, grounded) {
     const centerTx = Math.floor(jumpCenterTile());
+    const footTy = Math.floor((player.y + player.h - 1) / TILE);
     if (!grounded && wasGrounded) {
       startJumpTrack();
-    } else if (grounded && !wasGrounded && jumpMetrics.startTx !== null) {
+    } else if (grounded && !wasGrounded && jumpMetrics.startTx !== null && jumpMetrics.startTy !== null) {
       const dx = centerTx - jumpMetrics.startTx;
+      const dy = jumpMetrics.startTy - footTy; // positive means landed higher
       jumpMetrics.lastJump = dx;
+      jumpMetrics.lastJumpDx = dx;
+      jumpMetrics.lastJumpDy = dy;
       jumpMetrics.maxJump = Math.max(jumpMetrics.maxJump, dx);
       jumpMetrics.startTx = null;
+      jumpMetrics.startTy = null;
       if (showJumpMode) {
-        pushSystemChat(`Jump: ${dx.toFixed(1)} tiles`);
+        pushSystemChat(`Jump: ${dx.toFixed(1)} wide, ${dy.toFixed(1)} high`);
       }
     }
   }
