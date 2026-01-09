@@ -2994,6 +2994,8 @@
     lastJumpDx: 0,
     lastJumpDy: 0,
     maxJump: 0,
+    pStartTx: null,
+    pDistance: 0,
   };
   let showJumpMode = false;
 
@@ -4433,6 +4435,7 @@
     player.state = grounded ? (skiddingActive ? "skid" : "ground") : "jumping";
     if (player.statueActive) player.state = "statue";
     trackJumpDistance(wasGrounded, grounded);
+    trackPSpeedDistance(grounded, wantsRun);
 
     if (skiddingActive && Math.abs(player.vx) > 20) {
       player.skidDust -= dt;
@@ -4770,6 +4773,23 @@
       if (showJumpMode) {
         pushSystemChat(`Jump: ${dx.toFixed(1)} wide, ${dy.toFixed(1)} high`);
       }
+    }
+  }
+
+  function trackPSpeedDistance(grounded, wantsRun) {
+    const atPSpeed = player.pCharge >= 1;
+    if (grounded && wantsRun && atPSpeed && jumpMetrics.pStartTx === null) {
+      jumpMetrics.pStartTx = jumpCenterTile();
+    }
+    if (!grounded || !wantsRun || !atPSpeed) {
+      if (jumpMetrics.pStartTx !== null) {
+        const dx = jumpCenterTile() - jumpMetrics.pStartTx;
+        jumpMetrics.pDistance = dx;
+      }
+      jumpMetrics.pStartTx = null;
+    } else {
+      // update live while holding P-speed
+      jumpMetrics.pDistance = jumpCenterTile() - (jumpMetrics.pStartTx ?? jumpCenterTile());
     }
   }
 
