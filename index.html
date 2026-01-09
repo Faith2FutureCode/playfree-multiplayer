@@ -2996,6 +2996,8 @@
     maxJump: 0,
     pStartTx: null,
     pDistance: 0,
+    pBuildStartTx: null,
+    pReachTiles: 0,
   };
   let showJumpMode = false;
 
@@ -4435,7 +4437,6 @@
     player.state = grounded ? (skiddingActive ? "skid" : "ground") : "jumping";
     if (player.statueActive) player.state = "statue";
     trackJumpDistance(wasGrounded, grounded);
-    trackPSpeedDistance(grounded, wantsRun);
 
     if (skiddingActive && Math.abs(player.vx) > 20) {
       player.skidDust -= dt;
@@ -4455,6 +4456,7 @@
       const decay = (!wantsRun || !grounded) ? P_SPEED_DECAY_RATE * 0.65 : P_SPEED_DECAY_RATE;
       player.pCharge = Math.max(0, player.pCharge - dt * decay);
     }
+    trackPSpeedDistance(grounded, wantsRun);
 
     // If jump is held while grounded, refresh the buffer so landing while held triggers another jump
     if (down("KeyZ") && grounded) player.jumpBuf = JUMP_BUFFER;
@@ -4777,19 +4779,28 @@
   }
 
   function trackPSpeedDistance(grounded, wantsRun) {
+    const center = jumpCenterTile();
     const atPSpeed = player.pCharge >= 1;
-    if (grounded && wantsRun && atPSpeed && jumpMetrics.pStartTx === null) {
-      jumpMetrics.pStartTx = jumpCenterTile();
-    }
-    if (!grounded || !wantsRun || !atPSpeed) {
-      if (jumpMetrics.pStartTx !== null) {
-        const dx = jumpCenterTile() - jumpMetrics.pStartTx;
-        jumpMetrics.pDistance = dx;
+
+    if (grounded && wantsRun) {
+      if (!atPSpeed) {
+        if (jumpMetrics.pBuildStartTx === null) jumpMetrics.pBuildStartTx = center;
+      } else {
+        if (jumpMetrics.pBuildStartTx !== null && jumpMetrics.pReachTiles === 0) {
+          jumpMetrics.pReachTiles = center - jumpMetrics.pBuildStartTx;
+        }
+        if (jumpMetrics.pStartTx === null) jumpMetrics.pStartTx = center;
+        jumpMetrics.pDistance = center - (jumpMetrics.pStartTx ?? center);
       }
-      jumpMetrics.pStartTx = null;
     } else {
-      // update live while holding P-speed
-      jumpMetrics.pDistance = jumpCenterTile() - (jumpMetrics.pStartTx ?? jumpCenterTile());
+      jumpMetrics.pBuildStartTx = null;
+      jumpMetrics.pStartTx = null;
+      jumpMetrics.pDistance = 0;
+    }
+
+    if (!atPSpeed) {
+      jumpMetrics.pStartTx = null;
+      jumpMetrics.pDistance = 0;
     }
   }
 
