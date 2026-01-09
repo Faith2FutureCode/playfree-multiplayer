@@ -3001,7 +3001,6 @@
     pDistance: 0,
     pBuildStartTx: null,
     pReachTilesFromZero: 0,
-    pReachTilesFrom180: 0,
     pHit180Tx: null,
     pLastMode: "none",
   };
@@ -3048,7 +3047,6 @@
   };
 
   const loadLevelSnapshot = () => {
-    if (ENDLESS_ENABLED) return false; // ignore saved edits in endless mode
     if (typeof localStorage === "undefined") return false;
     const raw = localStorage.getItem(LEVEL_SAVE_KEY);
     if (!raw) return false;
@@ -4780,8 +4778,7 @@
       jumpMetrics.startTy = null;
       if (showJumpMode) {
         const p0 = jumpMetrics.pReachTilesFromZero.toFixed(1);
-        const p180 = jumpMetrics.pReachTilesFrom180.toFixed(1);
-        pushSystemChat(`Jump: ${dx.toFixed(1)} wide; ${dy.toFixed(1)} high; P0=${p0}; P180=${p180}`);
+        pushSystemChat(`Jump: ${dx.toFixed(1)} wide; ${dy.toFixed(1)} high; P=${p0}`);
       }
     }
   }
@@ -4814,9 +4811,6 @@
     if (atPSpeed) {
       if (jumpMetrics.pBuildStartTx !== null && jumpMetrics.pReachTilesFromZero === 0) {
         jumpMetrics.pReachTilesFromZero = Math.abs(center - jumpMetrics.pBuildStartTx);
-      }
-      if (jumpMetrics.pHit180Tx !== null && jumpMetrics.pReachTilesFrom180 === 0) {
-        jumpMetrics.pReachTilesFrom180 = Math.abs(center - jumpMetrics.pHit180Tx);
       }
       if (jumpMetrics.pStartTx === null) jumpMetrics.pStartTx = center;
       jumpMetrics.pDistance = center - (jumpMetrics.pStartTx ?? center);
