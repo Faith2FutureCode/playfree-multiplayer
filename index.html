@@ -3016,6 +3016,8 @@
     pReachTilesFromZero: 0,
     pBuildStartTime: null,
     pReachTimeFromZero: 0,
+    pRunStartTile: null,
+    pRunStartTime: null,
     pLastMode: "none",
   };
   let showJumpMode = false;
@@ -4840,6 +4842,7 @@
 
   function trackPSpeedDistance(grounded, wantsRun, dt) {
     const center = jumpCenterTile();
+    const centerTile = Math.floor(center);
     const atPSpeed = player.pCharge >= 1;
 
     if (grounded && wantsRun) {
@@ -4847,9 +4850,12 @@
         jumpMetrics.pBuildStartTx = center;
         jumpMetrics.pReachTilesFromZero = 0;
         jumpMetrics.pBuildStartTime = performance.now();
+        jumpMetrics.pRunStartTile = centerTile;
+        jumpMetrics.pRunStartTime = performance.now();
       }
       if (atPSpeed && jumpMetrics.pReachTilesFromZero === 0 && jumpMetrics.pBuildStartTx !== null) {
-        jumpMetrics.pReachTilesFromZero = Math.abs(center - jumpMetrics.pBuildStartTx);
+        const startTile = jumpMetrics.pRunStartTile ?? Math.floor(jumpMetrics.pBuildStartTx);
+        jumpMetrics.pReachTilesFromZero = Math.abs(centerTile - startTile);
         if (jumpMetrics.pBuildStartTime) {
           jumpMetrics.pReachTimeFromZero = (performance.now() - jumpMetrics.pBuildStartTime) / 1000;
         }
@@ -4864,6 +4870,8 @@
     } else {
       jumpMetrics.pBuildStartTx = null;
       jumpMetrics.pBuildStartTime = null;
+      jumpMetrics.pRunStartTile = null;
+      jumpMetrics.pRunStartTime = null;
       jumpMetrics.pStartTx = null;
       jumpMetrics.pDistance = 0;
     }
