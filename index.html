@@ -2676,6 +2676,23 @@
     budgetCap: 12,
   });
 
+  // Endless generator tuning
+  const GROUND_MIN = 2;
+  const GROUND_MAX = Math.max(GROUND_MIN + 2, mapH - 2);
+  const SLOPE_LIMIT = 1;
+  const GAP_MIN = 1;
+  const GAP_MAX_SAFE = 5; // generous run jump; tune with player jump charts
+  const LANDING_PAD = 2;
+  const ENEMY_COST = 1;
+  const ENEMY_COOLDOWN_COLS = 3;
+  const GAP_COOLDOWN_COLS = 6;
+  const HAZARD_COOLDOWN_COLS = 2;
+  const REST_INTERVAL_COLS = 14;
+  const REST_PAD_COLS = 2;
+  const BUDGET_DISTANCE_SCALE = 0.002;
+  const SPEED_DISTANCE_GAIN = 0.08; // px/s per tile of distance
+  const PATTERN_BASE_WEIGHTS = { flat: 1, gap: 1, enemy: 1.1 };
+
   function createDifficultyState() {
     return {
       distance: 0,
@@ -2687,6 +2704,8 @@
       groundY: defaultGroundY,
       gapRemaining: 0,
       safeLanding: 0,
+      restCountdown: REST_INTERVAL_COLS,
+      patternUse: { flat: 0, gap: 0, enemy: 0 },
     };
   }
 
@@ -2701,16 +2720,6 @@
   // -----------------------------
   // Endless column generator
   // -----------------------------
-  const GROUND_MIN = 2;
-  const GROUND_MAX = Math.max(GROUND_MIN + 2, mapH - 2);
-  const SLOPE_LIMIT = 1;
-  const GAP_MIN = 1;
-  const GAP_MAX_SAFE = 5; // generous run jump; tune with player jump charts
-  const LANDING_PAD = 2;
-  const ENEMY_COST = 1;
-  const ENEMY_COOLDOWN_COLS = 3;
-  const GAP_COOLDOWN_COLS = 6;
-  const HAZARD_COOLDOWN_COLS = 2;
 
   function clampGround(y) {
     return clamp(y, GROUND_MIN, GROUND_MAX);
@@ -2723,7 +2732,29 @@
   }
 
   function regenBudget(state) {
-    state.hazardBudget = Math.min(difficultyTuning.budgetCap, state.hazardBudget + difficultyTuning.budgetRampPerChunk);
+    const distanceBoost = state.distance * BUDGET_DISTANCE_SCALE;
+    state.hazardBudget = Math.min(
+      difficultyTuning.budgetCap,
+      state.hazardBudget + difficultyTuning.budgetRampPerChunk + distanceBoost
+    );
+  }
+
+  function pickPattern(state, choices) {
+    if (!choices || choices.length === 0) return "flat";
+    const usage = state.patternUse || {};
+    let total = 0;
+    const weights = choices.map((name) => {
+      const base = PATTERN_BASE_WEIGHTS[name] || 1;
+      const count = usage[name] || 0;
+      const w = base / Math.max(1, count + 0.5); // bias toward underused
+      total += w;
+      return { name, w };
+    });
+    let r = worldRng.range(0, total);
+    for (const entry of weights) {
+      if ((r -= entry.w) <= 0) return entry.name;
+    }
+    return choices[choices.length - 1];
   }
 
   function genColumn(state, tx) {
@@ -2742,9 +2773,21 @@
         return [makeColumn(tx, groundY, tilesForCol, entitiesForCol), nextState];
       }
 
-      // Optionally start a gap if allowed
-      const canStartGap = nextState.gapCooldown === 0 && nextState.safeLanding === 0;
-      if (canStartGap && worldRng.next() < 0.12) {
+      const mustRest = nextState.restCountdown <= 0;
+
+      // Drift ground height
+      groundY = clampGround(groundY + worldRng.int(-SLOPE_LIMIT, SLOPE_LIMIT));
+      nextState.groundY = groundY;
+
+      // Pattern selection with weighted bias to underused
+      const patternChoices = ["flat"];
+      const hazardFree = nextState.safeLanding === 0 && nextState.hazardCooldown === 0 && !mustRest;
+      if (hazardFree && nextState.gapCooldown === 0) patternChoices.push("gap");
+      if (hazardFree && nextState.enemyCooldown === 0 && nextState.hazardBudget >= ENEMY_COST) patternChoices.push("enemy");
+      const pattern = mustRest ? "flat" : pickPattern(nextState, patternChoices);
+      nextState.patternUse = { ...nextState.patternUse, [pattern]: (nextState.patternUse?.[pattern] || 0) + 1 };
+
+      if (pattern === "gap") {
         const gapWidth = worldRng.int(GAP_MIN, GAP_MAX_SAFE);
         nextState.gapRemaining = gapWidth; // this column plus remaining
         nextState.gapCooldown = GAP_COOLDOWN_COLS;
@@ -2753,21 +2796,17 @@
         return [makeColumn(tx, groundY, tilesForCol, entitiesForCol), nextState];
       }
 
-      // Drift ground height
-      groundY = clampGround(groundY + worldRng.int(-SLOPE_LIMIT, SLOPE_LIMIT));
-      nextState.groundY = groundY;
-
       // Build solid floor from ground to bottom
       for (let y = groundY; y < mapH; y++) {
         tilesForCol.push({ t: "#", y });
       }
 
-      // Try to place an enemy on top of ground
-      const canPlaceEnemy = nextState.enemyCooldown === 0 && nextState.safeLanding === 0;
-      if (canPlaceEnemy && worldRng.next() < 0.28 && canAfford(nextState, ENEMY_COST)) {
-        entitiesForCol.push({ type: "goon", x: tx * TILE + 1, y: (groundY - 1) * TILE });
-        nextState.enemyCooldown = ENEMY_COOLDOWN_COLS;
-        nextState.hazardCooldown = HAZARD_COOLDOWN_COLS;
+      if (pattern === "enemy") {
+        if (canAfford(nextState, ENEMY_COST)) {
+          entitiesForCol.push({ type: "goon", x: tx * TILE + 1, y: (groundY - 1) * TILE });
+          nextState.enemyCooldown = ENEMY_COOLDOWN_COLS;
+          nextState.hazardCooldown = HAZARD_COOLDOWN_COLS;
+        }
       }
 
       // Landings after hazards
@@ -2779,6 +2818,12 @@
       nextState.enemyCooldown = Math.max(0, nextState.enemyCooldown - 1);
       nextState.gapCooldown = Math.max(0, nextState.gapCooldown - 1);
       nextState.hazardCooldown = Math.max(0, nextState.hazardCooldown - 1);
+      if (mustRest) {
+        nextState.safeLanding = Math.max(nextState.safeLanding, REST_PAD_COLS);
+        nextState.restCountdown = REST_INTERVAL_COLS;
+      } else {
+        nextState.restCountdown = Math.max(0, nextState.restCountdown - 1);
+      }
       nextState.distance += 1;
       regenBudget(nextState);
 
@@ -2790,7 +2835,13 @@
     const fallbackGround = clampGround(state.groundY);
     const flatTiles = [];
     for (let y = fallbackGround; y < mapH; y++) flatTiles.push({ t: "#", y });
-    const safeState = { ...state, groundY: fallbackGround, gapRemaining: 0, safeLanding: LANDING_PAD };
+    const safeState = {
+      ...state,
+      groundY: fallbackGround,
+      gapRemaining: 0,
+      safeLanding: LANDING_PAD,
+      patternUse: { ...(state.patternUse || {}) },
+    };
     regenBudget(safeState);
     return [makeColumn(tx, fallbackGround, flatTiles, []), safeState];
   }
@@ -2815,12 +2866,18 @@
   function updateEndlessWorld(dt) {
     if (!ENDLESS_ENABLED) return;
 
-    // Ramp player speed targets over time; generator uses budget per column.
-    difficultyState.speed = clamp(
-      difficultyState.speed + difficultyTuning.speedRampPerSecond * dt,
+    // Ramp player speed targets over time and distance; generator uses budget per column.
+    const targetSpeed = clamp(
+      difficultyTuning.baseSpeed + difficultyState.distance * SPEED_DISTANCE_GAIN,
       difficultyTuning.baseSpeed,
       difficultyTuning.maxSpeed
     );
+    if (difficultyState.speed < targetSpeed) {
+      difficultyState.speed = Math.min(
+        targetSpeed,
+        difficultyState.speed + difficultyTuning.speedRampPerSecond * dt
+      );
+    }
 
     const viewLeftTx = Math.floor(cam.x / TILE);
     const viewRightTx = viewLeftTx + worldBuffer.view;
