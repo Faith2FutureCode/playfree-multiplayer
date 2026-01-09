@@ -1806,6 +1806,7 @@
   // Default to shared lobby relay; override via ?mpUrl=ws://localhost:3001 for local dev
   const MP_SERVER = params.get("mpUrl") || "wss://ws.playfree.dev";
   const MP_ROOM = params.get("room") || "lobby";
+  const ENDLESS_ENABLED = params.get("endless") === "1" || params.get("endless") === "true" || params.get("mode") === "endless";
   let PLAYER_NAME = (params.get("name") || `P${Math.floor(Math.random() * 900 + 100)}`).slice(0, 20);
   const STATE_SEND_INTERVAL = 0.05; // seconds
   const PEER_STALE_TIME = 6; // seconds
@@ -2584,6 +2585,25 @@
   let mapH = LEVEL.length;
   let mapW = LEVEL[0].length;
   const tiles = LEVEL.map(row => row.split(""));
+
+  if (ENDLESS_ENABLED) {
+    const baseWidth = 96;
+    const ground = "#".repeat(baseWidth);
+    const air = ".".repeat(baseWidth);
+    const playerRow = ".P" + ".".repeat(Math.max(0, baseWidth - 2));
+    LEVEL.length = 0;
+    LEVEL.push(
+      air, air, air, air, air, air, air, air, air,
+      playerRow,
+      air, air,
+      ground,
+      ground
+    );
+    mapH = LEVEL.length;
+    mapW = baseWidth;
+    tiles.length = 0;
+    for (const row of LEVEL) tiles.push(row.split(""));
+  }
   const labelMap = new Map(); // key: "tx,ty" -> string
 
   // -----------------------------
@@ -2592,7 +2612,7 @@
   const VIEW_TILES = Math.ceil(BASE_W / TILE);
   const WORLD_AHEAD_TILES = 24;
   const WORLD_BUFFER_TILES = VIEW_TILES + WORLD_AHEAD_TILES;
-  const DEFAULT_GROUND_Y = Math.max(4, mapH - 2);
+  let defaultGroundY = Math.max(4, mapH - 2);
 
   function hashSeed(str) {
     let h = 2166136261 >>> 0;
@@ -2629,9 +2649,8 @@
 
   const worldSeed = params.get("seed") || params.get("worldSeed") || "endless";
   const worldRng = createRng(worldSeed);
-  const ENDLESS_ENABLED = params.get("endless") === "1" || params.get("endless") === "true" || params.get("mode") === "endless";
 
-  function makeColumn(tx, ground = DEFAULT_GROUND_Y, tilesForCol = [], entities = []) {
+  function makeColumn(tx, ground = defaultGroundY, tilesForCol = [], entities = []) {
     return { tx, ground, tiles: tilesForCol, entities };
   }
 
@@ -2667,7 +2686,7 @@
       enemyCooldown: 0,
       gapCooldown: 0,
       speed: difficultyTuning.baseSpeed,
-      groundY: DEFAULT_GROUND_Y,
+      groundY: defaultGroundY,
       gapRemaining: 0,
       safeLanding: 0,
     };
@@ -2856,6 +2875,7 @@
         for (const row of data.tiles) tiles.push(row.split(""));
         mapH = tiles.length;
         mapW = tiles[0]?.length || 0;
+        defaultGroundY = Math.max(4, mapH - 2);
         updateWorldWidth();
         if (ENDLESS_ENABLED) {
           resetDifficultyState();
@@ -3847,6 +3867,7 @@
     for (const row of LEVEL) tiles.push(row.split(""));
     mapH = tiles.length;
     mapW = tiles[0]?.length || 0;
+    defaultGroundY = Math.max(4, mapH - 2);
     updateWorldWidth();
     resetDifficultyState();
     resetWorldBuffer();
