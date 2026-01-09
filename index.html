@@ -2143,6 +2143,16 @@
         } else if (text.startsWith("/save")) {
           const ok = saveLevelSnapshot();
           pushSystemChat(ok ? "Level saved." : "Level save failed.");
+        } else if (text.startsWith("/results")) {
+          const dxMax = jumpMetrics.maxJump.toFixed(1);
+          const dyMax = jumpMetrics.maxJumpDy.toFixed(1);
+          const form = jumpMetrics.maxJumpForm || player.form || "unknown";
+          const p0 = jumpMetrics.pReachTilesFromZero.toFixed(1);
+          const pTime = jumpMetrics.pReachTimeFromZero ? `${jumpMetrics.pReachTimeFromZero.toFixed(2)}s` : "n/a";
+          const summary = `Results — Max jump: ${dxMax} wide, ${dyMax} high (${form}); P: ${p0} tiles, ${pTime}`;
+          copyToClipboard(summary).then((copied) => {
+            pushSystemChat(copied ? `${summary} (copied)` : summary);
+          });
         } else {
           sendChat(text);
         }
@@ -2998,10 +3008,14 @@
     lastJumpDx: 0,
     lastJumpDy: 0,
     maxJump: 0,
+    maxJumpDy: 0,
+    maxJumpForm: null,
     pStartTx: null,
     pDistance: 0,
     pBuildStartTx: null,
     pReachTilesFromZero: 0,
+    pBuildStartTime: null,
+    pReachTimeFromZero: 0,
     pLastMode: "none",
   };
   let showJumpMode = false;
@@ -3235,6 +3249,31 @@
   const chatMax = 30;
   let chatVisibleTime = 0;
   let selfChatBubble = null; // {text, timer}
+  async function copyToClipboard(text) {
+    if (!text) return false;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (err) {
+      // fall through to fallback
+    }
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return ok;
+    } catch (err) {
+      return false;
+    }
+  }
   let hasLocalSnapshot = false;
   function clearLevelForAuthor() {
     if (!isAuthor()) {
@@ -4474,7 +4513,7 @@
       const decay = (!wantsRun || !grounded) ? P_SPEED_DECAY_RATE * 0.65 : P_SPEED_DECAY_RATE;
       player.pCharge = Math.max(0, player.pCharge - dt * decay);
     }
-    trackPSpeedDistance(grounded, wantsRun);
+    trackPSpeedDistance(grounded, wantsRun, dt);
 
     // If jump is held while grounded, refresh the buffer so landing while held triggers another jump
     if (down("KeyZ") && grounded) player.jumpBuf = JUMP_BUFFER;
@@ -4788,6 +4827,8 @@
       jumpMetrics.lastJumpDx = dx;
       jumpMetrics.lastJumpDy = dy;
       jumpMetrics.maxJump = Math.max(jumpMetrics.maxJump, dx);
+      if (Math.abs(dy) > Math.abs(jumpMetrics.maxJumpDy)) jumpMetrics.maxJumpDy = dy;
+      jumpMetrics.maxJumpForm = player.form;
       jumpMetrics.startTx = null;
       jumpMetrics.startTy = null;
       if (showJumpMode) {
@@ -4797,7 +4838,7 @@
     }
   }
 
-  function trackPSpeedDistance(grounded, wantsRun) {
+  function trackPSpeedDistance(grounded, wantsRun, dt) {
     const center = jumpCenterTile();
     const atPSpeed = player.pCharge >= 1;
 
@@ -4805,9 +4846,13 @@
       if (jumpMetrics.pBuildStartTx === null) {
         jumpMetrics.pBuildStartTx = center;
         jumpMetrics.pReachTilesFromZero = 0;
+        jumpMetrics.pBuildStartTime = performance.now();
       }
       if (atPSpeed && jumpMetrics.pReachTilesFromZero === 0 && jumpMetrics.pBuildStartTx !== null) {
         jumpMetrics.pReachTilesFromZero = Math.abs(center - jumpMetrics.pBuildStartTx);
+        if (jumpMetrics.pBuildStartTime) {
+          jumpMetrics.pReachTimeFromZero = (performance.now() - jumpMetrics.pBuildStartTime) / 1000;
+        }
       }
       if (atPSpeed) {
         if (jumpMetrics.pStartTx === null) jumpMetrics.pStartTx = center;
@@ -4818,6 +4863,7 @@
       }
     } else {
       jumpMetrics.pBuildStartTx = null;
+      jumpMetrics.pBuildStartTime = null;
       jumpMetrics.pStartTx = null;
       jumpMetrics.pDistance = 0;
     }
