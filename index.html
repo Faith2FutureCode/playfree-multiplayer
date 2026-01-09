@@ -1810,6 +1810,7 @@
   const ENDLESS_DEBUG = params.get("endlessDebug") === "1" || params.get("edebug") === "1";
   let showJumpGuide = params.get("jumpGuide") !== "0";
   const CHAT_BUBBLE_TIME = 4;
+  const FORM_STATS_MAX_ROWS = 8;
   let PLAYER_NAME = (params.get("name") || `P${Math.floor(Math.random() * 900 + 100)}`).slice(0, 20);
   const STATE_SEND_INTERVAL = 0.05; // seconds
   const PEER_STALE_TIME = 6; // seconds
@@ -2039,6 +2040,24 @@
   const jumpRunTiles = (RUN_MAX * jumpFlightTime) / TILE;
   const jumpPSpeedTiles = (P_SPEED_MAX * jumpFlightTime) / TILE;
 
+  function getRunDistance() {
+    if (ENDLESS_ENABLED) return difficultyState.distance;
+    return player.x / TILE;
+  }
+
+  function trackFormDistance() {
+    const dist = getRunDistance();
+    if (player.form !== lastForm) {
+      currentFormEntryDist = dist;
+      lastForm = player.form;
+    }
+    const stat = powerFormStats.get(player.form) || { maxDistance: 0, enterDistance: currentFormEntryDist };
+    stat.enterDistance = Math.min(stat.enterDistance, currentFormEntryDist);
+    stat.maxDistance = Math.max(stat.maxDistance, dist);
+    stat.lastSeen = Date.now();
+    powerFormStats.set(player.form, stat);
+  }
+
   // -----------------------------
   // Input
   // -----------------------------
@@ -2126,6 +2145,11 @@
           if (msg) {
             sendChat(msg, { pin: true });
           }
+        } else if (text.startsWith("/powerstats")) {
+          const rows = Array.from(powerFormStats.entries())
+            .slice(0, FORM_STATS_MAX_ROWS)
+            .map(([form, stat]) => `${form.slice(0, 3)} max:${stat.maxDistance.toFixed(1)}`);
+          pushSystemChat(rows.length ? `Forms: ${rows.join(" | ")}` : "No form stats yet.");
         } else {
           sendChat(text);
         }
@@ -3824,6 +3848,9 @@
     statueTimer: 0,
     statueCooldown: 0,
   };
+  let powerFormStats = new Map(); // form -> { maxDistance, enterDistance }
+  let currentFormEntryDist = 0;
+  let lastForm = player.form;
   let pMeterDisplaySegs = 0;
   let pMeterDecayHold = 0;
   const debugVxEl = document.getElementById("debug-vx");
@@ -3864,6 +3891,10 @@
     const { skipSave = false } = options;
     const nextForm = isValidForm(form) ? form : PowerUpForm.Small;
     const willBeBig = formIsBig(nextForm);
+    const distNow = getRunDistance();
+    // Record form transition stats
+    currentFormEntryDist = distNow;
+    lastForm = nextForm;
     player.form = nextForm;
     player.big = willBeBig;
     // adjust hitbox height; keep feet position stable when size changes
@@ -4435,6 +4466,7 @@
 
     // Collect coin tiles
     collectCoinTileAtPlayer(player);
+    trackFormDistance();
 
     // Entity updates
     for (const e of entities) {
