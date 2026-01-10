@@ -1762,6 +1762,17 @@
   function terrainPalette(t) {
     return TERRAIN_STYLE[t] || TERRAIN_STYLE["#"];
   }
+  const TERRAIN_ROLE_CHOICES = [
+    { key: "top-left", label: "Top Left Corner" },
+    { key: "top-mid", label: "Top Edge" },
+    { key: "top-right", label: "Top Right Corner" },
+    { key: "top-single", label: "Top Single" },
+    { key: "gap-left", label: "Gap Wall Left" },
+    { key: "gap-right", label: "Gap Wall Right" },
+    { key: "pillar", label: "Gap Pillar" },
+    { key: "ledge", label: "Bottom Ledge" },
+  ];
+  let roleMenuEl = null;
   function drawDebugLabel(ctx, text, cx, cy, color = "#f2f5ff") {
     ctx.save();
     ctx.font = "7px 'Press Start 2P', 'VT323', monospace";
@@ -2388,6 +2399,11 @@
         const tile = tileEl.getAttribute("data-tile") || "#";
         selectEditorTile(tile, tileEl);
       });
+      tileEl.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        const tile = tileEl.getAttribute("data-tile") || "#";
+        buildRoleMenu(tile, e.clientX, e.clientY);
+      });
     });
   }
 
@@ -2395,6 +2411,10 @@
   wirePaletteGrid(objectGrid);
   wirePaletteGrid(enemyGrid);
   wirePaletteGrid(spawnGrid);
+  document.addEventListener("click", () => hideRoleMenu());
+  document.addEventListener("keydown", (e) => {
+    if (e.code === "Escape") hideRoleMenu();
+  });
   // default select ground
   const first = (terrainGrid || objectGrid || enemyGrid || spawnGrid)?.querySelector(".editor-tile");
   if (first) selectEditorTile(first.getAttribute("data-tile") || "#", first);
@@ -2872,8 +2892,8 @@
   const ENEMY_COST = 1;
   const ENEMY_COOLDOWN_COLS = 3;
   const GAP_COOLDOWN_COLS = 6;
-  const GAP_RESCUE_STEP = 3;         // vertical spacing between bailout steps inside gaps
-  const GAP_RESCUE_BOTTOM_PAD = 1;   // keep the first rescue block above the implicit bedrock
+  const GAP_RESCUE_STEP = 1;         // spacing between ladder rungs inside gaps
+  const GAP_RESCUE_BOTTOM_PAD = 1;   // keep the first rescue rung above the implicit bedrock
   const GAP_RESCUE_HEADROOM = 1;     // keep at least one open tile at the rim
   const HAZARD_COOLDOWN_COLS = 2;
   const REST_INTERVAL_COLS = 14;
@@ -2953,7 +2973,7 @@
     // Gap length includes the start column plus remaining columns
     const rescueTx = startTx + (sideRight ? gapWidth : 0);
     const bottomY = Math.max(GROUND_MIN, mapH - GAP_RESCUE_BOTTOM_PAD);
-    const topY = Math.min(mapH - 1, groundY + GAP_RESCUE_HEADROOM);
+    const topY = Math.max(GROUND_MIN, groundY - GAP_RESCUE_HEADROOM - 1);
     const steps = [];
     for (let y = bottomY; y >= topY; y -= GAP_RESCUE_STEP) {
       steps.push(y);
@@ -3566,6 +3586,98 @@
     }
 
     return meta;
+  }
+
+  function ensureRoleMenu() {
+    if (roleMenuEl) return roleMenuEl;
+    const menu = document.createElement("div");
+    menu.id = "terrain-role-menu";
+    menu.style.position = "fixed";
+    menu.style.zIndex = "1200";
+    menu.style.background = "#0f182a";
+    menu.style.border = "2px solid #0a0f1f";
+    menu.style.boxShadow = "0 8px 18px rgba(0,0,0,0.35)";
+    menu.style.padding = "8px";
+    menu.style.borderRadius = "8px";
+    menu.style.minWidth = "160px";
+    menu.style.display = "none";
+    menu.style.font = "12px 'Press Start 2P', 'VT323', monospace";
+    menu.addEventListener("click", (e) => e.stopPropagation());
+    document.body.appendChild(menu);
+    roleMenuEl = menu;
+    return menu;
+  }
+  function hideRoleMenu() {
+    if (!roleMenuEl) return;
+    roleMenuEl.style.display = "none";
+    roleMenuEl.dataset.tile = "";
+  }
+  function buildRoleMenu(tile, x, y) {
+    const menu = ensureRoleMenu();
+    menu.innerHTML = "";
+    const title = document.createElement("div");
+    title.textContent = `Map ${tile} to…`;
+    title.style.color = "#dfe7ff";
+    title.style.marginBottom = "6px";
+    menu.appendChild(title);
+    TERRAIN_ROLE_CHOICES.forEach((choice) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = choice.label;
+      btn.style.display = "block";
+      btn.style.width = "100%";
+      btn.style.margin = "4px 0";
+      btn.style.padding = "6px";
+      btn.style.font = "12px 'Press Start 2P', 'VT323', monospace";
+      btn.style.background = "#1a2740";
+      btn.style.color = "#dfe7ff";
+      btn.style.border = "1px solid #304266";
+      btn.style.borderRadius = "4px";
+      btn.style.cursor = "pointer";
+      btn.addEventListener("click", () => {
+        applyTerrainRoleMapping(tile, choice.key);
+        hideRoleMenu();
+      });
+      btn.addEventListener("mouseenter", () => btn.style.background = "#24345c");
+      btn.addEventListener("mouseleave", () => btn.style.background = "#1a2740");
+      menu.appendChild(btn);
+    });
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+    menu.style.display = "block";
+  }
+  function captureTerrainVariants() {
+    const snapshot = [];
+    for (let y = 0; y < mapH; y++) {
+      for (let x = 0; x < mapW; x++) {
+        const meta = classifyTerrainTile(x, y);
+        if (meta) snapshot.push({ tx: x, ty: y, variant: meta.variant });
+      }
+    }
+    return snapshot;
+  }
+  function applyTerrainRoleMapping(tileId, variantKey) {
+    const snapshot = captureTerrainVariants();
+    const changes = [];
+    for (const cell of snapshot) {
+      if (cell.variant !== variantKey) continue;
+      const prevTile = getTile(cell.tx, cell.ty);
+      const prevLabel = getLabel(cell.tx, cell.ty);
+      if (prevTile === tileId) continue;
+      setTile(cell.tx, cell.ty, tileId);
+      changes.push({
+        tx: cell.tx, ty: cell.ty,
+        prevTile, prevLabel,
+        nextTile: tileId, nextLabel: prevLabel,
+      });
+    }
+    if (changes.length) {
+      recordAction(changes);
+      captureTimelapseFrame();
+      pushSystemChat(`Mapped ${tileId} to ${variantKey} (${changes.length} tiles).`);
+    } else {
+      pushSystemChat(`No tiles matched role ${variantKey}.`);
+    }
   }
 
   // Find spawns
