@@ -4917,6 +4917,37 @@
     if (t === "I") return breakIce(tx, ty);
   }
 
+  function digTileAt(tx, ty) {
+    if (tx < 0 || ty < 0) return false;
+    const t = getTile(tx, ty);
+    if (t === ".") return false;
+    setTile(tx, ty, ".");
+    setLabel(tx, ty, "");
+    broadcastEditChange(tx, ty, ".");
+    return true;
+  }
+
+  function tryDigAhead() {
+    const dir = player.facing >= 0 ? 1 : -1;
+    const frontX = dir > 0 ? player.x + player.w : player.x - 1;
+    const tx = Math.floor(frontX / TILE);
+    const yTop = Math.floor(player.y / TILE);
+    const yMid = Math.floor((player.y + player.h * 0.5) / TILE);
+    const yBottom = Math.floor((player.y + player.h - 1) / TILE);
+    const underTx = Math.floor((player.x + player.w / 2) / TILE);
+    const underTy = Math.floor((player.y + player.h) / TILE);
+    const candidates = [
+      { tx, ty: yMid },
+      { tx, ty: yTop },
+      { tx, ty: yBottom },
+      { tx: underTx, ty: underTy },
+    ];
+    for (const c of candidates) {
+      if (digTileAt(c.tx, c.ty)) return true;
+    }
+    return false;
+  }
+
   function collectCoinTileAtPlayer(player) {
     // check tiles overlapped by player for 'C'
     const x0 = Math.floor(player.x / TILE);
@@ -5195,6 +5226,7 @@
   // Game state
   // -----------------------------
   let deadTimer = 0;
+  let digCooldown = 0;
   function restart() {
     // reset tiles to initial
     tiles.length = 0;
@@ -5409,6 +5441,7 @@
     player.flightTimer = jetpackEquipped ? JETPACK_FUEL_TIME : Math.max(0, player.flightTimer - dt);
     player.statueTimer = Math.max(0, player.statueTimer - dt);
     player.statueCooldown = Math.max(0, player.statueCooldown - dt);
+    digCooldown = Math.max(0, digCooldown - dt);
 
     // Jump buffer: remember a tap briefly to fire on next grounded frame
     if (tap("KeyZ")) player.jumpBuf = JUMP_BUFFER;
@@ -5432,6 +5465,10 @@
     const surfaceMod = player.onGround ? getSurfaceModifier(player) : { accel: 1, friction: 1, brake: 1 };
     const ladderUp = onLadder && down("ArrowUp");
     const ladderDown = onLadder && down("ArrowDown");
+    const digPressed = (tap("Space") || down("Space")) && digCooldown <= 0;
+    if (digPressed && tryDigAhead()) {
+      digCooldown = DIG_COOLDOWN;
+    }
 
     // Tanooki statue toggle
     if (hasTailAbilities() && player.form === PowerUpForm.Tanooki) {
