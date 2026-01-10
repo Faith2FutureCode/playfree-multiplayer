@@ -1668,6 +1668,11 @@
   const BASE_W = 304; // 19 tiles wide
   const BASE_H = 272; // 17 tiles tall (14 play + 3 HUD)
   const HUD_TILES = 3;
+  const HUD_PX = HUD_TILES * TILE;
+  const PLAYFIELD_TILES = BASE_H / TILE - HUD_TILES; // 14 rows of play area
+  const PLAYFIELD_H = PLAYFIELD_TILES * TILE;
+  const CAMERA_SEGMENT_PX = PLAYFIELD_H; // snap camera in full-screen chunks
+  const MIN_LEVEL_ROWS = PLAYFIELD_TILES * 2 + HUD_TILES; // enough height for two screens + HUD
   let SCALE = 3; // integer-only scaling for crisp pixels
   let showGrid = true;
   let editorOpen = false;
@@ -2650,7 +2655,23 @@
     ];
   }
 
-  const LEVEL = ENDLESS_ENABLED ? buildEndlessLevel() : ORIGINAL_LEVEL;
+  function padLevelVertical(baseLevel) {
+    if (!baseLevel.length) return baseLevel;
+    const width = baseLevel[0].length;
+    const emptyRow = ".".repeat(width);
+    const topPad = Array.from({ length: PLAYFIELD_TILES }, () => emptyRow);
+    const padded = [...topPad, ...baseLevel];
+    const minRows = Math.max(MIN_LEVEL_ROWS, padded.length);
+    const neededBottom = minRows - padded.length;
+    if (neededBottom > 0) {
+      const bottomRow = baseLevel[baseLevel.length - 1] || emptyRow;
+      for (let i = 0; i < neededBottom; i++) padded.push(bottomRow);
+    }
+    return padded;
+  }
+
+  const BASE_LEVEL = ENDLESS_ENABLED ? buildEndlessLevel() : ORIGINAL_LEVEL;
+  const LEVEL = padLevelVertical(BASE_LEVEL);
 
   let mapH = LEVEL.length;
   let mapW = LEVEL[0].length;
@@ -3162,13 +3183,17 @@
       tiles.push(new Array(mapW).fill("."));
       grew = true;
     }
-    if (grew) mapH = tiles.length;
+    if (grew) {
+      mapH = tiles.length;
+      updateWorldWidth();
+    }
     if (tx >= mapW) {
       const add = tx - mapW + 1;
       for (const row of tiles) {
         for (let i = 0; i < add; i++) row.push(".");
       }
       mapW = tiles[0].length;
+      updateWorldWidth();
     }
   }
 
@@ -4140,16 +4165,21 @@
   // -----------------------------
   const cam = { x: 0, y: 0 };
   let worldWpx = mapW * TILE;
-  const worldHpx = mapH * TILE;
+  let worldHpx = mapH * TILE;
 
   function updateWorldWidth() {
     worldWpx = mapW * TILE;
+    worldHpx = mapH * TILE;
   }
 
   function updateCamera() {
     const targetX = player.x + player.w/2 - BASE_W/2;
     cam.x = clamp(targetX, 0, Math.max(0, worldWpx - BASE_W));
-    cam.y = 0;
+
+    const maxCamY = Math.max(0, worldHpx - BASE_H);
+    const targetY = player.y + player.h / 2;
+    const snappedY = clamp(Math.floor(targetY / CAMERA_SEGMENT_PX) * CAMERA_SEGMENT_PX, 0, maxCamY);
+    cam.y = snappedY;
   }
 
   // -----------------------------
