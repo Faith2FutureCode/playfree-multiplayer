@@ -2959,6 +2959,18 @@
     "Underground",
     "Deep Underground",
   ];
+  const LAYER_BACKGROUND = {
+    "Deep Space": { top: "#05060A", bottom: "#0B1020" },
+    "Space": { top: "#0B1020", bottom: "#1A2A4A" },
+    "Upper Atmosphere": { top: "#1A2A4A", bottom: "#3A6FA0" },
+    "Atmosphere": { top: "#4FA3FF", bottom: "#9FD9FF" },
+    "High Altitude / Sky": { top: "#7CCBFF", bottom: "#CFEFFF" },
+    "Above Surface": { top: "#9EDCFF", bottom: "#E6F7FF" },
+    "Surface": { top: "#6BD0FF", bottom: "#AEEBFF" },
+    "Shallow Underground": { top: "#6B5A4A", bottom: "#4A3B30" },
+    "Underground": { top: "#3B2F28", bottom: "#2A1F1A" },
+    "Deep Underground": { top: "#1A1412", bottom: "#1A1412" },
+  };
   let layerOriginY = 0; // set once player spawn is known
   function layerInfoForY(worldY) {
     const altitude = layerOriginY - worldY; // going up increases altitude
@@ -2971,6 +2983,15 @@
     const depthIdx = Math.abs(relLayer) - 1;
     const downLabel = LAYER_LABEL_DOWN[depthIdx] || LAYER_LABEL_DOWN[LAYER_LABEL_DOWN.length - 1] || "Deep Underground";
     return { index: relLayer, label: downLabel };
+  }
+
+  function drawLayerBackground(ctx, label) {
+    const colors = LAYER_BACKGROUND[label] || { top: "#4b79ff", bottom: "#4b79ff" };
+    const grad = ctx.createLinearGradient(0, 0, 0, BASE_H);
+    grad.addColorStop(0, colors.top);
+    grad.addColorStop(1, colors.bottom);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, BASE_W, BASE_H);
   }
 
   function hashSeed(str) {
@@ -5817,18 +5838,12 @@
   }
 
   function render() {
-    const inUnderground = cam.y >= undergroundStartPx;
-    if (inUnderground) {
-      g.fillStyle = UNDERGROUND_BG;
-      g.fillRect(0,0,BASE_W,BASE_H);
-      g.fillStyle = UNDERGROUND_ACCENT;
-      g.fillRect(0,0,BASE_W,16);
-    } else {
-      // sky
-      g.fillStyle = "#4b79ff";
-      g.fillRect(0,0,BASE_W,BASE_H);
+    const viewLayer = layerInfoForY(cam.y + BASE_H / 2);
+    drawLayerBackground(g, viewLayer.label);
 
-      // parallax clouds
+    // parallax clouds only for sky/surface-friendly layers
+    const cloudFriendly = new Set(["Surface", "Above Surface", "High Altitude / Sky", "Atmosphere"]);
+    if (cloudFriendly.has(viewLayer.label)) {
       const cloudX = -((cam.x * 0.2) % 120);
       g.fillStyle = "rgba(255,255,255,0.65)";
       for (let i = 0; i < 6; i++) {
