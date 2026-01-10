@@ -1820,17 +1820,11 @@
 
   const params = new URLSearchParams(location.search);
   const mpParam = params.get("mp");
-  const endlessParam = params.get("endless");
-  const modeParam = params.get("mode");
   const MP_ENABLED = mpParam !== "0";
   // Default to shared lobby relay; override via ?mpUrl=ws://localhost:3001 for local dev
   const MP_SERVER = params.get("mpUrl") || "wss://ws.playfree.dev";
   const MP_ROOM = params.get("room") || "lobby";
-  const ENDLESS_ENABLED = (
-    endlessParam === null
-      ? modeParam !== "normal" // default to endless unless explicitly normal
-      : (endlessParam === "1" || endlessParam === "true")
-  );
+  const ENDLESS_ENABLED = true; // force endless for all users
   const ENDLESS_DEBUG = params.get("endlessDebug") === "1" || params.get("edebug") === "1";
   let showJumpGuide = params.get("jumpGuide") !== "0";
   const CHAT_BUBBLE_TIME = 4;
@@ -2743,7 +2737,7 @@
     };
   }
 
-  const worldSeed = params.get("seed") || params.get("worldSeed") || "endless";
+  const worldSeed = "playfree-global-seed";
   const worldRng = createRng(worldSeed);
 
   function makeColumn(tx, ground = defaultGroundY, tilesForCol = [], entities = []) {
