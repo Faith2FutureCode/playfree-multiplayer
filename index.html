@@ -5975,6 +5975,9 @@
     chatPanel.style.boxShadow = "0 -2px 0 rgba(0,0,0,0.7)";
     chatPanel.style.filter = "drop-shadow(0 2px 0 #000)";
     chatPanel.style.lineHeight = "1.35";
+    chatPanel.style.flexDirection = "column";
+    chatPanel.style.justifyContent = "flex-end";
+    chatPanel.style.alignItems = "stretch";
 
     chatLogContainer.innerHTML = "";
     if (shouldShowLog) {
@@ -6010,6 +6013,7 @@
         lineEl.appendChild(textEl);
         chatLogContainer.appendChild(lineEl);
       }
+      chatLogContainer.scrollTop = chatLogContainer.scrollHeight;
     }
 
     chatInputWrapper.style.display = shouldShowInput ? "flex" : "none";
@@ -6023,6 +6027,12 @@
     chatInput.style.fontSize = `${chatFontSize}px`;
     chatInput.style.padding = `${chatPadY}px ${chatPadX}px`;
     chatInput.style.boxShadow = "inset 0 0 0 2px rgba(255,255,255,0.08), 0 1px 0 rgba(0,0,0,0.6)";
+    const estimatedInputRow = shouldShowInput ? chatFontSize + chatPadY * 2 + 8 * scaleY : 0;
+    const logMaxPx = Math.max(0, hudHeight - estimatedInputRow - 12 * scaleY);
+    chatLogContainer.style.maxHeight = `${logMaxPx}px`;
+    chatLogContainer.style.flex = "1 1 auto";
+    chatLogContainer.style.justifyContent = "flex-end";
+    chatLogContainer.style.overflow = "hidden";
 
     chatPanel.style.pointerEvents = shouldShowInput ? "auto" : "none";
   }
