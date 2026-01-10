@@ -2728,6 +2728,7 @@
       next() { return rand(); },
       range(min, max) { return min + (max - min) * rand(); },
       int(min, max) { return Math.floor(rand() * (max - min + 1)) + min; },
+      bool(prob = 0.5) { return rand() < prob; },
       reseed(nextSeed) {
         this.seed = nextSeed;
         rand = mulberry32(hashSeed(nextSeed));
