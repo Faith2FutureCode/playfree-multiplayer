@@ -2910,7 +2910,9 @@
     if (!baseLevel.length) return baseLevel;
     const width = baseLevel[0].length;
     const emptyRow = ".".repeat(width);
-    const topPad = Array.from({ length: PLAYFIELD_TILES }, () => emptyRow);
+    // Add generous headroom so multiple atmospheric/space layers are reachable
+    const topPadRows = PLAYFIELD_TILES * 8; // 8 screens of empty sky above start
+    const topPad = Array.from({ length: topPadRows }, () => emptyRow);
     let padded = [...topPad, ...baseLevel];
     const bottomRow = baseLevel[baseLevel.length - 1] || emptyRow;
     const minRows = Math.max(MIN_LEVEL_ROWS, padded.length);
