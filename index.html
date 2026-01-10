@@ -3628,7 +3628,7 @@
     } catch (e) {
       return;
     }
-    const ignoreRemoteTiles = ENDLESS_ENABLED || hasLocalSnapshot;
+    const ignoreRemoteTiles = hasLocalSnapshot; // always accept remote tiles/labels in endless to keep peers in sync
     if (msg.type === "welcome") {
       clientId = msg.id || null;
       if (Array.isArray(msg.players)) {
