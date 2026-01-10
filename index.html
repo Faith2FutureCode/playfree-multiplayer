@@ -2942,24 +2942,33 @@
   const WORLD_BUFFER_TILES = VIEW_TILES + WORLD_AHEAD_TILES;
   let defaultGroundY = Math.max(4, mapH - 2);
 
-  // Layering (one game canvas tall per layer)
-  const LAYER_HEIGHT_PX = BASE_H;
-  const LAYER_PROFILES = [
-    { key: "PLANET_SURFACE", label: "Planet Surface" },
-    { key: "ATMOSPHERE", label: "Atmosphere" },
-    { key: "GRAVITY_BOUNDARY", label: "Gravity Boundary" },
-    { key: "SPACE", label: "Space" },
-    { key: "FOREIGN_GRAVITY", label: "Foreign Gravity" },
-    { key: "NEW_PLANET_SURFACE", label: "New Planet Surface" },
+  // Layering (one on-screen playfield tall per layer)
+  const LAYER_HEIGHT_PX = CAMERA_SEGMENT_PX;
+  const LAYER_LABEL_UP = [
+    "Above Surface",
+    "High Altitude / Sky",
+    "Atmosphere",
+    "Upper Atmosphere",
+    "Space",
+    "Deep Space",
+  ];
+  const LAYER_LABEL_DOWN = [
+    "Shallow Underground",
+    "Underground",
+    "Deep Underground",
   ];
   let layerOriginY = 0; // set once player spawn is known
-  function currentLayerIndexForY(worldY) {
+  function layerInfoForY(worldY) {
     const altitude = layerOriginY - worldY; // going up increases altitude
-    return Math.max(0, Math.floor(altitude / LAYER_HEIGHT_PX));
-  }
-  function layerLabelForIndex(idx) {
-    const info = LAYER_PROFILES[idx];
-    return info ? info.label : `Layer ${idx}`;
+    const relLayer = Math.floor(altitude / LAYER_HEIGHT_PX);
+    if (relLayer === 0) return { index: relLayer, label: "Surface" };
+    if (relLayer > 0) {
+      const label = LAYER_LABEL_UP[relLayer - 1] || LAYER_LABEL_UP[LAYER_LABEL_UP.length - 1] || `Layer ${relLayer}`;
+      return { index: relLayer, label };
+    }
+    const depthIdx = Math.abs(relLayer) - 1;
+    const downLabel = LAYER_LABEL_DOWN[depthIdx] || LAYER_LABEL_DOWN[LAYER_LABEL_DOWN.length - 1] || "Deep Underground";
+    return { index: relLayer, label: downLabel };
   }
 
   function hashSeed(str) {
@@ -6015,7 +6024,8 @@
       tagLayer.appendChild(el);
     };
     // Area badge (top-left)
-    addAreaBadge(layerLabelForIndex(currentLayerIndexForY(player.y + player.h / 2)));
+    const layerInfo = layerInfoForY(player.y + player.h / 2);
+    addAreaBadge(layerInfo.label);
     // self
     addTag(`${PLAYER_NAME}`, player.x + player.w / 2, player.y - 4, "#f6d341");
     if (selfChatBubble) addBubble(selfChatBubble.text, player.x + player.w / 2, player.y - 14, "#f6d341");
