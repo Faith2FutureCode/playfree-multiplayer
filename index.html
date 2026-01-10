@@ -2952,8 +2952,10 @@
     { key: "FOREIGN_GRAVITY", label: "Foreign Gravity" },
     { key: "NEW_PLANET_SURFACE", label: "New Planet Surface" },
   ];
+  let layerOriginY = 0; // set once player spawn is known
   function currentLayerIndexForY(worldY) {
-    return Math.max(0, Math.floor(worldY / LAYER_HEIGHT_PX));
+    const altitude = layerOriginY - worldY; // going up increases altitude
+    return Math.max(0, Math.floor(altitude / LAYER_HEIGHT_PX));
   }
   function layerLabelForIndex(idx) {
     const info = LAYER_PROFILES[idx];
@@ -3866,6 +3868,8 @@
   }
 
   const playerSpawn = findChar("P") || { x: 2, y: 2 };
+  // Anchor layer 0 to the starting surface position
+  layerOriginY = playerSpawn.y * TILE;
 
   // Replace spawns with empty
   for (let y = 0; y < mapH; y++) {
