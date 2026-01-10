@@ -236,6 +236,7 @@
       border: 1px dotted rgba(255,255,255,0.2);
       padding: 6px 6px 10px;
       border-radius: 6px;
+      overflow-x: auto;
     }
     .custom-palette-sheet {
       display: none;
@@ -276,6 +277,9 @@
       image-rendering: pixelated;
       max-width: 100%;
       max-height: 208px;
+    }
+    #custom-palette-grid {
+      overflow-x: auto;
     }
     .custom-palette-group .editor-grid {
       display: grid;
@@ -930,6 +934,8 @@
   let tilesetPanStartY = 0;
   let customPaletteSheetUrl = null;
   let customPaletteSheetScale = 1;
+  let customPaletteSheetCols = null;
+  let customPaletteSheetRows = null;
   const setAuthorClass = (enabled) => {
     document.body.classList.toggle("author", enabled);
   };
@@ -1343,6 +1349,18 @@
     }
   };
 
+  const applyCustomPaletteLayout = (gridEl) => {
+    if (!gridEl) return;
+    const cols = customPaletteSheetCols;
+    if (cols && Number.isFinite(cols) && cols > 0) {
+      gridEl.style.gridTemplateColumns = `repeat(${cols}, 38px)`;
+      gridEl.style.width = "max-content";
+    } else {
+      gridEl.style.gridTemplateColumns = "";
+      gridEl.style.width = "";
+    }
+  };
+
   const getTilesetImageBounds = () => {
     if (!tilesetPreviewImage) return null;
     const baseW = tilesetPreviewImage.offsetWidth;
@@ -1526,6 +1544,10 @@
       const padY = Math.max(0, readGridValue(tilesetGridPadY, 0));
       const stepX = tileW + padX;
       const stepY = tileH + padY;
+      const tilesAcross = Math.max(1, Math.floor(Math.max(0, w - gridX - tileW) / stepX) + 1);
+      const tilesDown = Math.max(1, Math.floor(Math.max(0, h - gridY - tileH) / stepY) + 1);
+      customPaletteSheetCols = tilesAcross;
+      customPaletteSheetRows = tilesDown;
       const offscreen = document.createElement("canvas");
       offscreen.width = w;
       offscreen.height = h;
@@ -1551,6 +1573,8 @@
       }
       const tilesToSort = [];
       customPaletteGrid.innerHTML = "";
+      customPaletteGrid.style.gridTemplateColumns = "";
+      customPaletteGrid.style.width = "";
       customTileSprites.clear();
       customTileDataUrls.clear();
       customTileMap.clear();
@@ -1616,11 +1640,6 @@
           tilesToSort.push({ tileId, url, hsl: toHsl(avgR, avgG, avgB), group: findGroupName(x, y) });
         }
       }
-      tilesToSort.sort((a, b) => {
-        if (a.hsl.h !== b.hsl.h) return a.hsl.h - b.hsl.h;
-        if (a.hsl.s !== b.hsl.s) return a.hsl.s - b.hsl.s;
-        return a.hsl.l - b.hsl.l;
-      });
       const sections = new Map();
       const sectionOrder = [];
       const ensureSection = (name) => {
@@ -1666,6 +1685,7 @@
           const tileEl = createTileElement(tile);
           groupGrid.appendChild(tileEl);
         });
+        applyCustomPaletteLayout(groupGrid);
         groupWrapper.append(groupHeader, groupGrid);
         customPaletteGrid.appendChild(groupWrapper);
         wirePaletteGrid(groupGrid);
@@ -3466,6 +3486,8 @@
       customSprites: Array.from(customTileDataUrls.entries()),
       customSheet: customPaletteSheetUrl,
       customSheetScale: customPaletteSheetScale,
+      customSheetCols: customPaletteSheetCols,
+      customSheetRows: customPaletteSheetRows,
       paletteName: (tilesetPaletteName && tilesetPaletteName.value.trim()) || "Custom",
     };
   };
@@ -3499,6 +3521,8 @@
       }
       customTileSprites.clear();
       customTileDataUrls.clear();
+      customPaletteSheetCols = null;
+      customPaletteSheetRows = null;
       updateCustomSheetPreview(null);
       if (Array.isArray(data.customSprites)) {
         for (const [tileId, url] of data.customSprites) {
@@ -3511,6 +3535,8 @@
       if (data.customSheet) {
         updateCustomSheetPreview(data.customSheet, data.customSheetScale || 1);
       }
+      if (Number.isFinite(data.customSheetCols)) customPaletteSheetCols = data.customSheetCols;
+      if (Number.isFinite(data.customSheetRows)) customPaletteSheetRows = data.customSheetRows;
       if (customPaletteGrid) {
         customPaletteGrid.innerHTML = "";
         for (const tileId of customTileSprites.keys()) {
@@ -3525,6 +3551,7 @@
           tileEl.appendChild(preview);
           customPaletteGrid.appendChild(tileEl);
         }
+        applyCustomPaletteLayout(customPaletteGrid);
         wirePaletteGrid(customPaletteGrid);
       }
       const paletteName = data.paletteName || "Custom";
@@ -3552,9 +3579,13 @@
   const clearCustomTiles = () => {
     if (!customPaletteGrid) return;
     customPaletteGrid.innerHTML = "";
+    customPaletteGrid.style.gridTemplateColumns = "";
+    customPaletteGrid.style.width = "";
     customTileSprites.clear();
     customTileDataUrls.clear();
     customTileMap.clear();
+    customPaletteSheetCols = null;
+    customPaletteSheetRows = null;
     updateCustomSheetPreview(null);
     document.body.classList.remove("has-custom-tiles");
     if (tilesetPaletteName) tilesetPaletteName.value = "Custom";
