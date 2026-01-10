@@ -1763,14 +1763,14 @@
     return TERRAIN_STYLE[t] || TERRAIN_STYLE["#"];
   }
   const TERRAIN_ROLE_CHOICES = [
-    { key: "top-left", label: "Top Left Corner" },
-    { key: "top-mid", label: "Top Edge" },
-    { key: "top-right", label: "Top Right Corner" },
-    { key: "top-single", label: "Top Single" },
-    { key: "gap-left", label: "Gap Wall Left" },
-    { key: "gap-right", label: "Gap Wall Right" },
-    { key: "pillar", label: "Gap Pillar" },
-    { key: "ledge", label: "Bottom Ledge" },
+    { key: "top-left", label: "Top Left Corner (TL)" },
+    { key: "top-mid", label: "Top Edge (TM)" },
+    { key: "top-right", label: "Top Right Corner (TR)" },
+    { key: "top-single", label: "Top Single (TS)" },
+    { key: "gap-left", label: "Gap Wall Left (GL)" },
+    { key: "gap-right", label: "Gap Wall Right (GR)" },
+    { key: "pillar", label: "Gap Pillar (GP)" },
+    { key: "ledge", label: "Bottom Ledge (BT)" },
   ];
   let roleMenuEl = null;
   function drawDebugLabel(ctx, text, cx, cy, color = "#f2f5ff") {
@@ -1993,6 +1993,7 @@
   const WATER_GRAVITY_SCALE = 0.28;
   const WATER_MAX_FALL = 220;
   const WATER_SWIM_IMPULSE = 320;
+  const LADDER_CLIMB_SPEED = 140;
   const FROG_LAND_ACCEL_SCALE = 0.7;
   const FROG_LAND_DECEL_SCALE = 0.65;
   const HAMMER_COOLDOWN = 0.3;
@@ -2741,9 +2742,10 @@
   //  # solid ground
   //  B solid brick
   //  I ice (slippery)
-  //  S sand (heavy)
-  //  W water (swimmable)
-  //  ? question block
+//  S sand (heavy)
+//  W water (swimmable)
+//  L ladder (climbable)
+//  ? question block
   //  u used block
   //  C coin (pickup, not solid)
   //  E enemy spawn
@@ -2984,7 +2986,7 @@
   function addGapRescueTiles(state, tx, tilesForCol) {
     const plan = state.gapRescue;
     if (!plan || plan.rescueTx !== tx) return;
-    for (const y of plan.steps) tilesForCol.push({ t: "B", y });
+    for (const y of plan.steps) tilesForCol.push({ t: "L", y });
   }
 
   function genColumn(state, tx, rng = worldRng) {
@@ -3514,6 +3516,7 @@
   function setLabel(tx, ty, text) {
     setLabelRaw(tx, ty, text);
   }
+  function isLadder(t) { return t === "L"; }
   function isSolid(t) {
     if (isCustomTileId(t)) return true;
     return t === "#" || t === "B" || t === "?" || t === "u" || t === "I" || t === "S";
@@ -3528,6 +3531,18 @@
 
   function isWaterTile(t) {
     return t === "W";
+  }
+  function isBodyOnLadder(body) {
+    const x0 = Math.floor(body.x / TILE);
+    const x1 = Math.floor((body.x + body.w - 1) / TILE);
+    const y0 = Math.floor(body.y / TILE);
+    const y1 = Math.floor((body.y + body.h - 1) / TILE);
+    for (let ty = y0; ty <= y1; ty++) {
+      for (let tx = x0; tx <= x1; tx++) {
+        if (isLadder(getTile(tx, ty))) return true;
+      }
+    }
+    return false;
   }
   function classifyTerrainTile(tx, ty) {
     const tile = getTile(tx, ty);
@@ -4389,6 +4404,7 @@
     big: formIsBig(PowerUpForm.Small),
     invuln: 0,
     ax: 0,
+    onLadder: false,
     pCharge: 0,
     skidTimer: 0,
     skidDust: 0,
@@ -4670,6 +4686,7 @@
     player.statueActive = false;
     player.statueTimer = 0;
     player.statueCooldown = 0;
+    player.onLadder = false;
     pMeterDisplaySegs = 0;
     pMeterDecayHold = 0;
     setPlayerForm(PowerUpForm.Small, { skipSave: true });
@@ -4711,6 +4728,7 @@
     player.statueActive = false;
     player.statueTimer = 0;
     player.statueCooldown = 0;
+    player.onLadder = false;
     levelTimer = HUD_TIMER_START;
     savePlayerSnapshot();
     if (ENDLESS_ENABLED) {
@@ -4847,7 +4865,10 @@
     const run = down("KeyX");
     const tailSwing = tap("KeyC");
     const statueToggle = tap("KeyV");
+    const onLadder = isBodyOnLadder(player);
     const surfaceMod = player.onGround ? getSurfaceModifier(player) : { accel: 1, friction: 1, brake: 1 };
+    const ladderUp = onLadder && down("ArrowUp");
+    const ladderDown = onLadder && down("ArrowDown");
 
     // Tanooki statue toggle
     if (hasTailAbilities() && player.form === PowerUpForm.Tanooki) {
@@ -4865,6 +4886,8 @@
       player.statueActive = false;
       player.statueTimer = 0;
     }
+
+    player.onLadder = onLadder;
 
     const moveLeft = player.statueActive ? false : left;
     const moveRight = player.statueActive ? false : right;
@@ -4921,19 +4944,26 @@
 
     player.vx = clamp(player.vx, -maxSpeed, maxSpeed);
 
-    // Gravity (with glide/flight modifiers)
+    // Gravity (with glide/flight/ladder modifiers)
     let gravity = GRAVITY;
     if (player.statueActive) {
       player.flightActive = false;
       player.flightTimer = 0;
     }
     const swimming = isPlayerSwimming();
-    const gliding = !swimming && hasTailAbilities() && player.vy > 40 && down("KeyZ") && !player.flightActive;
+    const onLadderNow = onLadder && !player.statueActive;
+    const gliding = !swimming && !onLadderNow && hasTailAbilities() && player.vy > 40 && down("KeyZ") && !player.flightActive;
     if (gliding) gravity *= GLIDE_GRAVITY_SCALE;
     if (swimming) {
       gravity *= WATER_GRAVITY_SCALE;
     }
-    if (!swimming && player.flightActive && player.flightTimer > 0 && down("KeyZ")) {
+    if (onLadderNow) {
+      gravity = 0;
+      player.flightActive = false;
+      player.flightTimer = 0;
+      const climbV = ladderUp ? -LADDER_CLIMB_SPEED : (ladderDown ? LADDER_CLIMB_SPEED : 0);
+      player.vy = climbV;
+    } else if (!swimming && player.flightActive && player.flightTimer > 0 && down("KeyZ")) {
       // keep upward lift while flight lasts
       player.vy = Math.min(player.vy, -FLIGHT_LIFT);
       player.flightTimer = Math.max(0, player.flightTimer - dt);
@@ -4946,6 +4976,11 @@
 
     // Collide
     moveAndCollide(player, dt);
+
+    if (onLadderNow) {
+      player.onGround = true;
+      player.coyote = COYOTE_TIME;
+    }
 
     // Track actual acceleration (accounts for collisions and friction)
     player.ax = (player.vx - prevVx) / dt;
@@ -5259,6 +5294,15 @@
       g.fillRect(sx, sy, TILE, TILE);
       g.fillStyle = "#0002";
       g.fillRect(sx, sy + 12, TILE, 4);
+      return;
+    }
+    if (t === "L") { // ladder
+      g.fillStyle = "#d6c087";
+      g.fillRect(sx + 6, sy, 4, TILE);
+      g.fillStyle = "#a98b4d";
+      for (let y = 3; y < TILE; y += 4) {
+        g.fillRect(sx + 2, sy + y, TILE - 4, 2);
+      }
       return;
     }
     if (t === "C") { // coin tile
