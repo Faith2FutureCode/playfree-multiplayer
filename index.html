@@ -1664,6 +1664,7 @@
   refreshAuthorStatus();
   renderTilesetGroups();
 
+  const TILE = 16;
   // Pixel-art vibe: render at low-res then scale up
   const BASE_W = 304; // 19 tiles wide
   const BASE_H = 272; // 17 tiles tall (14 play + 3 HUD)
@@ -1806,7 +1807,6 @@
     if (el) el.classList.add("selected");
   }
 
-  const TILE = 16;
   const params = new URLSearchParams(location.search);
   const MP_ENABLED = params.get("mp") !== "0";
   // Default to shared lobby relay; override via ?mpUrl=ws://localhost:3001 for local dev
