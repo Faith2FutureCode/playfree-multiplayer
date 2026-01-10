@@ -2994,23 +2994,37 @@
     ctx.fillRect(0, 0, BASE_W, BASE_H);
   }
 
-  function motifNoise(seed, idx) {
-    const h = hashSeed(`${seed}-${idx}`);
-    return (h >>> 0) / 0xffffffff;
-  }
-
   function drawLayerMotifs(ctx, label, camX = 0, camY = 0) {
     ctx.save();
     ctx.translate(0, 0);
     const parallax = (speed) => -((camX * speed) % (BASE_W + 160));
 
+    const softCircle = (x, y, r, colorInner, colorOuter) => {
+      const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+      grad.addColorStop(0, colorInner);
+      grad.addColorStop(1, colorOuter);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    };
+
+    const vignette = (alpha = 0.22) => {
+      const grad = ctx.createLinearGradient(0, 0, 0, BASE_H);
+      grad.addColorStop(0, `rgba(0,0,0,${alpha})`);
+      grad.addColorStop(0.25, "rgba(0,0,0,0)");
+      grad.addColorStop(0.75, "rgba(0,0,0,0)");
+      grad.addColorStop(1, `rgba(0,0,0,${alpha})`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, BASE_W, BASE_H);
+    };
+
     const drawStars = (count, size, alpha, speed) => {
-      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
       const baseX = parallax(speed);
       for (let i = 0; i < count; i++) {
         const x = baseX + (i * 73) % (BASE_W + 160) - 40;
         const y = (i * 41) % BASE_H;
-        ctx.fillRect(x, y, size, size);
+        softCircle(x, y, size * 1.5, `rgba(255,255,255,${alpha})`, "rgba(255,255,255,0)");
       }
     };
 
@@ -3026,10 +3040,11 @@
 
     const drawNebula = () => {
       const cx = (parallax(0.04) + BASE_W * 0.35) % (BASE_W + 120) - 40;
-      const cy = 40;
-      const r = 80;
+      const cy = 50;
+      const r = 110;
       const grad = ctx.createRadialGradient(cx, cy, 10, cx, cy, r);
-      grad.addColorStop(0, "rgba(120,140,255,0.12)");
+      grad.addColorStop(0, "rgba(120,160,255,0.24)");
+      grad.addColorStop(0.6, "rgba(120,140,255,0.10)");
       grad.addColorStop(1, "rgba(120,140,255,0)");
       ctx.fillStyle = grad;
       ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
@@ -3037,11 +3052,13 @@
 
     const drawPlanet = (offset, radius, color) => {
       const x = parallax(0.06) + offset;
-      const y = 40 + offset * 0.1;
-      ctx.fillStyle = color;
+      const y = 50 + offset * 0.08;
+      softCircle(x, y, radius, color, "rgba(0,0,0,0)");
+      ctx.strokeStyle = "rgba(255,255,255,0.12)";
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(x, y, radius, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.arc(x, y, radius + 4, -0.2, Math.PI * 0.8);
+      ctx.stroke();
     };
 
     const drawGlowBand = (topY, colorA, colorB, height) => {
@@ -3058,12 +3075,14 @@
       for (let i = 0; i < count; i++) {
         const x = baseX + (i * 90) % (BASE_W + 180) - 60;
         const y = 20 + (i % 3) * wobble;
-        ctx.fillRect(x, y, 80, height);
+        ctx.beginPath();
+        ctx.roundRect(x, y, 90, height, 8);
+        ctx.fill();
       }
     };
 
     const drawPuffyClouds = (count, speed) => {
-      ctx.fillStyle = "rgba(255,255,255,0.75)";
+      ctx.fillStyle = "rgba(255,255,255,0.82)";
       const baseX = parallax(speed);
       for (let i = 0; i < count; i++) {
         const x = baseX + (i * 110) % (BASE_W + 220) - 80;
@@ -3077,7 +3096,7 @@
     };
 
     const drawMountains = () => {
-      ctx.fillStyle = "rgba(60,90,130,0.35)";
+      ctx.fillStyle = "rgba(60,90,130,0.28)";
       const baseX = parallax(0.1);
       for (let i = 0; i < 3; i++) {
         const x = baseX + i * 140 - 60;
@@ -3092,7 +3111,7 @@
     };
 
     const drawBirds = () => {
-      ctx.strokeStyle = "rgba(40,40,40,0.35)";
+      ctx.strokeStyle = "rgba(40,40,40,0.28)";
       ctx.lineWidth = 1;
       const baseX = parallax(0.25);
       for (let i = 0; i < 4; i++) {
@@ -3162,7 +3181,7 @@
     };
 
     const drawLavaCracks = () => {
-      ctx.strokeStyle = "rgba(255,120,60,0.4)";
+      ctx.strokeStyle = "rgba(255,120,60,0.45)";
       ctx.lineWidth = 1;
       const baseX = parallax(0.02);
       for (let i = 0; i < 4; i++) {
@@ -3188,7 +3207,7 @@
     };
 
     const drawWindLines = () => {
-      ctx.strokeStyle = "rgba(255,255,255,0.25)";
+      ctx.strokeStyle = "rgba(255,255,255,0.22)";
       ctx.lineWidth = 1;
       const baseX = parallax(0.3);
       for (let i = 0; i < 5; i++) {
@@ -3206,16 +3225,18 @@
         drawStars(14, 1, 0.35, 0.05);
         drawDust(10, 0.15, 0.02);
         drawNebula();
+        vignette(0.18);
         break;
       case "Space":
         drawStars(24, 1, 0.4, 0.08);
         drawDust(16, 0.2, 0.04);
         drawPlanet(40, 12, "rgba(180,190,255,0.25)");
         drawPlanet(180, 18, "rgba(150,170,230,0.18)");
+        vignette(0.14);
         break;
       case "Upper Atmosphere":
-        drawGlowBand(0, "rgba(255,255,255,0.15)", "rgba(255,255,255,0)", 40);
-        drawHorizontalClouds(4, 10, 0.18, 0.12, 4);
+        drawGlowBand(0, "rgba(255,255,255,0.18)", "rgba(255,255,255,0)", 50);
+        drawHorizontalClouds(4, 12, 0.2, 0.12, 6);
         drawShootingStar();
         break;
       case "Atmosphere":
@@ -3235,9 +3256,9 @@
         drawWindLines();
         break;
       case "Surface":
-        drawSilhouetteHills("rgba(70,150,90,0.3)", 0.12, 40);
-        drawVerticals("rgba(60,100,60,0.4)", 10, 0.12, BASE_H - 12, 12);
-        drawHorizontalClouds(3, 12, 0.22, 0.1, 2);
+        drawSilhouetteHills("rgba(70,150,90,0.3)", 0.12, 44);
+        drawVerticals("rgba(60,100,60,0.38)", 10, 0.12, BASE_H - 14, 14);
+        drawHorizontalClouds(3, 12, 0.2, 0.1, 2);
         break;
       case "Shallow Underground":
         drawSilhouetteHills("rgba(60,50,40,0.28)", 0.05, 50);
