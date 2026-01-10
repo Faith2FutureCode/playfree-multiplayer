@@ -3877,8 +3877,8 @@
   }
 
   const playerSpawn = findChar("P") || { x: 2, y: 2 };
-  // Anchor layer 0 to the starting surface position
-  layerOriginY = playerSpawn.y * TILE;
+  // Anchor layer 0 to the starting surface position (shifted down 8 tiles)
+  layerOriginY = playerSpawn.y * TILE + 8 * TILE;
 
   // Replace spawns with empty
   for (let y = 0; y < mapH; y++) {
