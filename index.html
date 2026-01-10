@@ -237,6 +237,46 @@
       padding: 6px 6px 10px;
       border-radius: 6px;
     }
+    .custom-palette-sheet {
+      display: none;
+      margin: 10px 0 6px;
+      padding: 6px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 6px;
+      background: rgba(10,16,32,0.6);
+    }
+    body.author.has-custom-tiles .custom-palette-sheet.has-preview {
+      display: block;
+    }
+    .custom-palette-sheet-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: #9fb3ff;
+      margin-bottom: 4px;
+    }
+    .custom-palette-sheet-zoom {
+      color: rgba(255,255,255,0.7);
+      font-weight: 700;
+    }
+    .custom-palette-sheet-frame {
+      background: #0b1629;
+      border: 1px dashed rgba(255,255,255,0.12);
+      padding: 6px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      max-height: 220px;
+      overflow: auto;
+    }
+    .custom-palette-sheet-frame img {
+      display: block;
+      image-rendering: pixelated;
+      max-width: 100%;
+      max-height: 208px;
+    }
     .custom-palette-group .editor-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(32px, 1fr));
@@ -713,6 +753,15 @@
       <div class="editor-actions">
         <button id="custom-palette-clear" type="button">Clear Custom Tiles</button>
       </div>
+      <div class="custom-palette-sheet" id="custom-palette-sheet">
+        <div class="custom-palette-sheet-header">
+          <span>Sprite Sheet</span>
+          <span class="custom-palette-sheet-zoom" id="custom-palette-sheet-zoom"></span>
+        </div>
+        <div class="custom-palette-sheet-frame">
+          <img id="custom-palette-sheet-image" alt="Sprite sheet preview"/>
+        </div>
+      </div>
       <div class="editor-grid" id="custom-palette-grid"></div>
     </div>
     <div class="editor-field">
@@ -858,6 +907,9 @@
   const customPaletteTitle = document.getElementById("custom-palette-title");
   const customPaletteGrid = document.getElementById("custom-palette-grid");
   const customPaletteClear = document.getElementById("custom-palette-clear");
+  const customPaletteSheet = document.getElementById("custom-palette-sheet");
+  const customPaletteSheetImage = document.getElementById("custom-palette-sheet-image");
+  const customPaletteSheetZoom = document.getElementById("custom-palette-sheet-zoom");
   const customTileSprites = new Map(); // tileId -> Image
   const customTileMap = new Map(); // key: "tx,ty" -> tileId
   const customTileDataUrls = new Map(); // tileId -> data url
@@ -876,6 +928,8 @@
   let tilesetPanning = false;
   let tilesetPanStartX = 0;
   let tilesetPanStartY = 0;
+  let customPaletteSheetUrl = null;
+  let customPaletteSheetScale = 1;
   const setAuthorClass = (enabled) => {
     document.body.classList.toggle("author", enabled);
   };
@@ -1270,6 +1324,25 @@
     return "#000000";
   };
 
+  const updateCustomSheetPreview = (url, scale = 1) => {
+    customPaletteSheetUrl = url || null;
+    customPaletteSheetScale = scale || 1;
+    const hasUrl = !!customPaletteSheetUrl;
+    if (customPaletteSheet) {
+      customPaletteSheet.classList.toggle("has-preview", hasUrl);
+    }
+    if (customPaletteSheetImage) {
+      if (hasUrl) {
+        customPaletteSheetImage.src = customPaletteSheetUrl;
+      } else {
+        customPaletteSheetImage.removeAttribute("src");
+      }
+    }
+    if (customPaletteSheetZoom) {
+      customPaletteSheetZoom.textContent = hasUrl ? `${Math.round(customPaletteSheetScale * 100)}%` : "";
+    }
+  };
+
   const getTilesetImageBounds = () => {
     if (!tilesetPreviewImage) return null;
     const baseW = tilesetPreviewImage.offsetWidth;
@@ -1459,6 +1532,23 @@
       const octx = offscreen.getContext("2d");
       if (!octx) return;
       octx.drawImage(tilesetPreviewImage, 0, 0);
+      if (customPaletteSheet || customPaletteSheetImage) {
+        const availableW = (customPaletteSection && customPaletteSection.clientWidth) ? (customPaletteSection.clientWidth - 12) : 260;
+        const maxPreviewW = Math.max(64, availableW);
+        const maxPreviewH = 220;
+        const sheetScale = Math.min(1, maxPreviewW / w, maxPreviewH / h);
+        const previewCanvas = document.createElement("canvas");
+        previewCanvas.width = Math.max(1, Math.round(w * sheetScale));
+        previewCanvas.height = Math.max(1, Math.round(h * sheetScale));
+        const pctx = previewCanvas.getContext("2d");
+        if (pctx) {
+          pctx.imageSmoothingEnabled = false;
+          pctx.drawImage(offscreen, 0, 0, w, h, 0, 0, previewCanvas.width, previewCanvas.height);
+          updateCustomSheetPreview(previewCanvas.toDataURL("image/png"), sheetScale);
+        } else {
+          updateCustomSheetPreview(null);
+        }
+      }
       const tilesToSort = [];
       customPaletteGrid.innerHTML = "";
       customTileSprites.clear();
@@ -2002,6 +2092,10 @@
   const HAMMER_LIFETIME = 0.9;
   const HAMMER_LAUNCH_ANGLE = (20 * Math.PI) / 180;
   const HAMMER_MAGNUS = 0.24;
+  const JETPACK_THRUST = 260;
+  const JETPACK_GRAVITY_SCALE = 0.4;
+  const JETPACK_MAX_FALL = 520;
+  const JETPACK_FUEL_TIME = 999;
   const PowerUpForm = Object.freeze({
     Small: "small",
     Super: "super",
@@ -2010,6 +2104,7 @@
     Tanooki: "tanooki",
     Frog: "frog",
     Hammer: "hammer",
+    Jetpack: "jetpack",
   });
   const BIG_FORMS = new Set([
     PowerUpForm.Super,
@@ -2018,6 +2113,7 @@
     PowerUpForm.Tanooki,
     PowerUpForm.Frog,
     PowerUpForm.Hammer,
+    PowerUpForm.Jetpack,
   ]);
   const PLAYER_SAVE_KEY = "smb3-player-state";
   const SURFACE_MODS = {
@@ -2046,6 +2142,7 @@
   inventorySlots[1] = { name: "Super Leaf", icon: "🍂", count: 1, type: "super-leaf" };
   inventorySlots[2] = { name: "Hammer Suit", icon: "🔨", count: 1, type: "hammer-suit" };
   inventorySlots[3] = { name: "Frog Suit", icon: "🐸", count: 1, type: "frog-suit" };
+  inventorySlots[4] = { name: "Jetpack Suit", icon: "🚀", count: 1, type: "jetpack-suit" };
 
   let inventoryOpen = false;
   let inventoryCursor = 0;
@@ -2118,6 +2215,7 @@
     "super-leaf": () => setPlayerForm(PowerUpForm.Raccoon),
     "hammer-suit": () => setPlayerForm(PowerUpForm.Hammer),
     "frog-suit": () => setPlayerForm(PowerUpForm.Frog),
+    "jetpack-suit": () => setPlayerForm(PowerUpForm.Jetpack),
     mushroom: () => setPlayerForm(PowerUpForm.Super),
   };
 
@@ -3361,6 +3459,8 @@
       labels: Array.from(labelMap.entries()),
       customTiles: Array.from(customTileMap.entries()),
       customSprites: Array.from(customTileDataUrls.entries()),
+      customSheet: customPaletteSheetUrl,
+      customSheetScale: customPaletteSheetScale,
       paletteName: (tilesetPaletteName && tilesetPaletteName.value.trim()) || "Custom",
     };
   };
@@ -3394,6 +3494,7 @@
       }
       customTileSprites.clear();
       customTileDataUrls.clear();
+      updateCustomSheetPreview(null);
       if (Array.isArray(data.customSprites)) {
         for (const [tileId, url] of data.customSprites) {
           const img = new Image();
@@ -3401,6 +3502,9 @@
           customTileSprites.set(tileId, img);
           customTileDataUrls.set(tileId, url);
         }
+      }
+      if (data.customSheet) {
+        updateCustomSheetPreview(data.customSheet, data.customSheetScale || 1);
       }
       if (customPaletteGrid) {
         customPaletteGrid.innerHTML = "";
@@ -3446,6 +3550,7 @@
     customTileSprites.clear();
     customTileDataUrls.clear();
     customTileMap.clear();
+    updateCustomSheetPreview(null);
     document.body.classList.remove("has-custom-tiles");
     if (tilesetPaletteName) tilesetPaletteName.value = "Custom";
     if (customPaletteTitle) customPaletteTitle.textContent = "CUSTOM";
@@ -3807,6 +3912,16 @@
   tagLayer.style.pointerEvents = "none";
   tagLayer.style.zIndex = "400";
   document.body.appendChild(tagLayer);
+  const chatLayer = document.createElement("div");
+  chatLayer.style.position = "fixed";
+  chatLayer.style.left = "0";
+  chatLayer.style.top = "0";
+  chatLayer.style.width = "100%";
+  chatLayer.style.height = "100%";
+  chatLayer.style.pointerEvents = "none";
+  chatLayer.style.zIndex = "450";
+  chatLayer.style.font = "12px 'Press Start 2P', 'VT323', monospace";
+  document.body.appendChild(chatLayer);
   let netSocket = null;
   let clientId = null;
   let reconnectTimer = 0;
@@ -4452,6 +4567,8 @@
         return { shirt: "#2dd36f", pants: "#0a8a4a" };
       case PowerUpForm.Hammer:
         return { shirt: "#5d78ff", pants: "#2d3142" };
+      case PowerUpForm.Jetpack:
+        return { shirt: "#ff9f1c", pants: "#1b9aaa" };
       case PowerUpForm.Super:
         return { shirt: "#e23b2e", pants: "#2a49ff" };
       default:
@@ -4524,7 +4641,8 @@
         player.tailCooldown = clamp(data.tailCooldown, 0, TAIL_COOLDOWN);
       }
       if (typeof data.flightTimer === "number") {
-        player.flightTimer = clamp(data.flightTimer, 0, FLIGHT_TIME);
+        const maxFlight = player.form === PowerUpForm.Jetpack ? JETPACK_FUEL_TIME : FLIGHT_TIME;
+        player.flightTimer = clamp(data.flightTimer, 0, maxFlight);
       }
       if (typeof data.flightActive === "boolean") {
         player.flightActive = data.flightActive;
@@ -4841,11 +4959,13 @@
 
     updateEndlessWorld(dt);
 
+    const jetpackEquipped = player.form === PowerUpForm.Jetpack;
+
     // Update invuln
     player.invuln = Math.max(0, player.invuln - dt);
     player.tailTimer = Math.max(0, player.tailTimer - dt);
     player.tailCooldown = Math.max(0, player.tailCooldown - dt);
-    player.flightTimer = Math.max(0, player.flightTimer - dt);
+    player.flightTimer = jetpackEquipped ? JETPACK_FUEL_TIME : Math.max(0, player.flightTimer - dt);
     player.statueTimer = Math.max(0, player.statueTimer - dt);
     player.statueCooldown = Math.max(0, player.statueCooldown - dt);
 
@@ -4944,7 +5064,7 @@
 
     player.vx = clamp(player.vx, -maxSpeed, maxSpeed);
 
-    // Gravity (with glide/flight/ladder modifiers)
+    // Gravity (with glide/flight/ladder/jetpack modifiers)
     let gravity = GRAVITY;
     if (player.statueActive) {
       player.flightActive = false;
@@ -4952,8 +5072,10 @@
     }
     const swimming = isPlayerSwimming();
     const onLadderNow = onLadder && !player.statueActive;
+    const jetpackThrusting = jetpackEquipped && !swimming && !onLadderNow && down("KeyZ");
     const gliding = !swimming && !onLadderNow && hasTailAbilities() && player.vy > 40 && down("KeyZ") && !player.flightActive;
     if (gliding) gravity *= GLIDE_GRAVITY_SCALE;
+    if (jetpackEquipped) gravity *= JETPACK_GRAVITY_SCALE;
     if (swimming) {
       gravity *= WATER_GRAVITY_SCALE;
     }
@@ -4963,16 +5085,25 @@
       player.flightTimer = 0;
       const climbV = ladderUp ? -LADDER_CLIMB_SPEED : (ladderDown ? LADDER_CLIMB_SPEED : 0);
       player.vy = climbV;
+    } else if (jetpackThrusting) {
+      // Infinite-fuel jetpack lift
+      const targetVy = -JETPACK_THRUST;
+      player.vy = Math.min(player.vy, targetVy);
+      player.flightActive = true;
+      player.flightTimer = JETPACK_FUEL_TIME;
     } else if (!swimming && player.flightActive && player.flightTimer > 0 && down("KeyZ")) {
       // keep upward lift while flight lasts
       player.vy = Math.min(player.vy, -FLIGHT_LIFT);
       player.flightTimer = Math.max(0, player.flightTimer - dt);
       if (player.flightTimer <= 0) player.flightActive = false;
-    } else if (player.flightActive && player.flightTimer <= 0) {
+    } else if (!jetpackEquipped && player.flightActive && player.flightTimer <= 0) {
+      player.flightActive = false;
+    } else if (!jetpackThrusting && jetpackEquipped) {
       player.flightActive = false;
     }
     player.vy += gravity * dt;
-    player.vy = Math.min(player.vy, swimming ? WATER_MAX_FALL : MAX_FALL);
+    const maxFall = swimming ? WATER_MAX_FALL : (jetpackEquipped ? JETPACK_MAX_FALL : MAX_FALL);
+    player.vy = Math.min(player.vy, maxFall);
 
     // Collide
     moveAndCollide(player, dt);
@@ -5655,6 +5786,18 @@
           g.fillStyle = "#0002";
           g.fillRect(sx, sy, player.w, player.h);
         }
+        if (player.form === PowerUpForm.Jetpack) {
+          const packX = sx + (player.facing > 0 ? -2 : player.w - 2);
+          const packH = Math.min(12, player.h - 4);
+          g.fillStyle = "#4a4f59";
+          g.fillRect(packX, sy + 4, 4, packH);
+          if (player.flightActive) {
+            g.fillStyle = "#ffce45";
+            g.fillRect(packX, sy + player.h, 4, 3);
+            g.fillStyle = "#ff7f11";
+            g.fillRect(packX + 1, sy + player.h + 2, 2, 3);
+          }
+        }
         if (player.tailTimer > 0 && hasTailAbilities()) {
           const dir = player.facing >= 0 ? 1 : -1;
           const tx = sx + (dir > 0 ? player.w : -TAIL_RANGE_X);
@@ -5683,27 +5826,6 @@
     drawSelectionOverlay();
     drawLabelsOverlay();
     drawEndlessDebugOverlay();
-    // chat overlay
-    if (chatLog.length > 0 && chatVisibleTime > -2) {
-      g.save();
-      g.font = "8px 'Press Start 2P', 'VT323', monospace";
-      g.textAlign = "left";
-      g.textBaseline = "top";
-      const startY = 16;
-      const startX = 12;
-      let y = startY;
-      for (let i = Math.max(0, chatLog.length - 8); i < chatLog.length; i++) {
-        const entry = chatLog[i];
-        const line = `${entry.name}: ${entry.text}`;
-        const alpha = entry.pin ? 1 : Math.max(0, Math.min(1, chatVisibleTime / 2));
-        g.fillStyle = `rgba(0,0,0,${0.5 * alpha})`;
-        g.fillRect(startX - 4, y - 2, Math.min(240, line.length * 6 + 8), 12);
-        g.fillStyle = `rgba(242,245,255,${alpha})`;
-        g.fillText(line.slice(0, 128), startX, y);
-        y += 12;
-      }
-      g.restore();
-    }
     if (clickDebug && clickDebug.timer > 0) {
       const { sx, sy } = clickDebug;
       g.save();
@@ -5721,6 +5843,7 @@
     const rect = canvas.getBoundingClientRect();
     const scaleX = rect.width / BASE_W;
     const scaleY = rect.height / BASE_H;
+    renderChatPanel(rect, scaleX, scaleY);
     tagLayer.innerHTML = "";
     const addTag = (label, worldX, worldY, color = "#f2f5ff") => {
       const screenX = (worldX - cam.x) * scaleX;
@@ -5773,6 +5896,75 @@
     }
   }
 
+  function renderChatPanel(rect, scaleX, scaleY) {
+    if (!(chatLog.length > 0 && chatVisibleTime > -2)) {
+      chatLayer.innerHTML = "";
+      return;
+    }
+    const hudTop = rect.top + (BASE_H - HUD_PX) * scaleY;
+    const hudHeight = HUD_PX * scaleY;
+    const panelLeft = rect.left + 12 * scaleX;
+    const panelTop = hudTop + 6 * scaleY;
+    const panelWidth = Math.min(420, rect.width * 0.55);
+    const panelMaxHeight = Math.max(28, hudHeight - 12 * scaleY);
+
+    const panel = document.createElement("div");
+    panel.style.position = "absolute";
+    panel.style.left = `${panelLeft}px`;
+    panel.style.top = `${panelTop}px`;
+    panel.style.width = `${panelWidth}px`;
+    panel.style.maxHeight = `${panelMaxHeight}px`;
+    panel.style.display = "flex";
+    panel.style.flexDirection = "column";
+    panel.style.justifyContent = "flex-end";
+    panel.style.gap = "6px";
+    panel.style.overflow = "hidden";
+    panel.style.pointerEvents = "none";
+    panel.style.filter = "drop-shadow(0 1px 0 #000)";
+    panel.style.font = "12px 'Press Start 2P', 'VT323', monospace";
+    panel.style.lineHeight = "1.35";
+
+    for (let i = Math.max(0, chatLog.length - 6); i < chatLog.length; i++) {
+      const entry = chatLog[i];
+      const alpha = entry.pin ? 1 : Math.max(0, Math.min(1, chatVisibleTime / 2));
+      if (alpha <= 0) continue;
+      const lineEl = document.createElement("div");
+      lineEl.style.opacity = alpha.toFixed(3);
+      lineEl.style.background = entry.pin ? "rgba(0,0,0,0.9)" : "rgba(0,0,0,0.82)";
+      lineEl.style.border = entry.pin ? "1px solid rgba(255,255,255,0.6)" : "1px solid rgba(255,255,255,0.4)";
+      lineEl.style.borderRadius = "8px";
+      lineEl.style.padding = "6px 8px";
+      lineEl.style.color = "#f2f5ff";
+      lineEl.style.textShadow = "1px 1px 0 #000";
+      lineEl.style.boxShadow = "0 2px 0 rgba(0,0,0,0.55)";
+      lineEl.style.display = "flex";
+      lineEl.style.alignItems = "center";
+      lineEl.style.gap = "6px";
+      lineEl.style.whiteSpace = "normal";
+      lineEl.style.wordBreak = "break-word";
+
+      const nameEl = document.createElement("span");
+      nameEl.textContent = `${entry.name}:`;
+      nameEl.style.color = entry.name === "SYSTEM" ? "#f6d341" : "#9ad5ff";
+      nameEl.style.flex = "0 0 auto";
+      const textEl = document.createElement("span");
+      textEl.textContent = entry.text;
+      textEl.style.flex = "1 1 auto";
+
+      lineEl.appendChild(nameEl);
+      lineEl.appendChild(textEl);
+      panel.appendChild(lineEl);
+    }
+
+    if (panel.childElementCount === 0) {
+      chatLayer.innerHTML = "";
+      return;
+    }
+
+    chatLayer.innerHTML = "";
+    chatLayer.appendChild(panel);
+  }
+
   function drawHudCanvas() {
     const hudH = HUD_TILES * TILE;
     const hudY = BASE_H - hudH;
@@ -5818,7 +6010,8 @@
     drawBlock([`SPD ${Math.abs(player.vx).toFixed(0)}`, `ACC ${player.ax.toFixed(0)}`], 160);
     drawBlock([`FORM ${player.form ? player.form.slice(0,2).toUpperCase() : "SM"}`, `T ${Math.max(0, Math.floor(levelTimer)).toString().padStart(3,"0")}`], 240);
     drawBlock([`SCORE`, score.toString().padStart(6,"0")], 320);
-    drawBlock([`FLY ${player.flightActive ? player.flightTimer.toFixed(1) : "0"}`, `P ${pMeterDisplaySegs}/${P_METER_SEGMENTS}`], 400);
+    const flyLabel = player.form === PowerUpForm.Jetpack ? "∞" : (player.flightActive ? player.flightTimer.toFixed(1) : "0");
+    drawBlock([`FLY ${flyLabel}`, `P ${pMeterDisplaySegs}/${P_METER_SEGMENTS}`], 400);
 
     g.restore();
   }
@@ -5858,7 +6051,8 @@
       starEl.style.color = starTime > 0 ? "#ffeb3b" : "#fff";
     }
     if (flyEl) {
-      flyEl.textContent = player.flightActive ? player.flightTimer.toFixed(1) : "0";
+      const flyValue = player.form === PowerUpForm.Jetpack ? "∞" : (player.flightActive ? player.flightTimer.toFixed(1) : "0");
+      flyEl.textContent = flyValue;
     }
 
     if (pMeterEl) {
