@@ -2971,6 +2971,18 @@
     "Underground": { top: "#3B2F28", bottom: "#2A1F1A" },
     "Deep Underground": { top: "#1A1412", bottom: "#1A1412" },
   };
+  const LAYER_BG_IMAGES = {
+    "Deep Space": "assets/layers/layer-deep-space.png",
+    "Space": "assets/layers/layer-space.png",
+    "Upper Atmosphere": "assets/layers/layer-upper-atmosphere.png",
+    "Atmosphere": "assets/layers/layer-atmosphere.png",
+    "High Altitude / Sky": "assets/layers/layer-high-sky.png",
+    "Above Surface": "assets/layers/layer-above-surface.png",
+    "Surface": "assets/layers/layer-surface.png",
+    "Shallow Underground": "assets/layers/layer-shallow-underground.png",
+    "Underground": "assets/layers/layer-underground.png",
+    "Deep Underground": "assets/layers/layer-deep-underground.png",
+  };
   let layerOriginY = 0; // set once player spawn is known
   function layerInfoForY(worldY) {
     const altitude = layerOriginY - worldY; // going up increases altitude
@@ -2992,6 +3004,29 @@
     grad.addColorStop(1, colors.bottom);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, BASE_W, BASE_H);
+  }
+
+  const layerImageCache = new Map(); // label -> { img, loaded, error }
+  function loadLayerImage(label) {
+    if (layerImageCache.has(label)) return layerImageCache.get(label);
+    const src = LAYER_BG_IMAGES[label];
+    if (!src) return null;
+    const entry = { img: new Image(), loaded: false, error: false };
+    entry.img.onload = () => { entry.loaded = true; };
+    entry.img.onerror = () => { entry.error = true; };
+    entry.img.decoding = "async";
+    entry.img.src = src;
+    layerImageCache.set(label, entry);
+    return entry;
+  }
+
+  function drawLayerImage(ctx, label) {
+    const entry = loadLayerImage(label);
+    if (!entry || entry.error || !entry.loaded) return;
+    const prev = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(entry.img, 0, 0, BASE_W, BASE_H);
+    ctx.imageSmoothingEnabled = prev;
   }
 
   function drawLayerMotifs(ctx, label, camX = 0, camY = 0) {
@@ -6128,6 +6163,7 @@
     const viewLayer = layerInfoForY(cam.y + BASE_H / 2);
     drawLayerBackground(g, viewLayer.label);
     drawLayerMotifs(g, viewLayer.label, cam.x, cam.y);
+    drawLayerImage(g, viewLayer.label);
 
     // tiles
     const tx0 = Math.floor(cam.x / TILE);
