@@ -5656,6 +5656,45 @@
     g.restore();
   }
 
+  function drawLayerDebugOverlay() {
+    if (!showTerrainDebug) return;
+    const viewTop = cam.y;
+    const viewBottom = cam.y + BASE_H;
+    const startK = Math.floor((layerOriginY - viewBottom) / LAYER_HEIGHT_PX);
+    const endK = Math.ceil((layerOriginY - viewTop) / LAYER_HEIGHT_PX);
+    g.save();
+    g.lineWidth = 2;
+    g.strokeStyle = "rgba(255, 214, 10, 0.9)";
+    g.fillStyle = "rgba(0,0,0,0.8)";
+    g.font = "10px 'Press Start 2P', 'VT323', monospace";
+    g.textBaseline = "middle";
+    g.textAlign = "left";
+    for (let k = startK; k <= endK; k++) {
+      const yWorld = layerOriginY - k * LAYER_HEIGHT_PX;
+      const yScreen = Math.floor(yWorld - cam.y);
+      if (yScreen < -24 || yScreen > BASE_H + 24) continue;
+      const above = layerInfoForY(yWorld - 1).label;
+      const below = layerInfoForY(yWorld + 1).label;
+      const label = above === below ? above : `${below} → ${above}`;
+      g.beginPath();
+      g.moveTo(0, yScreen + 0.5);
+      g.lineTo(BASE_W, yScreen + 0.5);
+      g.stroke();
+      const text = `Layer ${k >= 0 ? k : `-${Math.abs(k)}`}: ${label}`;
+      const padX = 6;
+      const padY = 3;
+      const textW = g.measureText(text).width;
+      const bx = 8;
+      const by = Math.max(padY, Math.min(BASE_H - 18, yScreen - 10));
+      g.fillRect(bx - padX, by - padY, textW + padX * 2, 16);
+      g.strokeRect(bx - padX, by - padY, textW + padX * 2, 16);
+      g.fillStyle = "#f2f5ff";
+      g.fillText(text, bx, by + 5);
+      g.fillStyle = "rgba(0,0,0,0.8)";
+    }
+    g.restore();
+  }
+
   function drawSelectionOverlay() {
     if (!editorOpen || !selectedCell) return;
     const { tx, ty } = selectedCell;
@@ -5943,6 +5982,7 @@
 
     drawHudCanvas();
     drawGridOverlay();
+    drawLayerDebugOverlay();
     drawHoverOverlay();
     drawSelectionOverlay();
     drawLabelsOverlay();
