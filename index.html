@@ -1674,6 +1674,11 @@
   const PLAYFIELD_H = PLAYFIELD_TILES * TILE;
   const CAMERA_SEGMENT_PX = PLAYFIELD_H; // snap camera in full-screen chunks
   const MIN_LEVEL_ROWS = PLAYFIELD_TILES * 2 + HUD_TILES; // enough height for two screens + HUD
+  const UNDERGROUND_SEGMENTS = 1;
+  const UNDERGROUND_ROWS = UNDERGROUND_SEGMENTS * PLAYFIELD_TILES;
+  const UNDERGROUND_BG = "#0b0c17";
+  const UNDERGROUND_ACCENT = "#11182e";
+  let undergroundStartPx = Infinity;
   let SCALE = 3; // integer-only scaling for crisp pixels
   let showGrid = true;
   let editorOpen = false;
@@ -2660,13 +2665,17 @@
     const width = baseLevel[0].length;
     const emptyRow = ".".repeat(width);
     const topPad = Array.from({ length: PLAYFIELD_TILES }, () => emptyRow);
-    const padded = [...topPad, ...baseLevel];
+    let padded = [...topPad, ...baseLevel];
+    const bottomRow = baseLevel[baseLevel.length - 1] || emptyRow;
     const minRows = Math.max(MIN_LEVEL_ROWS, padded.length);
-    const neededBottom = minRows - padded.length;
-    if (neededBottom > 0) {
-      const bottomRow = baseLevel[baseLevel.length - 1] || emptyRow;
-      for (let i = 0; i < neededBottom; i++) padded.push(bottomRow);
-    }
+    while (padded.length < minRows) padded.push(bottomRow);
+
+    undergroundStartPx = padded.length * TILE;
+    const undergroundRows = Array.from({ length: UNDERGROUND_ROWS }, (_, i) =>
+      i === UNDERGROUND_ROWS - 1 ? bottomRow : emptyRow
+    );
+    padded = [...padded, ...undergroundRows];
+
     return padded;
   }
 
@@ -5054,18 +5063,26 @@
   }
 
   function render() {
-    // sky
-    g.fillStyle = "#4b79ff";
-    g.fillRect(0,0,BASE_W,BASE_H);
+    const inUnderground = cam.y >= undergroundStartPx;
+    if (inUnderground) {
+      g.fillStyle = UNDERGROUND_BG;
+      g.fillRect(0,0,BASE_W,BASE_H);
+      g.fillStyle = UNDERGROUND_ACCENT;
+      g.fillRect(0,0,BASE_W,16);
+    } else {
+      // sky
+      g.fillStyle = "#4b79ff";
+      g.fillRect(0,0,BASE_W,BASE_H);
 
-    // parallax clouds
-    const cloudX = -((cam.x * 0.2) % 120);
-    g.fillStyle = "rgba(255,255,255,0.65)";
-    for (let i = 0; i < 6; i++) {
-      const x = cloudX + i * 120;
-      g.fillRect(x + 10, 18, 28, 10);
-      g.fillRect(x + 0, 22, 40, 12);
-      g.fillRect(x + 30, 24, 22, 10);
+      // parallax clouds
+      const cloudX = -((cam.x * 0.2) % 120);
+      g.fillStyle = "rgba(255,255,255,0.65)";
+      for (let i = 0; i < 6; i++) {
+        const x = cloudX + i * 120;
+        g.fillRect(x + 10, 18, 28, 10);
+        g.fillRect(x + 0, 22, 40, 12);
+        g.fillRect(x + 30, 24, 22, 10);
+      }
     }
 
     // tiles
