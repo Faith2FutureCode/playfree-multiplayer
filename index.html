@@ -2280,16 +2280,18 @@
   chatInput.type = "text";
   chatInput.maxLength = 200;
   chatInput.placeholder = "Enter chat (/name newname)";
-  chatInput.style.position = "fixed";
-  chatInput.style.left = "12px";
-  chatInput.style.bottom = "12px";
-  chatInput.style.width = "280px";
+  chatInput.style.position = "relative";
+  chatInput.style.left = "0";
+  chatInput.style.bottom = "0";
+  chatInput.style.width = "100%";
   chatInput.style.padding = "8px 10px";
   chatInput.style.border = "2px solid #000";
   chatInput.style.background = "#0f182a";
   chatInput.style.color = "#dfe7ff";
   chatInput.style.font = "12px 'Press Start 2P', 'VT323', monospace";
   chatInput.style.boxShadow = "inset 0 0 0 2px rgba(255,255,255,0.08)";
+  chatInput.style.boxSizing = "border-box";
+  chatInput.style.borderRadius = "8px";
   chatInput.style.zIndex = "500";
   chatInput.style.display = "none";
   document.body.appendChild(chatInput);
@@ -3921,6 +3923,29 @@
   chatLayer.style.pointerEvents = "none";
   chatLayer.style.zIndex = "450";
   chatLayer.style.font = "12px 'Press Start 2P', 'VT323', monospace";
+  const chatPanel = document.createElement("div");
+  chatPanel.style.position = "absolute";
+  chatPanel.style.display = "flex";
+  chatPanel.style.flexDirection = "column";
+  chatPanel.style.justifyContent = "flex-end";
+  chatPanel.style.gap = "6px";
+  chatPanel.style.pointerEvents = "none";
+  chatPanel.style.boxSizing = "border-box";
+  const chatLogContainer = document.createElement("div");
+  chatLogContainer.style.flex = "1 1 auto";
+  chatLogContainer.style.display = "flex";
+  chatLogContainer.style.flexDirection = "column";
+  chatLogContainer.style.justifyContent = "flex-end";
+  chatLogContainer.style.gap = "6px";
+  chatLogContainer.style.overflow = "hidden";
+  const chatInputWrapper = document.createElement("div");
+  chatInputWrapper.style.display = "none";
+  chatInputWrapper.style.pointerEvents = "auto";
+  chatInputWrapper.style.boxSizing = "border-box";
+  chatInputWrapper.appendChild(chatInput);
+  chatPanel.appendChild(chatLogContainer);
+  chatPanel.appendChild(chatInputWrapper);
+  chatLayer.appendChild(chatPanel);
   document.body.appendChild(chatLayer);
   let netSocket = null;
   let clientId = null;
@@ -5897,72 +5922,76 @@
   }
 
   function renderChatPanel(rect, scaleX, scaleY) {
-    if (!(chatLog.length > 0 && chatVisibleTime > -2)) {
-      chatLayer.innerHTML = "";
+    const shouldShowInput = chatInput.style.display !== "none";
+    const shouldShowLog = chatLog.length > 0 && (chatVisibleTime > -2 || shouldShowInput);
+    if (!shouldShowLog && !shouldShowInput) {
+      chatPanel.style.display = "none";
       return;
     }
+
+    chatPanel.style.display = "flex";
     const hudTop = rect.top + (BASE_H - HUD_PX) * scaleY;
     const hudHeight = HUD_PX * scaleY;
-    const panelLeft = rect.left + 12 * scaleX;
-    const panelTop = hudTop + 6 * scaleY;
-    const panelWidth = Math.min(420, rect.width * 0.55);
-    const panelMaxHeight = Math.max(28, hudHeight - 12 * scaleY);
+    chatPanel.style.left = `${rect.left}px`;
+    chatPanel.style.top = `${hudTop}px`;
+    chatPanel.style.width = `${rect.width}px`;
+    chatPanel.style.height = `${hudHeight}px`;
+    chatPanel.style.padding = `${6 * scaleY}px ${12 * scaleX}px`;
+    chatPanel.style.background = "linear-gradient(180deg, rgba(6,10,25,0.72), rgba(6,10,25,0.85))";
+    chatPanel.style.borderTop = "2px solid rgba(255,255,255,0.4)";
+    chatPanel.style.boxShadow = "0 -2px 0 rgba(0,0,0,0.7)";
+    chatPanel.style.filter = "drop-shadow(0 2px 0 #000)";
+    chatPanel.style.lineHeight = "1.35";
 
-    const panel = document.createElement("div");
-    panel.style.position = "absolute";
-    panel.style.left = `${panelLeft}px`;
-    panel.style.top = `${panelTop}px`;
-    panel.style.width = `${panelWidth}px`;
-    panel.style.maxHeight = `${panelMaxHeight}px`;
-    panel.style.display = "flex";
-    panel.style.flexDirection = "column";
-    panel.style.justifyContent = "flex-end";
-    panel.style.gap = "6px";
-    panel.style.overflow = "hidden";
-    panel.style.pointerEvents = "none";
-    panel.style.filter = "drop-shadow(0 1px 0 #000)";
-    panel.style.font = "12px 'Press Start 2P', 'VT323', monospace";
-    panel.style.lineHeight = "1.35";
+    chatLogContainer.innerHTML = "";
+    if (shouldShowLog) {
+      const start = Math.max(0, chatLog.length - 7);
+      for (let i = start; i < chatLog.length; i++) {
+        const entry = chatLog[i];
+        const alpha = entry.pin ? 1 : Math.max(0, Math.min(1, chatVisibleTime / 2));
+        if (alpha <= 0) continue;
+        const lineEl = document.createElement("div");
+        lineEl.style.opacity = alpha.toFixed(3);
+        lineEl.style.background = entry.pin ? "rgba(0,0,0,0.92)" : "rgba(0,0,0,0.84)";
+        lineEl.style.border = entry.pin ? "1px solid rgba(255,255,255,0.65)" : "1px solid rgba(255,255,255,0.42)";
+        lineEl.style.borderRadius = "8px";
+        lineEl.style.padding = "6px 8px";
+        lineEl.style.color = "#f2f5ff";
+        lineEl.style.textShadow = "1px 1px 0 #000";
+        lineEl.style.boxShadow = "0 2px 0 rgba(0,0,0,0.55)";
+        lineEl.style.display = "flex";
+        lineEl.style.alignItems = "center";
+        lineEl.style.gap = "6px";
+        lineEl.style.whiteSpace = "normal";
+        lineEl.style.wordBreak = "break-word";
 
-    for (let i = Math.max(0, chatLog.length - 6); i < chatLog.length; i++) {
-      const entry = chatLog[i];
-      const alpha = entry.pin ? 1 : Math.max(0, Math.min(1, chatVisibleTime / 2));
-      if (alpha <= 0) continue;
-      const lineEl = document.createElement("div");
-      lineEl.style.opacity = alpha.toFixed(3);
-      lineEl.style.background = entry.pin ? "rgba(0,0,0,0.9)" : "rgba(0,0,0,0.82)";
-      lineEl.style.border = entry.pin ? "1px solid rgba(255,255,255,0.6)" : "1px solid rgba(255,255,255,0.4)";
-      lineEl.style.borderRadius = "8px";
-      lineEl.style.padding = "6px 8px";
-      lineEl.style.color = "#f2f5ff";
-      lineEl.style.textShadow = "1px 1px 0 #000";
-      lineEl.style.boxShadow = "0 2px 0 rgba(0,0,0,0.55)";
-      lineEl.style.display = "flex";
-      lineEl.style.alignItems = "center";
-      lineEl.style.gap = "6px";
-      lineEl.style.whiteSpace = "normal";
-      lineEl.style.wordBreak = "break-word";
+        const nameEl = document.createElement("span");
+        nameEl.textContent = `${entry.name}:`;
+        nameEl.style.color = entry.name === "SYSTEM" ? "#f6d341" : "#9ad5ff";
+        nameEl.style.flex = "0 0 auto";
+        const textEl = document.createElement("span");
+        textEl.textContent = entry.text;
+        textEl.style.flex = "1 1 auto";
 
-      const nameEl = document.createElement("span");
-      nameEl.textContent = `${entry.name}:`;
-      nameEl.style.color = entry.name === "SYSTEM" ? "#f6d341" : "#9ad5ff";
-      nameEl.style.flex = "0 0 auto";
-      const textEl = document.createElement("span");
-      textEl.textContent = entry.text;
-      textEl.style.flex = "1 1 auto";
-
-      lineEl.appendChild(nameEl);
-      lineEl.appendChild(textEl);
-      panel.appendChild(lineEl);
+        lineEl.appendChild(nameEl);
+        lineEl.appendChild(textEl);
+        chatLogContainer.appendChild(lineEl);
+      }
     }
 
-    if (panel.childElementCount === 0) {
-      chatLayer.innerHTML = "";
-      return;
-    }
+    chatInputWrapper.style.display = shouldShowInput ? "flex" : "none";
+    chatInputWrapper.style.marginTop = shouldShowLog ? `${6 * scaleY}px` : "0";
+    chatInputWrapper.style.alignItems = "stretch";
+    chatInputWrapper.style.gap = `${6 * scaleX}px`;
+    chatInputWrapper.style.padding = `${2 * scaleY}px`;
+    const chatFontSize = Math.max(10, 12 * scaleY);
+    const chatPadY = Math.max(6, 8 * scaleY);
+    const chatPadX = Math.max(8, 10 * scaleX);
+    chatInput.style.fontSize = `${chatFontSize}px`;
+    chatInput.style.padding = `${chatPadY}px ${chatPadX}px`;
+    chatInput.style.boxShadow = "inset 0 0 0 2px rgba(255,255,255,0.08), 0 1px 0 rgba(0,0,0,0.6)";
 
-    chatLayer.innerHTML = "";
-    chatLayer.appendChild(panel);
+    chatPanel.style.pointerEvents = shouldShowInput ? "auto" : "none";
   }
 
   function drawHudCanvas() {
