@@ -2087,10 +2087,13 @@
   const FROG_LAND_ACCEL_SCALE = 0.7;
   const FROG_LAND_DECEL_SCALE = 0.65;
   const HAMMER_COOLDOWN = 0.3;
-  const HAMMER_SPEED = 190;
   const HAMMER_GRAVITY = 1200;
   const HAMMER_LIFETIME = 0.9;
-  const HAMMER_LAUNCH_ANGLE = (20 * Math.PI) / 180;
+  const HAMMER_CHARGE_TIME = 0.8; // seconds to reach max distance
+  const HAMMER_MIN_SPEED = 200;
+  const HAMMER_MAX_SPEED = 470; // tuned for ~7 tiles of range at max charge
+  const HAMMER_MIN_ANGLE = (20 * Math.PI) / 180;
+  const HAMMER_MAX_ANGLE = (70 * Math.PI) / 180; // ~5 tiles of arc height at max charge
   const HAMMER_MAGNUS = 0.24;
   const JETPACK_THRUST = 260;
   const JETPACK_GRAVITY_SCALE = 0.4;
@@ -4407,11 +4410,14 @@
     return entities.filter((e) => e.alive && e.type === "hammer").length;
   }
 
-  function spawnHammer() {
+  function spawnHammer(charge = 0) {
     if (countHammers() >= 2) return;
     const dir = player.facing >= 0 ? 1 : -1;
-    const vx = Math.cos(HAMMER_LAUNCH_ANGLE) * HAMMER_SPEED * dir;
-    const vy = -Math.sin(HAMMER_LAUNCH_ANGLE) * HAMMER_SPEED;
+    const t = clamp(charge, 0, 1);
+    const launchAngle = mix(HAMMER_MIN_ANGLE, HAMMER_MAX_ANGLE, t);
+    const launchSpeed = mix(HAMMER_MIN_SPEED, HAMMER_MAX_SPEED, t);
+    const vx = Math.cos(launchAngle) * launchSpeed * dir;
+    const vy = -Math.sin(launchAngle) * launchSpeed;
     const startX = player.x + (dir > 0 ? player.w : -6);
     const startY = player.y + 4;
     entities.push({
@@ -4559,6 +4565,8 @@
     statueActive: false,
     statueTimer: 0,
     statueCooldown: 0,
+    hammerCharge: 0,
+    hammerCharging: false,
   };
   let powerFormStats = new Map(); // form -> { maxDistance, enterDistance }
   let currentFormEntryDist = 0;
@@ -5008,7 +5016,9 @@
     const left = down("ArrowLeft");
     const right = down("ArrowRight");
     const run = down("KeyX");
-    const tailSwing = tap("KeyC");
+    const hammerTap = tap("KeyC");
+    const hammerHeld = down("KeyC");
+    const tailSwing = hammerTap;
     const statueToggle = tap("KeyV");
     const onLadder = isBodyOnLadder(player);
     const surfaceMod = player.onGround ? getSurfaceModifier(player) : { accel: 1, friction: 1, brake: 1 };
@@ -5188,12 +5198,35 @@
     if (down("KeyZ") && grounded) player.jumpBuf = JUMP_BUFFER;
 
     // Fireball/Hammer throw
-    if (!player.statueActive && tap("KeyC")) {
-      if (player.form === PowerUpForm.Hammer && player.hammerCooldown <= 0) {
-        spawnHammer();
-      } else if (canShootFire() && player.fireCooldown <= 0) {
+    if (!player.statueActive) {
+      if (player.form !== PowerUpForm.Hammer && player.hammerCharging) {
+        player.hammerCharging = false;
+        player.hammerCharge = 0;
+      }
+      if (player.form === PowerUpForm.Hammer) {
+        const canThrowHammer = player.hammerCooldown <= 0;
+        if (canThrowHammer && hammerHeld) {
+          if (!player.hammerCharging) {
+            player.hammerCharging = true;
+            player.hammerCharge = 0;
+          }
+          player.hammerCharge = Math.min(1, player.hammerCharge + (dt / HAMMER_CHARGE_TIME));
+        }
+        if (player.hammerCharging && !hammerHeld && canThrowHammer) {
+          spawnHammer(player.hammerCharge);
+          player.hammerCharging = false;
+          player.hammerCharge = 0;
+        }
+        if (!canThrowHammer && !hammerHeld) {
+          player.hammerCharging = false;
+          player.hammerCharge = 0;
+        }
+      } else if (hammerTap && canShootFire() && player.fireCooldown <= 0) {
         spawnFireball();
       }
+    } else {
+      player.hammerCharging = false;
+      player.hammerCharge = 0;
     }
 
     // Tail attack (Raccoon/Tanooki)
