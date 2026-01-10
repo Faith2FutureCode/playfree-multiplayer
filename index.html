@@ -1679,6 +1679,12 @@
   const UNDERGROUND_BG = "#0b0c17";
   const UNDERGROUND_ACCENT = "#11182e";
   let undergroundStartPx = Infinity;
+  let undergroundStartTy = Infinity;
+  const DUNGEON_CHUNK_W = 48;
+  const DUNGEON_CHUNK_H = 32;
+  const DUNGEON_MIN_ROOM = 8;
+  const DUNGEON_MAX_DEPTH = 4;
+  const dungeonChunks = new Map(); // key: "cx,cy" -> true
   let SCALE = 3; // integer-only scaling for crisp pixels
   let showGrid = true;
   let editorOpen = false;
@@ -2671,6 +2677,7 @@
     while (padded.length < minRows) padded.push(bottomRow);
 
     undergroundStartPx = padded.length * TILE;
+    undergroundStartTy = padded.length;
     const undergroundRows = Array.from({ length: UNDERGROUND_ROWS }, (_, i) =>
       i === UNDERGROUND_ROWS - 1 ? bottomRow : emptyRow
     );
@@ -2989,6 +2996,123 @@
         if (!e.alive) continue;
         if (e.type === "player") continue;
         if (e.x + e.w < despawnX) e.alive = false;
+      }
+    }
+
+    // Spawn dungeon chunks when underground
+    maybeGenerateDungeon();
+  }
+
+  // -----------------------------
+  // Dungeon generation (underground, endless)
+  // -----------------------------
+  function dungeonChunkKey(cx, cy) { return `${cx},${cy}`; }
+  function dungeonRng(cx, cy) { return createRng(`${worldSeed}:d:${cx},${cy}`); }
+
+  function setDungeonTile(updates, tx, ty, t) {
+    updates.push({ tx, ty, t });
+  }
+
+  function carveRoom(updates, originX, originY, room) {
+    const rx = originX + room.x;
+    const ry = originY + room.y;
+    const floorY = ry + room.h - 1;
+    for (let y = ry; y < ry + room.h; y++) {
+      for (let x = rx; x < rx + room.w; x++) {
+        setDungeonTile(updates, x, y, y === floorY ? "#" : ".");
+      }
+    }
+  }
+
+  function carveCorridor(updates, x0, y0, x1, y1) {
+    const floorY = Math.round(y0);
+    const minX = Math.min(x0, x1);
+    const maxX = Math.max(x0, x1);
+    for (let x = minX; x <= maxX; x++) {
+      setDungeonTile(updates, x, floorY, "#");
+      setDungeonTile(updates, x, floorY - 1, ".");
+      setDungeonTile(updates, x, floorY - 2, ".");
+    }
+    const minY = Math.min(y0, y1);
+    const maxY = Math.max(y0, y1);
+    for (let y = minY; y <= maxY; y++) {
+      setDungeonTile(updates, x1, y, "#");
+      setDungeonTile(updates, x1, y - 1, ".");
+      setDungeonTile(updates, x1, y - 2, ".");
+    }
+  }
+
+  function splitSpace(rect, depth, rng, leaves) {
+    const canSplitH = rect.w >= DUNGEON_MIN_ROOM * 2 + 4;
+    const canSplitV = rect.h >= DUNGEON_MIN_ROOM * 2 + 4;
+    if (depth >= DUNGEON_MAX_DEPTH || (!canSplitH && !canSplitV)) {
+      leaves.push(rect);
+      return;
+    }
+    const splitHoriz = canSplitH && (canSplitV ? rng.bool(0.5) : true);
+    if (splitHoriz) {
+      const split = rng.int(DUNGEON_MIN_ROOM + 2, rect.w - DUNGEON_MIN_ROOM - 2);
+      splitSpace({ x: rect.x, y: rect.y, w: split, h: rect.h }, depth + 1, rng, leaves);
+      splitSpace({ x: rect.x + split, y: rect.y, w: rect.w - split, h: rect.h }, depth + 1, rng, leaves);
+    } else {
+      const split = rng.int(DUNGEON_MIN_ROOM + 2, rect.h - DUNGEON_MIN_ROOM - 2);
+      splitSpace({ x: rect.x, y: rect.y, w: rect.w, h: split }, depth + 1, rng, leaves);
+      splitSpace({ x: rect.x, y: rect.y + split, w: rect.w, h: rect.h - split }, depth + 1, rng, leaves);
+    }
+  }
+
+  function createDungeonRooms(rng) {
+    const leaves = [];
+    splitSpace({ x: 1, y: 1, w: DUNGEON_CHUNK_W - 2, h: DUNGEON_CHUNK_H - 2 }, 0, rng, leaves);
+    const rooms = [];
+    for (const leaf of leaves) {
+      const roomW = rng.int(DUNGEON_MIN_ROOM, Math.max(DUNGEON_MIN_ROOM, leaf.w - 1));
+      const roomH = rng.int(DUNGEON_MIN_ROOM, Math.max(DUNGEON_MIN_ROOM, leaf.h - 1));
+      const rx = leaf.x + rng.int(0, Math.max(1, leaf.w - roomW));
+      const ry = leaf.y + rng.int(0, Math.max(1, leaf.h - roomH));
+      rooms.push({ x: rx, y: ry, w: roomW, h: roomH });
+    }
+    return rooms;
+  }
+
+  function generateDungeonChunk(cx, cy) {
+    const key = dungeonChunkKey(cx, cy);
+    if (dungeonChunks.has(key)) return;
+    const rng = dungeonRng(cx, cy);
+    const originX = cx * DUNGEON_CHUNK_W;
+    const originY = undergroundStartTy + cy * DUNGEON_CHUNK_H;
+    const updates = [];
+    const rooms = createDungeonRooms(rng);
+    for (const room of rooms) carveRoom(updates, originX, originY, room);
+    for (let i = 1; i < rooms.length; i++) {
+      const a = rooms[i - 1];
+      const b = rooms[i];
+      const ax = originX + Math.floor(a.x + a.w / 2);
+      const ay = originY + Math.floor(a.y + a.h / 2);
+      const bx = originX + Math.floor(b.x + b.w / 2);
+      const by = originY + Math.floor(b.y + b.h / 2);
+      carveCorridor(updates, ax, ay, bx, ay);
+      carveCorridor(updates, bx, ay, bx, by);
+    }
+    for (const { tx, ty, t } of updates) {
+      ensureBounds(tx, ty);
+      setTileRaw(tx, ty, t);
+    }
+    dungeonChunks.set(key, true);
+  }
+
+  function maybeGenerateDungeon() {
+    if (!ENDLESS_ENABLED) return;
+    if (!Number.isFinite(undergroundStartTy)) return;
+    const playerTy = Math.floor(player.y / TILE);
+    if (playerTy < undergroundStartTy) return;
+    const playerCx = Math.floor((player.x / TILE) / DUNGEON_CHUNK_W);
+    const playerCy = Math.floor((playerTy - undergroundStartTy) / DUNGEON_CHUNK_H);
+    const radius = 1;
+    for (let cy = playerCy - radius; cy <= playerCy + radius; cy++) {
+      for (let cx = playerCx - radius; cx <= playerCx + radius; cx++) {
+        if (cy < 0) continue;
+        generateDungeonChunk(cx, cy);
       }
     }
   }
