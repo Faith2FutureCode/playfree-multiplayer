@@ -2115,6 +2115,7 @@
   const HAMMER_MIN_ANGLE = (20 * Math.PI) / 180;
   const HAMMER_MAX_ANGLE = (70 * Math.PI) / 180; // ~5 tiles of arc height at max charge
   const HAMMER_MAGNUS = 0.24;
+  const DIG_COOLDOWN = 0.1;
   const JETPACK_THRUST = 260;
   const JETPACK_GRAVITY_SCALE = 0.4;
   const JETPACK_MAX_FALL = 520;
@@ -2940,6 +2941,24 @@
   const WORLD_AHEAD_TILES = 24;
   const WORLD_BUFFER_TILES = VIEW_TILES + WORLD_AHEAD_TILES;
   let defaultGroundY = Math.max(4, mapH - 2);
+
+  // Layering (one game canvas tall per layer)
+  const LAYER_HEIGHT_PX = BASE_H;
+  const LAYER_PROFILES = [
+    { key: "PLANET_SURFACE", label: "Planet Surface" },
+    { key: "ATMOSPHERE", label: "Atmosphere" },
+    { key: "GRAVITY_BOUNDARY", label: "Gravity Boundary" },
+    { key: "SPACE", label: "Space" },
+    { key: "FOREIGN_GRAVITY", label: "Foreign Gravity" },
+    { key: "NEW_PLANET_SURFACE", label: "New Planet Surface" },
+  ];
+  function currentLayerIndexForY(worldY) {
+    return Math.max(0, Math.floor(worldY / LAYER_HEIGHT_PX));
+  }
+  function layerLabelForIndex(idx) {
+    const info = LAYER_PROFILES[idx];
+    return info ? info.label : `Layer ${idx}`;
+  }
 
   function hashSeed(str) {
     let h = 2166136261 >>> 0;
@@ -5973,6 +5992,26 @@
       el.style.pointerEvents = "none";
       tagLayer.appendChild(el);
     };
+    const addAreaBadge = (text) => {
+      const el = document.createElement("div");
+      el.textContent = text;
+      el.style.position = "absolute";
+      el.style.left = `${rect.left + 10 * scaleX}px`;
+      el.style.top = `${rect.top + 10 * scaleY}px`;
+      el.style.transform = "translate(0, 0)";
+      el.style.font = "14px 'Press Start 2P', 'VT323', monospace";
+      el.style.color = "#f2f5ff";
+      el.style.background = "rgba(0,0,0,0.82)";
+      el.style.border = "1px solid rgba(255,255,255,0.4)";
+      el.style.borderRadius = "8px";
+      el.style.padding = `${6 * scaleY}px ${10 * scaleX}px`;
+      el.style.textShadow = "1px 1px 0 #000";
+      el.style.boxShadow = "0 2px 0 rgba(0,0,0,0.45)";
+      el.style.pointerEvents = "none";
+      tagLayer.appendChild(el);
+    };
+    // Area badge (top-left)
+    addAreaBadge(layerLabelForIndex(currentLayerIndexForY(player.y + player.h / 2)));
     // self
     addTag(`${PLAYER_NAME}`, player.x + player.w / 2, player.y - 4, "#f6d341");
     if (selfChatBubble) addBubble(selfChatBubble.text, player.x + player.w / 2, player.y - 14, "#f6d341");
@@ -6053,9 +6092,11 @@
     chatInputWrapper.style.gap = `${6 * scaleX}px`;
     chatInputWrapper.style.padding = `${2 * scaleY}px`;
     const chatFontSize = Math.max(10, 12 * scaleY);
-    const chatPadY = Math.max(6, 8 * scaleY);
+    const bubblePadY = Math.max(6, 6 * scaleY);
+    const chatPadY = bubblePadY;
     const chatPadX = Math.max(8, 10 * scaleX);
     chatInput.style.fontSize = `${chatFontSize}px`;
+    chatInput.style.lineHeight = "1.35";
     chatInput.style.padding = `${chatPadY}px ${chatPadX}px`;
     chatInput.style.boxShadow = "inset 0 0 0 2px rgba(255,255,255,0.08), 0 1px 0 rgba(0,0,0,0.6)";
     const estimatedInputRow = shouldShowInput ? chatFontSize + chatPadY * 2 + 8 * scaleY : 0;
