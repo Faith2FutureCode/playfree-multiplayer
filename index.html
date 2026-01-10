@@ -1784,6 +1784,13 @@
   const PLAYFIELD_H = PLAYFIELD_TILES * TILE;
   const CAMERA_SEGMENT_PX = PLAYFIELD_H; // snap camera in full-screen chunks
   const MIN_LEVEL_ROWS = PLAYFIELD_TILES * 2 + HUD_TILES; // enough height for two screens + HUD
+  const SCREEN_TILE_WIDTH = Math.round(BASE_W / TILE); // tiles visible per screen
+  const LONGITUDE_PER_SCREEN = 3; // degrees represented by one screen width
+  const LONGITUDE_SCREENS = 120; // full loop count
+  const LONGITUDE_MAX = LONGITUDE_PER_SCREEN * LONGITUDE_SCREENS; // 360 degrees
+  const LONGITUDE_PER_TILE = LONGITUDE_PER_SCREEN / SCREEN_TILE_WIDTH;
+  const LONGITUDE_WRAP_TILES = SCREEN_TILE_WIDTH * LONGITUDE_SCREENS;
+  const LONGITUDE_WRAP_PX = LONGITUDE_WRAP_TILES * TILE;
   const UNDERGROUND_SEGMENTS = 1;
   const UNDERGROUND_ROWS = UNDERGROUND_SEGMENTS * PLAYFIELD_TILES;
   const UNDERGROUND_BG = "#0b0c17";
@@ -2936,6 +2943,32 @@
   const tiles = LEVEL.map(row => row.split(""));
   const labelMap = new Map(); // key: "tx,ty" -> string
 
+  function wrapLongitudeDeg(deg) {
+    const wrapped = deg % LONGITUDE_MAX;
+    return wrapped < 0 ? wrapped + LONGITUDE_MAX : wrapped;
+  }
+  function shortestLongitudeDelta(fromDeg, toDeg) {
+    let delta = toDeg - fromDeg;
+    if (delta > LONGITUDE_MAX / 2) delta -= LONGITUDE_MAX;
+    if (delta < -LONGITUDE_MAX / 2) delta += LONGITUDE_MAX;
+    return delta;
+  }
+  function longitudeFromTx(tx) {
+    return wrapLongitudeDeg(tx * LONGITUDE_PER_TILE);
+  }
+  function longitudeFromPx(px) {
+    return wrapLongitudeDeg((px / TILE) * LONGITUDE_PER_TILE);
+  }
+
+  const longitudeState = {
+    deg: 0,
+    unwrappedDeg: 0,
+    biome: null,
+    event: null,
+    tileProgress: 0,
+    screenProgress: 0,
+  };
+
   // -----------------------------
   // Endless world data
   // -----------------------------
@@ -3353,8 +3386,8 @@
   const worldSeed = "playfree-global-seed";
   const worldRng = createRng(worldSeed);
 
-  function makeColumn(tx, ground = defaultGroundY, tilesForCol = [], entities = []) {
-    return { tx, ground, tiles: tilesForCol, entities };
+  function makeColumn(tx, ground = defaultGroundY, tilesForCol = [], entities = [], meta = {}) {
+    return { tx, ground, tiles: tilesForCol, entities, ...meta };
   }
 
   const worldBuffer = {
@@ -3403,6 +3436,46 @@
   const PATTERN_BASE_WEIGHTS = { flat: 1, gap: 1, enemy: 1.1 };
   let showEndlessDebug = ENDLESS_DEBUG;
 
+  const LONGITUDE_BIOMES = Object.freeze([
+    { id: "prime-meridian", start: 350, end: 30, patternWeights: { flat: 1.1, gap: 0.85 }, eventTag: "aurora-bloom" },
+    { id: "sunlit-belt", start: 30, end: 120, patternWeights: { enemy: 1.05 } },
+    { id: "dune-sea", start: 120, end: 210, patternWeights: { gap: 1.15, enemy: 0.95 } },
+    { id: "highlands", start: 210, end: 300, patternWeights: { enemy: 1.1 } },
+    { id: "twilight-ridge", start: 300, end: 350, patternWeights: { flat: 0.95, gap: 0.95 } },
+  ]);
+
+  function inLongitudeRange(deg, start, end) {
+    if (start <= end) return deg >= start && deg < end;
+    return deg >= start || deg < end; // wrap-around ranges (e.g., 350-30)
+  }
+
+  function biomeForLongitude(deg) {
+    return LONGITUDE_BIOMES.find((band) => inLongitudeRange(deg, band.start, band.end)) || LONGITUDE_BIOMES[0];
+  }
+
+  function patternWeightsForBiome(biome) {
+    const weights = biome?.patternWeights || {};
+    return {
+      flat: PATTERN_BASE_WEIGHTS.flat * (weights.flat ?? 1),
+      gap: PATTERN_BASE_WEIGHTS.gap * (weights.gap ?? 1),
+      enemy: PATTERN_BASE_WEIGHTS.enemy * (weights.enemy ?? 1),
+    };
+  }
+
+  function updateLongitudeState(px) {
+    const nextDeg = longitudeFromPx(px);
+    const delta = shortestLongitudeDelta(longitudeState.deg, nextDeg);
+    longitudeState.unwrappedDeg += delta;
+    longitudeState.deg = nextDeg;
+    const tilesAroundLoop = ((px / TILE) % LONGITUDE_WRAP_TILES + LONGITUDE_WRAP_TILES) % LONGITUDE_WRAP_TILES;
+    longitudeState.tileProgress = tilesAroundLoop;
+    longitudeState.screenProgress = tilesAroundLoop / SCREEN_TILE_WIDTH;
+    const biome = biomeForLongitude(nextDeg);
+    longitudeState.biome = biome?.id || null;
+    longitudeState.event = biome?.eventTag || null;
+    return longitudeState;
+  }
+
   function createDifficultyState() {
     return {
       distance: 0,
@@ -3450,12 +3523,12 @@
     );
   }
 
-  function pickPattern(state, choices, rng = worldRng) {
+  function pickPattern(state, choices, rng = worldRng, baseWeights = PATTERN_BASE_WEIGHTS) {
     if (!choices || choices.length === 0) return "flat";
     const usage = state.patternUse || {};
     let total = 0;
     const weights = choices.map((name) => {
-      const base = PATTERN_BASE_WEIGHTS[name] || 1;
+      const base = (baseWeights && baseWeights[name]) || 1;
       const count = usage[name] || 0;
       const w = base / Math.max(1, count + 0.5); // bias toward underused
       total += w;
@@ -3488,6 +3561,11 @@
   }
 
   function genColumn(state, tx, rng = worldRng) {
+    const longitude = longitudeFromTx(tx);
+    const biome = biomeForLongitude(longitude);
+    const biomePatternWeights = patternWeightsForBiome(biome);
+    const columnMeta = { longitude, biome: biome?.id || null, event: biome?.eventTag || null };
+
     for (let attempt = 0; attempt < 6; attempt++) {
       const nextState = { ...state };
       const tilesForCol = [];
@@ -3503,7 +3581,7 @@
         nextState.gapCooldown = Math.max(nextState.gapCooldown - 1, 0);
         addGapRescueTiles(nextState, tx, tilesForCol);
         regenBudget(nextState);
-        const col = makeColumn(tx, groundY, tilesForCol, entitiesForCol);
+        const col = makeColumn(tx, groundY, tilesForCol, entitiesForCol, columnMeta);
         col.variant = "gap";
         return [col, nextState];
       }
@@ -3519,7 +3597,7 @@
       const hazardFree = nextState.safeLanding === 0 && nextState.hazardCooldown === 0 && !mustRest;
       if (hazardFree && nextState.gapCooldown === 0) patternChoices.push("gap");
       if (hazardFree && nextState.enemyCooldown === 0 && nextState.hazardBudget >= ENEMY_COST) patternChoices.push("enemy");
-      const pattern = mustRest ? "flat" : pickPattern(nextState, patternChoices, rng);
+      const pattern = mustRest ? "flat" : pickPattern(nextState, patternChoices, rng, biomePatternWeights);
       nextState.patternUse = { ...nextState.patternUse, [pattern]: (nextState.patternUse?.[pattern] || 0) + 1 };
 
       if (pattern === "gap") {
@@ -3530,7 +3608,7 @@
         nextState.gapRescue = gapRescuePlan(tx, gapWidth, groundY, rng);
         addGapRescueTiles(nextState, tx, tilesForCol);
         regenBudget(nextState);
-        const col = makeColumn(tx, groundY, tilesForCol, entitiesForCol);
+        const col = makeColumn(tx, groundY, tilesForCol, entitiesForCol, columnMeta);
         col.variant = "gap";
         return [col, nextState];
       }
@@ -3567,7 +3645,7 @@
       regenBudget(nextState);
 
       // Column is valid; return
-      return [makeColumn(tx, groundY, tilesForCol, entitiesForCol), nextState];
+      return [makeColumn(tx, groundY, tilesForCol, entitiesForCol, columnMeta), nextState];
     }
 
     // Fallback: return flat column if all attempts failed
@@ -3582,7 +3660,7 @@
       patternUse: { ...(state.patternUse || {}) },
     };
     regenBudget(safeState);
-    return [makeColumn(tx, fallbackGround, flatTiles, []), safeState];
+    return [makeColumn(tx, fallbackGround, flatTiles, [], columnMeta), safeState];
   }
 
   function applyColumnToWorld(col) {
@@ -5007,6 +5085,7 @@
     hammerCharge: 0,
     hammerCharging: false,
   };
+  updateLongitudeState((player.x + player.w / 2));
   let powerFormStats = new Map(); // form -> { maxDistance, enterDistance }
   let currentFormEntryDist = 0;
   let lastForm = player.form;
@@ -5278,6 +5357,7 @@
     player.statueTimer = 0;
     player.statueCooldown = 0;
     player.onLadder = false;
+    updateLongitudeState(player.x + player.w / 2);
     pMeterDisplaySegs = 0;
     pMeterDecayHold = 0;
     setPlayerForm(PowerUpForm.Small, { skipSave: true });
@@ -5879,6 +5959,7 @@
       killPlayer();
     }
 
+    updateLongitudeState(player.x + player.w / 2);
     updateCamera();
   }
 
@@ -6154,6 +6235,7 @@
     if (!cols.length) return;
     const overlayW = 220;
     const overlayH = 60;
+    const overlayFooter = 42;
     const ox = 8;
     const oy = 8;
     const minTx = cols[0].tx;
@@ -6164,9 +6246,9 @@
     g.save();
     g.globalAlpha = 0.92;
     g.fillStyle = "rgba(0,0,0,0.55)";
-    g.fillRect(ox - 2, oy - 2, overlayW + 4, overlayH + 22);
+    g.fillRect(ox - 2, oy - 2, overlayW + 4, overlayH + overlayFooter);
     g.strokeStyle = "rgba(255,255,255,0.35)";
-    g.strokeRect(ox - 2, oy - 2, overlayW + 4, overlayH + 22);
+    g.strokeRect(ox - 2, oy - 2, overlayW + 4, overlayH + overlayFooter);
 
     for (const col of cols) {
       const cx = ox + (col.tx - minTx) * scaleX;
@@ -6193,6 +6275,9 @@
     g.textBaseline = "top";
     g.fillText(`seed:${worldRng.seed}`, ox, oy + overlayH + 4);
     g.fillText(`d:${Math.floor(difficultyState.distance)}`, ox, oy + overlayH + 14);
+    const laps = longitudeState.unwrappedDeg / LONGITUDE_MAX;
+    g.fillText(`lon:${longitudeState.deg.toFixed(1)}° lap:${laps.toFixed(2)}`, ox, oy + overlayH + 24);
+    g.fillText(`biome:${longitudeState.biome || "n/a"}`, ox, oy + overlayH + 34);
     g.restore();
   }
 
