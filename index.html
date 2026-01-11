@@ -2037,6 +2037,20 @@
   off.width = BASE_W;
   off.height = BASE_H;
   const g = off.getContext("2d", { alpha: false });
+  const bgCanvas = document.createElement("canvas");
+  const bgCtx = bgCanvas.getContext("2d");
+  bgCanvas.style.position = "absolute";
+  bgCanvas.style.inset = "0";
+  bgCanvas.style.width = "100%";
+  bgCanvas.style.height = "100%";
+  bgCanvas.style.pointerEvents = "none";
+  bgCanvas.style.zIndex = "0";
+  if (gameShell) {
+    gameShell.style.position = "relative";
+    gameShell.insertBefore(bgCanvas, canvas);
+    canvas.style.position = "relative";
+    canvas.style.zIndex = "1";
+  }
 
   let lastFrameW = null;
   let lastFrameH = null;
@@ -3171,7 +3185,7 @@
     const entry = loadLayerImage(label, biomeId);
     if (!entry || entry.error || !entry.loaded) return;
     const prev = ctx.imageSmoothingEnabled;
-    ctx.imageSmoothingEnabled = false;
+    ctx.imageSmoothingEnabled = true;
     ctx.drawImage(entry.img, 0, 0, BASE_W, BASE_H);
     ctx.imageSmoothingEnabled = prev;
   }
@@ -6475,11 +6489,35 @@
     g.restore();
   }
 
+  function renderBackgroundLayer(label, biomeId, rect) {
+    if (!bgCtx || !rect?.width || !rect?.height) return;
+    const dpr = window.devicePixelRatio || 1;
+    const targetW = Math.max(1, Math.round(rect.width * dpr));
+    const targetH = Math.max(1, Math.round(rect.height * dpr));
+    if (bgCanvas.width !== targetW || bgCanvas.height !== targetH) {
+      bgCanvas.width = targetW;
+      bgCanvas.height = targetH;
+      bgCanvas.style.width = `${rect.width}px`;
+      bgCanvas.style.height = `${rect.height}px`;
+    } else {
+      bgCtx.clearRect(0, 0, targetW, targetH);
+    }
+    const scaleX = targetW / BASE_W;
+    const scaleY = targetH / BASE_H;
+    bgCtx.save();
+    bgCtx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
+    bgCtx.imageSmoothingEnabled = true;
+    drawLayerBackground(bgCtx, label);
+    drawLayerMotifs(bgCtx, label, cam.x, cam.y);
+    drawLayerImage(bgCtx, label, biomeId);
+    bgCtx.restore();
+  }
+
   function render() {
     const viewLayer = layerInfoForY(cam.y + BASE_H / 2);
-    drawLayerBackground(g, viewLayer.label);
-    drawLayerMotifs(g, viewLayer.label, cam.x, cam.y);
-    drawLayerImage(g, viewLayer.label, longitudeState.biomeId);
+    const renderRect = canvas.getBoundingClientRect();
+    renderBackgroundLayer(viewLayer.label, longitudeState.biomeId, renderRect);
+    g.clearRect(0, 0, BASE_W, BASE_H);
 
     // tiles
     const tx0 = Math.floor(cam.x / TILE);
@@ -6644,7 +6682,7 @@
     ctx.drawImage(off, 0, 0, canvas.width, canvas.height);
 
     // Update DOM overlays aligned to the canvas
-    const rect = canvas.getBoundingClientRect();
+    const rect = renderRect;
     if (hudEl && gameShell) {
       const shellRect = gameShell.getBoundingClientRect();
       const hudWidth = Math.min(rect.width, shellRect.width);
