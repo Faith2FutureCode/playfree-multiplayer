@@ -3187,17 +3187,10 @@
     if (!entry || entry.error || !entry.loaded) return;
     const prev = ctx.imageSmoothingEnabled;
     ctx.imageSmoothingEnabled = true;
-    const dw = ctx.canvas?.width || BASE_W;
-    const dh = ctx.canvas?.height || BASE_H;
-    const srcW = entry.img.naturalWidth || dw;
-    const srcH = entry.img.naturalHeight || dh;
-    // Fit whole image (contain) and center so the full layer art is visible
-    const scale = Math.min(dw / Math.max(1, srcW), dh / Math.max(1, srcH));
-    const targetW = srcW * scale;
-    const targetH = srcH * scale;
-    const dx = (dw - targetW) / 2;
-    const dy = (dh - targetH) / 2;
-    ctx.drawImage(entry.img, 0, 0, srcW, srcH, dx, dy, targetW, targetH);
+    const srcW = entry.img.naturalWidth || ctx.canvas?.width || BASE_W;
+    const srcH = entry.img.naturalHeight || ctx.canvas?.height || BASE_H;
+    // Draw at original resolution; let the canvas/css handle sizing
+    ctx.drawImage(entry.img, 0, 0, srcW, srcH);
     ctx.imageSmoothingEnabled = prev;
   }
 
@@ -6502,21 +6495,20 @@
 
   function renderBackgroundLayer(label, biomeId, rect) {
     if (!bgCtx || !rect?.width || !rect?.height) return;
-    const dpr = window.devicePixelRatio || 1;
-    const targetW = Math.max(1, Math.round(rect.width * dpr));
-    const targetH = Math.max(1, Math.round(rect.height * dpr));
-    if (bgCanvas.width !== targetW || bgCanvas.height !== targetH) {
-      bgCanvas.width = targetW;
-      bgCanvas.height = targetH;
-      bgCanvas.style.width = `${rect.width}px`;
-      bgCanvas.style.height = `${rect.height}px`;
+    const entry = loadLayerImage(label, biomeId);
+    if (!entry || entry.error || !entry.loaded) return;
+    const srcW = entry.img.naturalWidth || Math.max(1, Math.round(rect.width));
+    const srcH = entry.img.naturalHeight || Math.max(1, Math.round(rect.height));
+    if (bgCanvas.width !== srcW || bgCanvas.height !== srcH) {
+      bgCanvas.width = srcW;
+      bgCanvas.height = srcH;
     } else {
-      bgCtx.clearRect(0, 0, targetW, targetH);
+      bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
     }
-    const scaleX = targetW / BASE_W;
-    const scaleY = targetH / BASE_H;
+    bgCanvas.style.width = `${rect.width}px`;
+    bgCanvas.style.height = `${rect.height}px`;
     bgCtx.save();
-    bgCtx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
+    bgCtx.setTransform(1, 0, 0, 1, 0, 0);
     bgCtx.imageSmoothingEnabled = true;
     drawLayerBackground(bgCtx, label);
     drawLayerMotifs(bgCtx, label, cam.x, cam.y);
