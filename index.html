@@ -3189,7 +3189,14 @@
     ctx.imageSmoothingEnabled = true;
     const dw = ctx.canvas?.width || BASE_W;
     const dh = ctx.canvas?.height || BASE_H;
-    ctx.drawImage(entry.img, 0, 0, dw, dh);
+    const srcW = entry.img.naturalWidth || dw;
+    const srcH = entry.img.naturalHeight || dh;
+    const scale = Math.max(dw / Math.max(1, srcW), dh / Math.max(1, srcH));
+    const targetW = srcW * scale;
+    const targetH = srcH * scale;
+    const dx = (dw - targetW) / 2;
+    const dy = (dh - targetH) / 2;
+    ctx.drawImage(entry.img, 0, 0, srcW, srcH, dx, dy, targetW, targetH);
     ctx.imageSmoothingEnabled = prev;
   }
 
