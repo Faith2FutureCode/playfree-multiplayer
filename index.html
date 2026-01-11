@@ -3052,6 +3052,7 @@
     deg: 0,
     unwrappedDeg: 0,
     biome: null,
+    biomeId: null,
     event: null,
     tileProgress: 0,
     screenProgress: 0,
@@ -3539,11 +3540,12 @@
   let showEndlessDebug = ENDLESS_DEBUG;
 
   const LONGITUDE_BIOMES = Object.freeze([
-    { id: "prime-meridian", start: 350, end: 30, patternWeights: { flat: 1.1, gap: 0.85 }, eventTag: "aurora-bloom" },
-    { id: "sunlit-belt", start: 30, end: 120, patternWeights: { enemy: 1.05 } },
-    { id: "dune-sea", start: 120, end: 210, patternWeights: { gap: 1.15, enemy: 0.95 } },
-    { id: "highlands", start: 210, end: 300, patternWeights: { enemy: 1.1 } },
-    { id: "twilight-ridge", start: 300, end: 350, patternWeights: { flat: 0.95, gap: 0.95 } },
+    { id: "tropical-lush", label: "Tropical / Lush", start: 0, end: 60, patternWeights: { enemy: 1.1, gap: 0.95 }, eventTag: "rainforest" },
+    { id: "arid-dry", label: "Arid / Dry", start: 60, end: 120, patternWeights: { gap: 1.1, enemy: 0.95 }, eventTag: "sandstorm" },
+    { id: "temperate", label: "Temperate", start: 120, end: 180, patternWeights: { flat: 1.05 }, eventTag: "overworld" },
+    { id: "cold-alpine", label: "Cold / Alpine", start: 180, end: 240, patternWeights: { gap: 1.05, enemy: 1.05 }, eventTag: "alpine" },
+    { id: "polar-harsh", label: "Polar-Like / Harsh", start: 240, end: 300, patternWeights: { gap: 1.1, flat: 0.95 }, eventTag: "blizzard" },
+    { id: "coastal-mix", label: "Transitional / Coastal", start: 300, end: 360, patternWeights: { flat: 1.1, enemy: 0.9, gap: 0.9 }, eventTag: "coastal" },
   ]);
 
   function inLongitudeRange(deg, start, end) {
@@ -3573,7 +3575,8 @@
     longitudeState.tileProgress = tilesAroundLoop;
     longitudeState.screenProgress = tilesAroundLoop / SCREEN_TILE_WIDTH;
     const biome = biomeForLongitude(nextDeg);
-    longitudeState.biome = biome?.id || null;
+    longitudeState.biome = biome?.label || biome?.id || null;
+    longitudeState.biomeId = biome?.id || null;
     longitudeState.event = biome?.eventTag || null;
     return longitudeState;
   }
