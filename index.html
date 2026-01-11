@@ -3100,16 +3100,16 @@
     "Deep Underground",
   ];
   const LAYER_PARALLAX = {
-    "Deep Space": { x: 0.4, y: 0.02 },
-    "Space": { x: 0.35, y: 0.03 },
-    "Upper Atmosphere": { x: 0.25, y: 0.04 },
-    "Atmosphere": { x: 0.2, y: 0.05 },
-    "High Altitude / Sky": { x: 0.16, y: 0.06 },
-    "Above Surface": { x: 0.12, y: 0.08 },
-    "Surface": { x: 0.1, y: 0.1 },
-    "Shallow Underground": { x: 0.08, y: 0.06 },
-    "Underground": { x: 0.06, y: 0.05 },
-    "Deep Underground": { x: 0.04, y: 0.04 },
+    "Deep Space": { x: 0.9, y: 0.08 },
+    "Space": { x: 0.8, y: 0.09 },
+    "Upper Atmosphere": { x: 0.65, y: 0.11 },
+    "Atmosphere": { x: 0.55, y: 0.13 },
+    "High Altitude / Sky": { x: 0.5, y: 0.15 },
+    "Above Surface": { x: 0.45, y: 0.18 },
+    "Surface": { x: 0.4, y: 0.2 },
+    "Shallow Underground": { x: 0.32, y: 0.14 },
+    "Underground": { x: 0.28, y: 0.12 },
+    "Deep Underground": { x: 0.24, y: 0.1 },
   };
   const LAYER_BACKGROUND = {
     "Deep Space": { top: "#05060A", bottom: "#0B1020" },
@@ -3210,12 +3210,12 @@
     const cfg = LAYER_PARALLAX[label] || { x: 0.1, y: 0.05 };
     const velX = player?.vx || 0;
     const velY = player?.vy || 0;
-    const velBoostX = 0.005 * BASE_W; // gentle velocity-based parallax
-    const velBoostY = 0.003 * TILE;
+    const velBoostX = 0.04 * BASE_W; // stronger velocity-based parallax
+    const velBoostY = 0.025 * TILE;
     const parallaxYOffset = -(camY * cfg.y + velY * velBoostY);
     ctx.save();
     ctx.translate(0, parallaxYOffset);
-    const parallax = (speed) => -(((camX + velX * velBoostX) * speed * cfg.x) % (BASE_W + 160));
+    const parallax = (speed) => -(((camX + velX * velBoostX) * speed * cfg.x) % (BASE_W + 260));
 
     const softCircle = (x, y, r, colorInner, colorOuter) => {
       const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
