@@ -926,7 +926,7 @@
   const AUTHOR_LOGOUT_ENDPOINT = "/api/author-logout";
   const AUTHOR_STATUS_ENDPOINT = "/api/author-status";
   const canvas = document.getElementById("c");
-  const ctx = canvas.getContext("2d", { alpha: false });
+  const ctx = canvas.getContext("2d", { alpha: true });
   const gameShell = document.querySelector(".game-shell");
   const hudEl = document.querySelector(".hud");
   const tilesetUploadEl = document.getElementById("tileset-upload");
@@ -2036,7 +2036,7 @@
   const off = document.createElement("canvas");
   off.width = BASE_W;
   off.height = BASE_H;
-  const g = off.getContext("2d", { alpha: false });
+  const g = off.getContext("2d", { alpha: true });
   const bgCanvas = document.createElement("canvas");
   const bgCtx = bgCanvas.getContext("2d");
   bgCanvas.style.position = "absolute";
@@ -2050,6 +2050,7 @@
     gameShell.insertBefore(bgCanvas, canvas);
     canvas.style.position = "relative";
     canvas.style.zIndex = "1";
+    canvas.style.background = "transparent";
   }
 
   let lastFrameW = null;
