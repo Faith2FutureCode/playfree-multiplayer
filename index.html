@@ -456,10 +456,9 @@
     .hud {
       position: absolute;
       bottom: 6px;
-      left: 0;
-      right: 0;
-      transform: none;
-      width: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: var(--canvas-width);
       max-width: 100%;
       display: flex;
       justify-content: space-between;
@@ -946,6 +945,8 @@
   const AUTHOR_STATUS_ENDPOINT = "/api/author-status";
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d", { alpha: false });
+  const gameShell = document.querySelector(".game-shell");
+  const hudEl = document.querySelector(".hud");
   const tilesetUploadEl = document.getElementById("tileset-upload");
   const tilesetPreviewPanel = document.getElementById("tileset-preview");
   const tilesetPreviewStage = document.querySelector(".tileset-preview-stage");
@@ -6579,8 +6580,17 @@
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(off, 0, 0, canvas.width, canvas.height);
 
-    // Update DOM name tags (self + peers) aligned to the canvas
+    // Update DOM overlays aligned to the canvas
     const rect = canvas.getBoundingClientRect();
+    if (hudEl && gameShell) {
+      const shellRect = gameShell.getBoundingClientRect();
+      const hudWidth = Math.min(rect.width, shellRect.width);
+      const leftOffset = (shellRect.width - hudWidth) / 2;
+      hudEl.style.width = `${hudWidth}px`;
+      hudEl.style.left = `${leftOffset}px`;
+      hudEl.style.right = "auto";
+      hudEl.style.transform = "none";
+    }
     const scaleX = rect.width / BASE_W;
     const scaleY = rect.height / BASE_H;
     renderChatPanel(rect, scaleX, scaleY);
