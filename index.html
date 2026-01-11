@@ -1868,7 +1868,7 @@
   const DUNGEON_MAX_DEPTH = 4;
   const dungeonChunks = new Map(); // key: "cx,cy" -> true
   let SCALE = 3; // integer-only scaling for crisp pixels
-  let showGrid = true;
+  let showGrid = false;
   let showTerrainDebug = false;
   let editorOpen = false;
   let editorTile = "#";
@@ -3187,7 +3187,9 @@
     if (!entry || entry.error || !entry.loaded) return;
     const prev = ctx.imageSmoothingEnabled;
     ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(entry.img, 0, 0, BASE_W, BASE_H);
+    const dw = ctx.canvas?.width || BASE_W;
+    const dh = ctx.canvas?.height || BASE_H;
+    ctx.drawImage(entry.img, 0, 0, dw, dh);
     ctx.imageSmoothingEnabled = prev;
   }
 
@@ -6679,6 +6681,7 @@
     }
 
     // blit scaled to main canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(off, 0, 0, canvas.width, canvas.height);
 
