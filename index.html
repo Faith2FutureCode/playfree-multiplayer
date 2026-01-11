@@ -6245,6 +6245,18 @@
     g.font = "10px 'Press Start 2P', 'VT323', monospace";
     g.textBaseline = "middle";
     g.textAlign = "left";
+    const screensTraveled = longitudeState.unwrappedDeg / LONGITUDE_PER_SCREEN;
+    const screenLabel = `Screens traveled: ${screensTraveled.toFixed(2)}`;
+    const infoPadX = 6;
+    const infoPadY = 3;
+    const infoW = g.measureText(screenLabel).width;
+    const infoX = 8;
+    const infoY = 10;
+    g.fillRect(infoX - infoPadX, infoY - infoPadY, infoW + infoPadX * 2, 16);
+    g.strokeRect(infoX - infoPadX, infoY - infoPadY, infoW + infoPadX * 2, 16);
+    g.fillStyle = "#f2f5ff";
+    g.fillText(screenLabel, infoX, infoY + 5);
+    g.fillStyle = "rgba(0,0,0,0.8)";
     for (let k = startK; k <= endK; k++) {
       const yWorld = layerOriginY - k * LAYER_HEIGHT_PX;
       const yScreen = Math.floor(yWorld - cam.y);
