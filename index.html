@@ -6591,6 +6591,78 @@
     const scaleY = rect.height / BASE_H;
     renderChatPanel(rect, scaleX, scaleY);
     tagLayer.innerHTML = "";
+    const degPerScreenPx = (LONGITUDE_PER_TILE / TILE) / scaleX;
+    const addCompass = () => {
+      const bandWidth = Math.min(rect.width * 0.85, 560);
+      const bandHeight = Math.max(28, 34 * scaleY);
+      const bandLeft = rect.left + rect.width / 2 - bandWidth / 2;
+      const bandTop = rect.top + 8 * scaleY;
+      const band = document.createElement("div");
+      band.style.position = "absolute";
+      band.style.left = `${bandLeft}px`;
+      band.style.top = `${bandTop}px`;
+      band.style.width = `${bandWidth}px`;
+      band.style.height = `${bandHeight}px`;
+      band.style.borderRadius = "12px";
+      band.style.background = "linear-gradient(180deg, rgba(14,18,28,0.9), rgba(8,10,18,0.9))";
+      band.style.boxShadow = "0 10px 30px rgba(0,0,0,0.28), inset 0 0 0 1px rgba(255,255,255,0.12)";
+      band.style.backdropFilter = "blur(2px)";
+      band.style.overflow = "hidden";
+      band.style.pointerEvents = "none";
+
+      const track = document.createElement("div");
+      track.style.position = "absolute";
+      track.style.left = "0";
+      track.style.top = "0";
+      track.style.width = "100%";
+      track.style.height = "100%";
+      const tickPx = Math.max(2, COMPASS_TICK_STEP / Math.max(1e-4, degPerScreenPx));
+      const majorPx = Math.max(tickPx * (COMPASS_MAJOR_STEP / COMPASS_TICK_STEP), tickPx + 2);
+      const offsetPx = -(longitudeState.unwrappedDeg % LONGITUDE_MAX) / Math.max(1e-4, degPerScreenPx) + bandWidth / 2;
+      track.style.backgroundImage = `
+        repeating-linear-gradient(90deg,
+          rgba(255,255,255,0.18) 0,
+          rgba(255,255,255,0.18) 1px,
+          transparent 1px,
+          transparent ${tickPx}px
+        ),
+        repeating-linear-gradient(90deg,
+          rgba(255,255,255,0.38) 0,
+          rgba(255,255,255,0.38) 2px,
+          transparent 2px,
+          transparent ${majorPx}px
+        )
+      `;
+      track.style.backgroundPosition = `${offsetPx}px 0, ${offsetPx}px 0`;
+      track.style.backgroundRepeat = "repeat";
+      band.appendChild(track);
+
+      const center = document.createElement("div");
+      center.style.position = "absolute";
+      center.style.left = "50%";
+      center.style.top = "0";
+      center.style.width = "2px";
+      center.style.height = "100%";
+      center.style.transform = "translateX(-50%)";
+      center.style.background = "linear-gradient(180deg, #ffdf5a, #f29f1f)";
+      center.style.boxShadow = "0 0 0 1px rgba(0,0,0,0.35)";
+      band.appendChild(center);
+
+      const label = document.createElement("div");
+      label.textContent = `${wrapLongitudeDeg(longitudeState.deg).toFixed(1)}°  ·  ${longitudeState.biome || "longitude"}`;
+      label.style.position = "absolute";
+      label.style.left = "50%";
+      label.style.bottom = "4px";
+      label.style.transform = "translateX(-50%)";
+      label.style.font = "12px 'Press Start 2P', 'VT323', monospace";
+      label.style.color = "#f2f5ff";
+      label.style.textShadow = "1px 1px 0 #000";
+      band.appendChild(label);
+
+      tagLayer.appendChild(band);
+    };
+
+    addCompass();
     const addTag = (label, worldX, worldY, color = "#f2f5ff") => {
       const screenX = (worldX - cam.x) * scaleX;
       const screenY = (worldY - cam.y) * scaleY;
