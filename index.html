@@ -6250,7 +6250,7 @@
     const infoPadX = 6;
     const infoPadY = 3;
     const infoW = g.measureText(screenLabel).width;
-    const infoX = BASE_W - infoW - infoPadX * 2 - 8;
+    const infoX = TILE * 1 + infoPadX; // anchor near the second tile column, left side
     const infoY = 12;
     g.fillRect(infoX - infoPadX, infoY - infoPadY, infoW + infoPadX * 2, 16);
     g.strokeRect(infoX - infoPadX, infoY - infoPadY, infoW + infoPadX * 2, 16);
