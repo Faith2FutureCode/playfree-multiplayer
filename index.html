@@ -1857,6 +1857,9 @@
   const UNDERGROUND_ROWS = UNDERGROUND_SEGMENTS * PLAYFIELD_TILES;
   const UNDERGROUND_BG = "#0b0c17";
   const UNDERGROUND_ACCENT = "#11182e";
+  const BGM_TRACKS = Object.freeze({
+    "tropical-lush": "assets/music/tropical-lush/bgm-tropical-lush-loop.mp3",
+  });
   let undergroundStartPx = Infinity;
   let undergroundStartTy = Infinity;
   const DUNGEON_CHUNK_W = 48;
@@ -3105,6 +3108,20 @@
     "Underground": "assets/layers/layer-underground.png",
     "Deep Underground": "assets/layers/layer-deep-underground.png",
   };
+  const LAYER_BG_IMAGES_BY_BIOME = {
+    "tropical-lush": {
+      "Deep Space": "assets/layers/tropical/layer-tropical-deep-space.png",
+      "Space": "assets/layers/tropical/layer-tropical-space.png",
+      "Upper Atmosphere": "assets/layers/tropical/layer-tropical-upper-atmosphere.png",
+      "Atmosphere": "assets/layers/tropical/layer-tropical-atmosphere.png",
+      "High Altitude / Sky": "assets/layers/tropical/layer-tropical-high-sky.png",
+      "Above Surface": "assets/layers/tropical/layer-tropical-above-surface.png",
+      "Surface": "assets/layers/tropical/layer-tropical-surface.png",
+      "Shallow Underground": "assets/layers/tropical/layer-tropical-shallow-underground.png",
+      "Underground": "assets/layers/tropical/layer-tropical-underground.png",
+      "Deep Underground": "assets/layers/tropical/layer-tropical-deep-underground.png",
+    },
+  };
   let layerOriginY = 0; // set once player spawn is known
   function layerInfoForY(worldY) {
     const altitude = layerOriginY - worldY; // going up increases altitude
@@ -3128,22 +3145,30 @@
     ctx.fillRect(0, 0, BASE_W, BASE_H);
   }
 
-  const layerImageCache = new Map(); // label -> { img, loaded, error }
-  function loadLayerImage(label) {
-    if (layerImageCache.has(label)) return layerImageCache.get(label);
-    const src = LAYER_BG_IMAGES[label];
+  const layerImageCache = new Map(); // key -> { img, loaded, error }
+  function resolveLayerSrc(label, biomeId) {
+    if (biomeId && LAYER_BG_IMAGES_BY_BIOME[biomeId]?.[label]) {
+      return LAYER_BG_IMAGES_BY_BIOME[biomeId][label];
+    }
+    return LAYER_BG_IMAGES[label];
+  }
+
+  function loadLayerImage(label, biomeId) {
+    const cacheKey = biomeId ? `${biomeId}:${label}` : label;
+    if (layerImageCache.has(cacheKey)) return layerImageCache.get(cacheKey);
+    const src = resolveLayerSrc(label, biomeId);
     if (!src) return null;
     const entry = { img: new Image(), loaded: false, error: false };
     entry.img.onload = () => { entry.loaded = true; };
     entry.img.onerror = () => { entry.error = true; };
     entry.img.decoding = "async";
     entry.img.src = src;
-    layerImageCache.set(label, entry);
+    layerImageCache.set(cacheKey, entry);
     return entry;
   }
 
-  function drawLayerImage(ctx, label) {
-    const entry = loadLayerImage(label);
+  function drawLayerImage(ctx, label, biomeId) {
+    const entry = loadLayerImage(label, biomeId);
     if (!entry || entry.error || !entry.loaded) return;
     const prev = ctx.imageSmoothingEnabled;
     ctx.imageSmoothingEnabled = false;
@@ -4556,6 +4581,47 @@
   let reconnectTimer = 0;
   let stateSendTimer = STATE_SEND_INTERVAL;
   let audioCtx = null;
+  let audioUnlocked = false;
+  const bgmState = {
+    audio: null,
+    biomeId: null,
+  };
+
+  function unlockAudio() {
+    audioUnlocked = true;
+    document.removeEventListener("pointerdown", unlockAudio);
+    document.removeEventListener("keydown", unlockAudio);
+  }
+  document.addEventListener("pointerdown", unlockAudio);
+  document.addEventListener("keydown", unlockAudio);
+
+  function stopBgm() {
+    if (bgmState.audio) {
+      try { bgmState.audio.pause(); } catch (err) { /* ignore */ }
+    }
+    bgmState.audio = null;
+    bgmState.biomeId = null;
+  }
+
+  function ensureBgmForBiome(biomeId) {
+    if (!audioUnlocked) return;
+    const src = biomeId ? BGM_TRACKS[biomeId] : null;
+    if (!src) {
+      stopBgm();
+      return;
+    }
+    if (!bgmState.audio || bgmState.biomeId !== biomeId) {
+      stopBgm();
+      const audio = new Audio(src);
+      audio.loop = true;
+      audio.volume = 0.5;
+      bgmState.audio = audio;
+      bgmState.biomeId = biomeId;
+    }
+    if (bgmState.audio?.paused) {
+      bgmState.audio.play().catch(() => {});
+    }
+  }
 
   function playSkidSound() {
     try {
@@ -6413,7 +6479,7 @@
     const viewLayer = layerInfoForY(cam.y + BASE_H / 2);
     drawLayerBackground(g, viewLayer.label);
     drawLayerMotifs(g, viewLayer.label, cam.x, cam.y);
-    drawLayerImage(g, viewLayer.label);
+    drawLayerImage(g, viewLayer.label, longitudeState.biomeId);
 
     // tiles
     const tx0 = Math.floor(cam.x / TILE);
@@ -6962,6 +7028,7 @@
     // chat fade timer
     if (chatVisibleTime > 0) chatVisibleTime = Math.max(0, chatVisibleTime - dt);
     decayChatBubbles(dt);
+    ensureBgmForBiome(longitudeState.biomeId);
     render();
     flushDemoCapture();
     requestAnimationFrame(frame);
