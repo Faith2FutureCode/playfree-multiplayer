@@ -1795,6 +1795,7 @@
   const COMPASS_TICK_STEP = 0.25; // degrees
   const COMPASS_MAJOR_STEP = 1; // degrees
   const COMPASS_SHOW_DEGREES = true;
+  const WRAP_WORLD = true; // keep longitude loop seamless
   const UNDERGROUND_SEGMENTS = 1;
   const UNDERGROUND_ROWS = UNDERGROUND_SEGMENTS * PLAYFIELD_TILES;
   const UNDERGROUND_BG = "#0b0c17";
@@ -2938,18 +2939,30 @@
 
     return padded;
   }
+  function padLevelWidth(baseLevel, targetW) {
+    if (!targetW || !baseLevel.length) return baseLevel;
+    return baseLevel.map((row) => {
+      if (row.length >= targetW) return row.slice(0, targetW);
+      return row + ".".repeat(targetW - row.length);
+    });
+  }
 
   const BASE_LEVEL = ENDLESS_ENABLED ? buildEndlessLevel() : ORIGINAL_LEVEL;
-  const LEVEL = padLevelVertical(BASE_LEVEL);
+  const WIDTHED_LEVEL = ENDLESS_ENABLED && WRAP_WORLD ? padLevelWidth(BASE_LEVEL, LONGITUDE_WRAP_TILES) : BASE_LEVEL;
+  const LEVEL = padLevelVertical(WIDTHED_LEVEL);
 
   let mapH = LEVEL.length;
-  let mapW = LEVEL[0].length;
+  let mapW = ENDLESS_ENABLED && WRAP_WORLD ? LONGITUDE_WRAP_TILES : LEVEL[0].length;
   const tiles = LEVEL.map(row => row.split(""));
   const labelMap = new Map(); // key: "tx,ty" -> string
 
   function wrapLongitudeDeg(deg) {
     const wrapped = deg % LONGITUDE_MAX;
     return wrapped < 0 ? wrapped + LONGITUDE_MAX : wrapped;
+  }
+  function wrapTx(tx) {
+    if (!ENDLESS_ENABLED || !WRAP_WORLD) return tx;
+    return ((tx % mapW) + mapW) % mapW;
   }
   function shortestLongitudeDelta(fromDeg, toDeg) {
     let delta = toDeg - fromDeg;
@@ -2962,6 +2975,12 @@
   }
   function longitudeFromPx(px) {
     return wrapLongitudeDeg((px / TILE) * LONGITUDE_PER_TILE);
+  }
+  function wrapWorldX(px) {
+    if (!ENDLESS_ENABLED || !WRAP_WORLD) return px;
+    let nx = px % LONGITUDE_WRAP_PX;
+    if (nx < 0) nx += LONGITUDE_WRAP_PX;
+    return nx;
   }
 
   const longitudeState = {
@@ -3402,12 +3421,26 @@
     startTx: mapW,
     nextTx: mapW,
   };
+  const wrappedColumns = new Array(LONGITUDE_WRAP_TILES).fill(null);
 
   function resetWorldBuffer() {
     worldBuffer.columns.length = 0;
     worldBuffer.startTx = mapW;
     worldBuffer.nextTx = mapW;
     defaultGroundY = Math.max(4, mapH - 2);
+    if (ENDLESS_ENABLED && WRAP_WORLD) {
+      wrappedColumns.fill(null);
+      let state = createDifficultyState();
+      for (let i = 0; i < LONGITUDE_WRAP_TILES; i++) {
+        const [col, nextState] = genColumn(state, i, worldRng);
+        state = nextState;
+        wrappedColumns[i] = col;
+        applyColumnToWorld(col);
+      }
+      worldBuffer.columns = wrappedColumns;
+      worldBuffer.startTx = 0;
+      worldBuffer.nextTx = LONGITUDE_WRAP_TILES;
+    }
   }
 
   const difficultyTuning = Object.freeze({
@@ -3669,13 +3702,16 @@
 
   function applyColumnToWorld(col) {
     if (col.applied) return;
-    ensureBounds(col.tx, 0);
+    const wrappedTx = wrapTx(col.tx);
+    const basePx = wrappedTx * TILE;
+    ensureBounds(wrappedTx, 0);
     for (const { t, y } of col.tiles) {
-      setTileRaw(col.tx, y, t);
+      setTileRaw(wrappedTx, y, t);
     }
     for (const e of col.entities) {
       if (e.type === "goon") {
-        const tx = Math.floor(e.x / TILE);
+        const offsetPx = (e.x ?? col.tx * TILE) - col.tx * TILE;
+        const tx = Math.floor((basePx + offsetPx) / TILE);
         const ty = Math.floor(e.y / TILE);
         spawnEnemy(tx, ty);
       }
@@ -3704,27 +3740,31 @@
     const viewRightTx = viewLeftTx + worldBuffer.view;
     const needUpTo = viewRightTx + worldBuffer.ahead;
 
-    while (worldBuffer.nextTx <= needUpTo) {
-      const [col, nextState] = genColumn(difficultyState, worldBuffer.nextTx, worldRng);
-      difficultyState = nextState;
-      worldBuffer.columns.push(col);
-      applyColumnToWorld(col);
-      worldBuffer.nextTx += 1;
-    }
+    if (!WRAP_WORLD) {
+      while (worldBuffer.nextTx <= needUpTo) {
+        const [col, nextState] = genColumn(difficultyState, worldBuffer.nextTx, worldRng);
+        difficultyState = nextState;
+        worldBuffer.columns.push(col);
+        applyColumnToWorld(col);
+        worldBuffer.nextTx += 1;
+      }
 
-    // drop old columns from buffer to bound memory; keep a small margin behind view
-    const minKeepTx = Math.max(0, viewLeftTx - 4);
-    while (worldBuffer.columns.length > worldBuffer.target || (worldBuffer.columns[0] && worldBuffer.columns[0].tx < minKeepTx)) {
-      worldBuffer.columns.shift();
+      // drop old columns from buffer to bound memory; keep a small margin behind view
+      const minKeepTx = Math.max(0, viewLeftTx - 4);
+      while (worldBuffer.columns.length > worldBuffer.target || (worldBuffer.columns[0] && worldBuffer.columns[0].tx < minKeepTx)) {
+        worldBuffer.columns.shift();
+      }
     }
 
     // Despawn non-player entities well behind the camera
-    const despawnX = Math.max(0, (viewLeftTx - 6) * TILE);
-    if (despawnX > 0) {
-      for (const e of entities) {
-        if (!e.alive) continue;
-        if (e.type === "player") continue;
-        if (e.x + e.w < despawnX) e.alive = false;
+    if (!WRAP_WORLD) {
+      const despawnX = Math.max(0, (viewLeftTx - 6) * TILE);
+      if (despawnX > 0) {
+        for (const e of entities) {
+          if (!e.alive) continue;
+          if (e.type === "player") continue;
+          if (e.x + e.w < despawnX) e.alive = false;
+        }
       }
     }
 
@@ -3735,7 +3775,7 @@
   // -----------------------------
   // Dungeon generation (underground, endless)
   // -----------------------------
-  function dungeonChunkKey(cx, cy) { return `${cx},${cy}`; }
+  function dungeonChunkKey(cx, cy) { return `${wrapTx(cx)},${cy}`; }
   function dungeonRng(cx, cy) { return createRng(`${worldSeed}:d:${cx},${cy}`); }
 
   function setDungeonTile(updates, tx, ty, t) {
@@ -4058,6 +4098,7 @@
   }
 
   function ensureBounds(tx, ty) {
+    const targetTx = wrapTx(tx);
     let grew = false;
     while (ty >= tiles.length) {
       tiles.push(new Array(mapW).fill("."));
@@ -4067,39 +4108,43 @@
       mapH = tiles.length;
       updateWorldWidth();
     }
-    if (tx >= mapW) {
-      const add = tx - mapW + 1;
-      for (const row of tiles) {
-        for (let i = 0; i < add; i++) row.push(".");
+    if (!ENDLESS_ENABLED || !WRAP_WORLD) {
+      if (targetTx >= mapW) {
+        const add = targetTx - mapW + 1;
+        for (const row of tiles) {
+          for (let i = 0; i < add; i++) row.push(".");
+        }
+        mapW = tiles[0].length;
+        updateWorldWidth();
       }
-      mapW = tiles[0].length;
-      updateWorldWidth();
     }
   }
 
   function inBounds(tx, ty) { return tx >= 0 && ty >= 0 && tx < mapW && ty < mapH; }
 
   function getTile(tx, ty) {
-    if (!inBounds(tx, ty)) return "#"; // treat out-of-bounds as solid wall
-    const key = labelKey(tx, ty);
+    const wx = wrapTx(tx);
+    if (!inBounds(wx, ty)) return "#"; // treat out-of-bounds as solid wall
+    const key = labelKey(wx, ty);
     if (customTileMap.has(key)) return customTileMap.get(key);
-    return tiles[ty][tx];
+    return tiles[ty][wx];
   }
   function setTileRaw(tx, ty, v) {
-    ensureBounds(tx, ty);
-    const key = labelKey(tx, ty);
+    const wx = wrapTx(tx);
+    ensureBounds(wx, ty);
+    const key = labelKey(wx, ty);
     if (isCustomTileId(v)) {
       customTileMap.set(key, v);
-      tiles[ty][tx] = ".";
+      tiles[ty][wx] = ".";
     } else {
       customTileMap.delete(key);
-      tiles[ty][tx] = v;
+      tiles[ty][wx] = v;
     }
   }
   function setTile(tx, ty, v) {
     setTileRaw(tx, ty, v);
   }
-  function labelKey(tx, ty) { return `${tx},${ty}`; }
+  function labelKey(tx, ty) { return `${wrapTx(tx)},${ty}`; }
   function getLabel(tx, ty) {
     return labelMap.get(labelKey(tx, ty));
   }
@@ -5055,7 +5100,7 @@
   // -----------------------------
   const player = {
     type: "player",
-    x: playerSpawn.x * TILE,
+    x: wrapTx(playerSpawn.x) * TILE,
     y: playerSpawn.y * TILE,
     w: 12,
     h: 14,
@@ -5291,7 +5336,7 @@
   let worldHpx = mapH * TILE;
 
   function updateWorldWidth() {
-    worldWpx = mapW * TILE;
+    worldWpx = ENDLESS_ENABLED && WRAP_WORLD ? LONGITUDE_WRAP_PX : mapW * TILE;
     worldHpx = mapH * TILE;
   }
 
@@ -5961,6 +6006,14 @@
     // Fall death
     if (player.y > worldHpx + 120) {
       killPlayer();
+    }
+
+    if (ENDLESS_ENABLED && WRAP_WORLD) {
+      player.x = wrapWorldX(player.x);
+      for (const e of entities) {
+        if (!e.alive || e.type === "player") continue;
+        e.x = wrapWorldX(e.x);
+      }
     }
 
     updateLongitudeState(player.x + player.w / 2);
