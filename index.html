@@ -1791,7 +1791,6 @@
   const LONGITUDE_PER_TILE = LONGITUDE_PER_SCREEN / SCREEN_TILE_WIDTH;
   const LONGITUDE_WRAP_TILES = SCREEN_TILE_WIDTH * LONGITUDE_SCREENS;
   const LONGITUDE_WRAP_PX = LONGITUDE_WRAP_TILES * TILE;
-  const COMPASS_HEIGHT = 14;
   const COMPASS_TICK_STEP = 0.25; // degrees
   const COMPASS_MAJOR_STEP = 1; // degrees
   const COMPASS_SHOW_DEGREES = true;
@@ -6175,84 +6174,6 @@
     g.restore();
   }
 
-  function drawCompassBand() {
-    const bandH = COMPASS_HEIGHT;
-    const bandY = 0;
-    const degPerPx = LONGITUDE_PER_TILE / TILE;
-    const degSpan = BASE_W * degPerPx;
-    const centerDeg = longitudeState.unwrappedDeg;
-    const leftDeg = centerDeg - degSpan / 2;
-    const rightDeg = centerDeg + degSpan / 2;
-    const centerX = Math.floor(BASE_W / 2);
-
-    g.save();
-    g.beginPath();
-    g.rect(0, bandY, BASE_W, bandH);
-    g.clip();
-
-    // Background + frame
-    g.fillStyle = "rgba(6, 10, 24, 0.78)";
-    g.fillRect(0, bandY, BASE_W, bandH);
-    g.strokeStyle = "rgba(255,255,255,0.35)";
-    g.lineWidth = 1.5;
-    g.strokeRect(0.5, bandY + 0.5, BASE_W - 1, bandH - 1);
-
-    // Ticks
-    const tickStart = Math.floor(leftDeg / COMPASS_TICK_STEP) * COMPASS_TICK_STEP - COMPASS_TICK_STEP;
-    for (let t = tickStart; t <= rightDeg + COMPASS_TICK_STEP; t += COMPASS_TICK_STEP) {
-      const delta = t - centerDeg;
-      const x = centerX + delta / degPerPx;
-      if (x < -2 || x > BASE_W + 2) continue;
-      const lx = Math.round(x) + 0.5;
-      const isMajor = Math.abs((t / COMPASS_MAJOR_STEP) - Math.round(t / COMPASS_MAJOR_STEP)) < 1e-3;
-      const tickH = isMajor ? bandH - 4 : bandH - 6;
-      const yTop = bandY + (bandH - tickH) / 2;
-      g.strokeStyle = isMajor ? "#f2f5ff" : "rgba(255,255,255,0.55)";
-      g.lineWidth = isMajor ? 2 : 1;
-      g.beginPath();
-      g.moveTo(lx, Math.floor(yTop) + 0.5);
-      g.lineTo(lx, Math.floor(yTop + tickH));
-      g.stroke();
-
-      if (isMajor && Math.abs(delta) < degSpan * 0.55) {
-        const label = `${wrapLongitudeDeg(t).toFixed(0)}deg`;
-        g.fillStyle = "#f2f5ff";
-        g.font = "7px 'Press Start 2P', 'VT323', monospace";
-        g.textAlign = "center";
-        g.textBaseline = "bottom";
-        g.fillText(label, lx, bandY + bandH - 2);
-      }
-    }
-
-    // Center marker
-    const cx = Math.round(centerX) + 0.5;
-    g.fillStyle = "#ffeb3b";
-    g.fillRect(cx - 2, bandY + 1, 4, bandH - 2);
-    g.strokeStyle = "#000";
-    g.lineWidth = 1;
-    g.strokeRect(cx - 2 + 0.5, bandY + 1.5, 3, bandH - 3);
-
-    if (COMPASS_SHOW_DEGREES) {
-      const label = `${wrapLongitudeDeg(longitudeState.deg).toFixed(1)}deg`;
-      g.font = "9px 'Press Start 2P', 'VT323', monospace";
-      const textW = g.measureText(label).width;
-      const bx = Math.min(BASE_W - textW - 10, centerX + 12);
-      const by = bandY + 2;
-      const padX = 6, padY = 2;
-      g.fillStyle = "rgba(0,0,0,0.75)";
-      g.fillRect(bx - padX, by - padY, textW + padX * 2, 12);
-      g.strokeStyle = "rgba(255,255,255,0.4)";
-      g.lineWidth = 1;
-      g.strokeRect(bx - padX + 0.5, by - padY + 0.5, textW + padX * 2 - 1, 12 - 1);
-      g.fillStyle = "#f2f5ff";
-      g.textAlign = "left";
-      g.textBaseline = "top";
-      g.fillText(label, bx, by);
-    }
-
-    g.restore();
-  }
-
   function drawLayerDebugOverlay() {
     if (!showTerrainDebug) return;
     const viewTop = cam.y;
@@ -6564,7 +6485,6 @@
       g.fillRect(sx, sy, size, size);
     }
 
-    drawCompassBand();
     drawHudCanvas();
     drawGridOverlay();
     drawLayerDebugOverlay();
@@ -6594,9 +6514,9 @@
     const degPerScreenPx = (LONGITUDE_PER_TILE / TILE) / scaleX;
     const addCompass = () => {
       const bandWidth = Math.min(rect.width * 0.85, 560);
-      const bandHeight = Math.max(28, 34 * scaleY);
+      const bandHeight = Math.max(8 * scaleY, TILE * 0.5 * scaleY);
       const bandLeft = rect.left + rect.width / 2 - bandWidth / 2;
-      const bandTop = rect.top + 8 * scaleY;
+      const bandTop = rect.top + 2 * scaleY;
       const band = document.createElement("div");
       band.style.position = "absolute";
       band.style.left = `${bandLeft}px`;
