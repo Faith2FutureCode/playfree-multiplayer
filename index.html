@@ -2953,6 +2953,12 @@
 
   let mapH = LEVEL.length;
   let mapW = ENDLESS_ENABLED && WRAP_WORLD ? LONGITUDE_WRAP_TILES : LEVEL[0].length;
+  let worldWpx = mapW * TILE;
+  let worldHpx = mapH * TILE;
+  function updateWorldWidth() {
+    worldWpx = ENDLESS_ENABLED && WRAP_WORLD ? LONGITUDE_WRAP_PX : mapW * TILE;
+    worldHpx = mapH * TILE;
+  }
   const tiles = LEVEL.map(row => row.split(""));
   const labelMap = new Map(); // key: "tx,ty" -> string
 
@@ -5332,13 +5338,6 @@
   // Camera
   // -----------------------------
   const cam = { x: 0, y: 0 };
-  let worldWpx = mapW * TILE;
-  let worldHpx = mapH * TILE;
-
-  function updateWorldWidth() {
-    worldWpx = ENDLESS_ENABLED && WRAP_WORLD ? LONGITUDE_WRAP_PX : mapW * TILE;
-    worldHpx = mapH * TILE;
-  }
 
   function updateCamera() {
     const targetX = player.x + player.w/2 - BASE_W/2;
