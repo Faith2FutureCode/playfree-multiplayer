@@ -2961,6 +2961,8 @@
   }
   const tiles = LEVEL.map(row => row.split(""));
   const labelMap = new Map(); // key: "tx,ty" -> string
+  const entities = [];
+  const particles = [];
 
   function wrapLongitudeDeg(deg) {
     const wrapped = deg % LONGITUDE_MAX;
@@ -4366,8 +4368,6 @@
   }
 
   // Entities
-  const entities = [];
-  const particles = [];
   const peers = new Map(); // peerId -> state snapshot for rendering
   const chatLog = [];
   const chatMax = 30;
