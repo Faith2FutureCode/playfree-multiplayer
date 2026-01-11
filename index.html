@@ -460,11 +460,10 @@
       transform: translateX(-50%);
       width: var(--canvas-width);
       max-width: 100%;
+      min-height: calc(var(--tile) * 3);
       display: flex;
-      justify-content: space-between;
       align-items: stretch;
       padding: 10px 12px;
-      gap: 12px;
       border-radius: 14px;
       background: linear-gradient(180deg, rgba(11, 15, 26, 0.92), rgba(5, 7, 12, 0.92));
       box-shadow: 0 12px 30px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.08);
@@ -472,22 +471,17 @@
       font: 12px "Inter", "Segoe UI", system-ui, sans-serif;
       z-index: 5;
       pointer-events: none;
+      box-sizing: border-box;
     }
     .hud-bar {
-      display: flex;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
       width: 100%;
-      gap: 10px;
       align-items: stretch;
-    }
-    .hud-section {
-      display: flex;
-      gap: 10px;
-      align-items: stretch;
-      flex: 1 1 0;
     }
     .hud-card {
       flex: 1 1 auto;
-      min-width: 140px;
       padding: 8px 10px;
       border-radius: 10px;
       background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
@@ -496,12 +490,8 @@
       display: flex;
       flex-direction: column;
       gap: 6px;
-    }
-    .hud-card.surface {
-      min-width: 160px;
-      background: linear-gradient(180deg, rgba(79, 195, 247,0.2), rgba(3, 169, 244,0.12));
-      border-color: rgba(79,195,247,0.5);
-      box-shadow: inset 0 0 0 1px rgba(79,195,247,0.3), 0 6px 16px rgba(0,186,255,0.18);
+      min-height: calc(var(--tile) * 3 - 16px);
+      box-sizing: border-box;
     }
     .hud-heading {
       font-size: 10px;
@@ -868,53 +858,45 @@
   <div class="game-shell">
     <canvas id="c" width="912" height="816"></canvas>
     <div class="tileset-preview" id="tileset-preview" aria-label="Tileset preview"></div>
-        <div class="hud" aria-label="HUD">
+            <div class="hud" aria-label="HUD">
       <div class="hud-bar">
-        <div class="hud-section">
-          <div class="hud-card">
-            <div class="hud-heading">Progress</div>
-            <div class="hud-block">
-              <span class="hud-pill">World <strong id="hud-world">1</strong></span>
-              <span class="hud-pill">Lives <strong id="hud-lives">3</strong></span>
-              <span class="hud-stat"><span class="hud-icon-coin"></span><span id="hud-coins">00</span></span>
-              <span class="hud-stat">Score <strong id="hud-score">000000</strong></span>
+        <div class="hud-card">
+          <div class="hud-heading">Progress</div>
+          <div class="hud-block">
+            <span class="hud-pill">World <strong id="hud-world">1</strong></span>
+            <span class="hud-pill">Lives <strong id="hud-lives">3</strong></span>
+            <span class="hud-stat"><span class="hud-icon-coin"></span><span id="hud-coins">00</span></span>
+            <span class="hud-stat">Score <strong id="hud-score">000000</strong></span>
+          </div>
+        </div>
+        <div class="hud-card">
+          <div class="hud-heading">Vitals</div>
+          <div class="hud-block">
+            <span class="hud-stat">Time <strong id="hud-time">000</strong></span>
+            <span class="hud-stat">Form <strong id="hud-form">JE</strong></span>
+            <span class="hud-stat">Star <strong id="hud-star">0</strong></span>
+          </div>
+          <div class="hud-block">
+            <span class="hud-stat">Spd <strong id="hud-spd">0</strong></span>
+            <span class="hud-stat">Acc <strong id="hud-acc">+0</strong></span>
+            <span class="hud-stat">Fly <strong id="hud-fly">?</strong></span>
+          </div>
+          <div class="hud-block">
+            <div class="hud-pmeter" aria-label="P-Meter">
+              <span class="pmeter-label">P</span>
+              <div class="pmeter-bar" id="hud-pmeter"></div>
             </div>
           </div>
         </div>
-        <div class="hud-section">
-          <div class="hud-card">
-            <div class="hud-heading">Vitals</div>
-            <div class="hud-block">
-              <span class="hud-stat">Time <strong id="hud-time">300</strong></span>
-              <span class="hud-stat">Form <strong id="hud-form">SM</strong></span>
-              <span class="hud-stat">Star <strong id="hud-star">0</strong></span>
-            </div>
-            <div class="hud-block">
-              <span class="hud-stat">Spd <strong id="hud-spd">0</strong></span>
-              <span class="hud-stat">Acc <strong id="hud-acc">0</strong></span>
-              <span class="hud-stat">Fly <strong id="hud-fly">0</strong></span>
-            </div>
-            <div class="hud-block">
-              <div class="hud-pmeter" aria-label="P-Meter">
-                <span class="pmeter-label">P</span>
-                <div class="pmeter-bar" id="hud-pmeter"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="hud-section">
-          <div class="hud-card surface">
-            <div class="hud-heading">Surface</div>
-            <div class="hud-block">
-              <span class="hud-pill" id="hud-surface">Surface</span>
-              <span class="hud-pill">Layer <strong id="hud-layer-idx">0</strong></span>
-            </div>
+        <div class="hud-card">
+          <div class="hud-heading">Surface</div>
+          <div class="hud-block">
+            <span class="hud-pill" id="hud-surface">Surface</span>
+            <span class="hud-pill">Layer <strong id="hud-layer-idx">0</strong></span>
           </div>
         </div>
       </div>
     </div>
-  </div>
-</div>
 <button class="hint-toggle" id="hint-toggle" type="button" aria-label="Toggle hints">?</button>
 <div class="hint-panel" id="hint-panel">
   <b>Controls:</b> Arrow keys move A? <b>Z</b> jump A? <b>X</b> run A? <b>C</b> fire/tail/hammer A? <b>V</b> statue A? <b>R</b> restart<br/>
