@@ -1861,6 +1861,7 @@
     "tropical-lush": "assets/music/tropical-lush/bgm-tropical-lush-loop.mp3",
     "arid-dry": "assets/music/arid-dry/bgm-arid-dry-loop.mp3",
   });
+  const SESSION_START_MS = performance.now();
   let undergroundStartPx = Infinity;
   let undergroundStartTy = Infinity;
   const DUNGEON_CHUNK_W = 48;
@@ -6365,6 +6366,10 @@
     g.textAlign = "left";
     const screensTraveled = longitudeState.unwrappedDeg / LONGITUDE_PER_SCREEN;
     const screenLabel = `Screens traveled: ${screensTraveled.toFixed(2)}`;
+    const elapsed = Math.max(0, (performance.now() - SESSION_START_MS) / 1000);
+    const mm = Math.floor(elapsed / 60).toString().padStart(2, "0");
+    const ss = Math.floor(elapsed % 60).toString().padStart(2, "0");
+    const sessionLabel = `Session: ${mm}:${ss}`;
     const infoPadX = 6;
     const infoPadY = 3;
     const infoW = g.measureText(screenLabel).width;
@@ -6374,6 +6379,16 @@
     g.strokeRect(infoX - infoPadX, infoY - infoPadY, infoW + infoPadX * 2, 16);
     g.fillStyle = "#f2f5ff";
     g.fillText(screenLabel, infoX, infoY + 5);
+    g.fillStyle = "rgba(0,0,0,0.8)";
+
+    const sessW = g.measureText(sessionLabel).width;
+    const sessX = infoX;
+    const sessY = infoY + 18;
+    g.fillStyle = "rgba(0,0,0,0.8)";
+    g.fillRect(sessX - infoPadX, sessY - infoPadY, sessW + infoPadX * 2, 16);
+    g.strokeRect(sessX - infoPadX, sessY - infoPadY, sessW + infoPadX * 2, 16);
+    g.fillStyle = "#f2f5ff";
+    g.fillText(sessionLabel, sessX, sessY + 5);
     g.fillStyle = "rgba(0,0,0,0.8)";
     for (let k = startK; k <= endK; k++) {
       const yWorld = layerOriginY - k * LAYER_HEIGHT_PX;
