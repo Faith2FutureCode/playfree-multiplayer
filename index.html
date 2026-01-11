@@ -1859,6 +1859,7 @@
   const UNDERGROUND_ACCENT = "#11182e";
   const BGM_TRACKS = Object.freeze({
     "tropical-lush": "assets/music/tropical-lush/bgm-tropical-lush-loop.mp3",
+    "arid-dry": "assets/music/arid-dry/bgm-arid-dry-loop.ogg",
   });
   let undergroundStartPx = Infinity;
   let undergroundStartTy = Infinity;
@@ -3100,18 +3101,17 @@
     "Deep Underground",
   ];
   const LAYER_PARALLAX = {
-    "Deep Space": { x: 0.9, y: 0.08 },
-    "Space": { x: 0.8, y: 0.09 },
-    "Upper Atmosphere": { x: 0.65, y: 0.11 },
-    "Atmosphere": { x: 0.55, y: 0.13 },
-    "High Altitude / Sky": { x: 0.5, y: 0.15 },
-    "Above Surface": { x: 0.45, y: 0.18 },
-    "Surface": { x: 0.4, y: 0.2 },
-    "Shallow Underground": { x: 0.32, y: 0.14 },
-    "Underground": { x: 0.28, y: 0.12 },
-    "Deep Underground": { x: 0.24, y: 0.1 },
+    "Deep Space": { x: 0.4, y: 0.02 },
+    "Space": { x: 0.35, y: 0.03 },
+    "Upper Atmosphere": { x: 0.25, y: 0.04 },
+    "Atmosphere": { x: 0.2, y: 0.05 },
+    "High Altitude / Sky": { x: 0.16, y: 0.06 },
+    "Above Surface": { x: 0.12, y: 0.08 },
+    "Surface": { x: 0.1, y: 0.1 },
+    "Shallow Underground": { x: 0.08, y: 0.06 },
+    "Underground": { x: 0.06, y: 0.05 },
+    "Deep Underground": { x: 0.04, y: 0.04 },
   };
-  const parallaxLean = { x: 0, y: 0 };
   const LAYER_BACKGROUND = {
     "Deep Space": { top: "#05060A", bottom: "#0B1020" },
     "Space": { top: "#0B1020", bottom: "#1A2A4A" },
@@ -3148,6 +3148,18 @@
       "Shallow Underground": "assets/layers/tropical/layer-tropical-shallow-underground.png",
       "Underground": "assets/layers/tropical/layer-tropical-underground.png",
       "Deep Underground": "assets/layers/tropical/layer-tropical-deep-underground.png",
+    },
+    "arid-dry": {
+      "Deep Space": "assets/layers/arid-dry/layer-arid-dry-deep-space.png",
+      "Space": "assets/layers/arid-dry/layer-arid-dry-space.png",
+      "Upper Atmosphere": "assets/layers/arid-dry/layer-arid-dry-upper-atmosphere.png",
+      "Atmosphere": "assets/layers/arid-dry/layer-arid-dry-atmosphere.png",
+      "High Altitude / Sky": "assets/layers/arid-dry/layer-arid-dry-high-sky.png",
+      "Above Surface": "assets/layers/arid-dry/layer-arid-dry-above-surface.png",
+      "Surface": "assets/layers/arid-dry/layer-arid-dry-surface.png",
+      "Shallow Underground": "assets/layers/arid-dry/layer-arid-dry-shallow-underground.png",
+      "Underground": "assets/layers/arid-dry/layer-arid-dry-underground.png",
+      "Deep Underground": "assets/layers/arid-dry/layer-arid-dry-deep-underground.png",
     },
   };
   let layerOriginY = 0; // set once player spawn is known
@@ -3211,12 +3223,12 @@
     const cfg = LAYER_PARALLAX[label] || { x: 0.1, y: 0.05 };
     const velX = player?.vx || 0;
     const velY = player?.vy || 0;
-    const velBoostX = 0.04 * BASE_W; // stronger velocity-based parallax
-    const velBoostY = 0.025 * TILE;
-    const parallaxYOffset = -(camY * cfg.y + velY * velBoostY) + parallaxLean.y * 0.6;
+    const velBoostX = 0.005 * BASE_W; // gentle velocity-based parallax
+    const velBoostY = 0.003 * TILE;
+    const parallaxYOffset = -(camY * cfg.y + velY * velBoostY);
     ctx.save();
-    ctx.translate(parallaxLean.x * 0.4, parallaxYOffset);
-    const parallax = (speed) => -(((camX + velX * velBoostX + parallaxLean.x) * speed * cfg.x) % (BASE_W + 260));
+    ctx.translate(0, parallaxYOffset);
+    const parallax = (speed) => -(((camX + velX * velBoostX) * speed * cfg.x) % (BASE_W + 160));
 
     const softCircle = (x, y, r, colorInner, colorOuter) => {
       const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
@@ -7041,15 +7053,6 @@
     if (debugPSegsEl) debugPSegsEl.textContent = `${pMeterDisplaySegs}/${P_METER_SEGMENTS}`;
   }
 
-  function updateParallaxLean(dt) {
-    const maxLeanX = BASE_W * 0.05;
-    const maxLeanY = TILE * 1.5;
-    const targetX = clamp((player?.ax || 0) / 2000, -1, 1) * maxLeanX;
-    const targetY = clamp(-(player?.vy || 0) / 600, -1, 1) * maxLeanY;
-    const blend = 1 - Math.pow(0.5, dt * 12); // ease in/out
-    parallaxLean.x += (targetX - parallaxLean.x) * blend;
-    parallaxLean.y += (targetY - parallaxLean.y) * blend;
-  }
 
   function updatePMeterUi(dt) {
     const speedRatio = clamp(Math.abs(player.vx) / P_SPEED_MAX, 0, 1);
@@ -7100,7 +7103,6 @@
     if (chatVisibleTime > 0) chatVisibleTime = Math.max(0, chatVisibleTime - dt);
     decayChatBubbles(dt);
     ensureBgmForBiome(longitudeState.biomeId);
-    updateParallaxLean(dt);
     render();
     flushDemoCapture();
     requestAnimationFrame(frame);
