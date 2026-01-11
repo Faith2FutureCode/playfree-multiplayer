@@ -3191,8 +3191,13 @@
     const dh = ctx.canvas?.height || BASE_H;
     const srcW = entry.img.naturalWidth || dw;
     const srcH = entry.img.naturalHeight || dh;
-    // Stretch to fit the game canvas exactly per layer (match playfield aspect)
-    ctx.drawImage(entry.img, 0, 0, srcW, srcH, 0, 0, dw, dh);
+    // Fit whole image (contain) and center so the full layer art is visible
+    const scale = Math.min(dw / Math.max(1, srcW), dh / Math.max(1, srcH));
+    const targetW = srcW * scale;
+    const targetH = srcH * scale;
+    const dx = (dw - targetW) / 2;
+    const dy = (dh - targetH) / 2;
+    ctx.drawImage(entry.img, 0, 0, srcW, srcH, dx, dy, targetW, targetH);
     ctx.imageSmoothingEnabled = prev;
   }
 
