@@ -6250,8 +6250,8 @@
     const infoPadX = 6;
     const infoPadY = 3;
     const infoW = g.measureText(screenLabel).width;
-    const infoX = 8;
-    const infoY = 10;
+    const infoX = BASE_W - infoW - infoPadX * 2 - 8;
+    const infoY = 12;
     g.fillRect(infoX - infoPadX, infoY - infoPadY, infoW + infoPadX * 2, 16);
     g.strokeRect(infoX - infoPadX, infoY - infoPadY, infoW + infoPadX * 2, 16);
     g.fillStyle = "#f2f5ff";
@@ -6700,27 +6700,7 @@
       el.style.pointerEvents = "none";
       tagLayer.appendChild(el);
     };
-    const addAreaBadge = (text) => {
-      const el = document.createElement("div");
-      el.textContent = text;
-      el.style.position = "absolute";
-      el.style.left = `${rect.left + 10 * scaleX}px`;
-      el.style.top = `${rect.top + 10 * scaleY}px`;
-      el.style.transform = "translate(0, 0)";
-      el.style.font = "14px 'Press Start 2P', 'VT323', monospace";
-      el.style.color = "#f2f5ff";
-      el.style.background = "rgba(0,0,0,0.82)";
-      el.style.border = "1px solid rgba(255,255,255,0.4)";
-      el.style.borderRadius = "8px";
-      el.style.padding = `${6 * scaleY}px ${10 * scaleX}px`;
-      el.style.textShadow = "1px 1px 0 #000";
-      el.style.boxShadow = "0 2px 0 rgba(0,0,0,0.45)";
-      el.style.pointerEvents = "none";
-      tagLayer.appendChild(el);
-    };
-    // Area badge (top-left)
-    const layerInfo = layerInfoForY(player.y + player.h / 2);
-    addAreaBadge(layerInfo.label);
+
     // self
     addTag(`${PLAYER_NAME}`, player.x + player.w / 2, player.y - 4, "#f6d341");
     if (selfChatBubble) addBubble(selfChatBubble.text, player.x + player.w / 2, player.y - 14, "#f6d341");
