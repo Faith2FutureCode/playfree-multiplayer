@@ -3974,7 +3974,7 @@
   };
   window.jumpMetrics = jumpMetrics;
 
-  const isCustomTileId = (t) => typeof t === "string" && t.startsWith("~");
+  function isCustomTileId(t) { return typeof t === "string" && t.startsWith("~"); }
   const serializeLevelSnapshot = () => {
     return {
       tiles: tiles.map(row => row.join("")),
