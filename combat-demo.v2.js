@@ -401,6 +401,24 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       pointer-events: none;
     }
     .boss-flash.flash { animation: flash 320ms ease; }
+    .context-spiral {
+      position: absolute;
+      inset: -10%;
+      background: repeating-conic-gradient(from 45deg, #0c1224 0deg 15deg, #111a30 15deg 30deg, #182342 30deg 45deg, #0c1224 45deg 60deg);
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(1);
+      mix-blend-mode: screen;
+      z-index: 5;
+    }
+    .context-spiral.animate {
+      animation: spiralCollapse 1s ease-in forwards;
+    }
+    @keyframes spiralCollapse {
+      0% { opacity: 0.9; transform: scale(1.05) rotate(0deg); }
+      60% { opacity: 0.8; transform: scale(0.5) rotate(320deg); }
+      100% { opacity: 0; transform: scale(0.05) rotate(540deg); }
+    }
     .boss-actors {
       position: absolute;
       inset: 0;
@@ -602,8 +620,9 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
     <div class="boss-bg"></div>
     <div class="boss-parallax"></div>
     <div class="boss-floor"></div>
+    <div class="context-spiral"></div>
     <div class="boss-actors">
-      <div class="boss-boss">BOSS</div>
+      <div class="boss-boss"></div>
       <div class="boss-party">
         <div class="row">
           <div class="tiny"></div><div class="tiny"></div>
@@ -638,6 +657,7 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
   const bossSpriteEl = bossScene.querySelector(".boss-boss");
   const heroSpriteEls = Array.from(bossScene.querySelectorAll(".boss-party .tiny"));
   const effectsLayer = bossScene.querySelector(".boss-effects");
+  const spiralEl = bossScene.querySelector(".context-spiral");
 
   bossSpriteEl.style.backgroundImage = `url(${BOSS_SPRITE})`;
   heroSpriteEls.forEach((el, idx) => {
@@ -741,6 +761,11 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
     bossScene.classList.remove("active");
     bossScene.classList.add("visible", "start");
     bossFlash.classList.add("flash");
+    if (spiralEl) {
+      spiralEl.classList.remove("animate");
+      void spiralEl.offsetWidth; // reflow to restart animation
+      spiralEl.classList.add("animate");
+    }
     clearTimeout(transitionTimer);
     transitionTimer = setTimeout(() => {
       bossScene.classList.remove("start");
