@@ -184,6 +184,9 @@ let phase = "lobby"; // lobby -> combat -> results
 let snapshotInfo = null;
 let resultsInfo = null;
 let autoTimer = null;
+let heroAtb = {};
+let atbTimer = null;
+let __startTransition = null;
 
 function stopAuto() {
   if (autoTimer) {
@@ -272,7 +275,13 @@ function startRun() {
   snapshotInfo = { partySize: party.length, boss: state.boss.name, mode: selectedMode };
   resultsInfo = null;
   heroAtb = Object.fromEntries(party.map((p) => [p.id, 0]));
-  startBossSceneTransition(() => {
+  const doTransition =
+    window.__combatDemoStartTransition ||
+    __startTransition ||
+    ((cb) => {
+      cb?.();
+    });
+  doTransition(() => {
     phase = "combat";
     window.__combatDemoStartAtb?.();
     render();
@@ -817,8 +826,6 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
 
   let transitionTimer = null;
   let lastLogIndex = 0;
-  let heroAtb = {};
-  let atbTimer = null;
 
   function hideBossScene() {
     bossScene.classList.remove("visible", "start", "active");
@@ -845,6 +852,8 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       if (onDone) onDone();
     }, 1200);
   }
+  window.__combatDemoStartTransition = startBossSceneTransition;
+  __startTransition = startBossSceneTransition;
 
   function startAtbLoop() {
     stopAtbLoop();
