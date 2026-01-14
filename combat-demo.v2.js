@@ -356,6 +356,16 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       font: 12px/1.2 "VT323", monospace;
       cursor: pointer;
     }
+    .ready-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.4);
+      margin-right: 6px;
+      flex-shrink: 0;
+    }
+    .ready-dot.ready { background: #2dd36f; }
+    .ready-dot.unready { background: #d33232; }
     .boss-scene {
       position: fixed;
       inset: 0;
@@ -979,7 +989,11 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       row.className = "combat-demo-pill";
       const label = document.createElement("div");
       label.className = "label";
-      label.textContent = `${p.name} (${p.slot})`;
+      const dot = document.createElement("div");
+      dot.className = `ready-dot ${p.ready ? "ready" : "unready"}`;
+      const labelText = document.createElement("div");
+      labelText.textContent = `${p.name} (${p.slot})`;
+      label.append(dot, labelText);
       const btn = document.createElement("button");
       btn.textContent = p.ready ? "Ready" : "Not Ready";
       btn.style.opacity = p.ready ? "1" : "0.7";
