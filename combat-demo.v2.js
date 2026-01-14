@@ -363,6 +363,7 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       border: 1px solid rgba(255,255,255,0.4);
       margin-right: 6px;
       flex-shrink: 0;
+      display: inline-block;
     }
     .ready-dot.ready { background: #2dd36f; }
     .ready-dot.pending { background: #e8c94f; }
