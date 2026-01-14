@@ -993,11 +993,8 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       rosterList.appendChild(row);
     });
     const readyCount = roster.reduce((acc, p) => acc + (p.ready ? 1 : 0), 0);
-    const minReady = Math.max(1, Math.ceil(roster.length / 2));
-    const needed = Math.max(0, minReady - readyCount);
-    const majority = needed === 0;
-    startBtn.disabled = needed > 0 || phase !== "lobby";
-    startBtn.textContent = majority ? "Start (majority)" : `Need ${needed} more`;
+    startBtn.disabled = phase !== "lobby";
+    startBtn.textContent = readyCount > 0 ? "Start" : "Start (set ready first)";
     bossSel.disabled = phase !== "lobby";
     modeSel.disabled = phase !== "lobby";
     stepBtn.disabled = phase !== "combat";
