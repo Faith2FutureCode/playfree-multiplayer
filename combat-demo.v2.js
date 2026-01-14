@@ -40,6 +40,15 @@ const demoAbilities = {
   },
 };
 
+const BOSS_SPRITE =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAABQCAYAAADRAH3kAAADIklEQVR4nO2cL1DjQBTGl84pdHTVCRSiGERVNQKFCLaq4nQUAlWNqKptRdWJ6irEGSpQEajqamxO3GQuLNlks/933/ebYTqTZl52+r73Jdm3C2MAAAAAAAAAAAAAAID0uXB1oX3xXt0tr7Wv5ypOfvWrkomT38/Z9vdadzhKcbbli/bvMNINAOLGiQD2xXvV/EwlTn4///LpO44KcADiWBcAX2WqVRdaHL5aVavXVBxV4ADEgQCIY1UAInsdaruhxRHZ9FD7NhVHBzgAcawJoK+qZKsutDh91Slbvabi6AIHIA4EQBwrvYAhD1Vd8/E+47T1AtpseVo+CWMtynHr8SH23tUfQC8AaGPcAVRm1tqq13cc3gFEVTvUAVZ/noXnvy5PrcdFLgAHANr8MB3QRK8+xDiiKpxemYjefQ2bwAGIAwEQx/gtgBqiV71YkBbAJJtqrZ4Bfsizotqel8LnIDiAYxa34tdGW3SJAM8ARMizotXBIQDikL4FvB0uhd89PjgciCPabgUkHeDtcNmZfMYY2+xKttmVjkbkDv5WQEoAMonnSVEITRGQEcDQxPOkKgISAtBNfk1qImCMgABMJb8mJRHkWVGNVpMxZvgIM2KMsdVkXNV/vgdkEtPVX5OSC3ybB2iKYHE8Ofv/AcAPnRNBTTGs21crBYut6q/Z7Er2+GBwNYgnpGcC5+P/Clif4m6Bgn9sz8sLpalgiCEdtHsBlMVQno++h6CN0WYQZTHERt0UstYNhBjiwEk7GGIIi2ZL2Pl6AFdiuJl9Wn0VvJl9WovtEucCgAOEhRMB+Eq6LReIufr5FUHWBIBKjwOjAggx6aZdIKXqZ8yAAEJMOo8pEcScfBFKAogh6Ty6Ikgx+YwNEECMSeepkzhECKkkXrQzqFMAzfUAkyydxSIyQkgl8X18EwClRSBUkty7OZRS0sFXpBOP7eHhcTy/aheu8mvg4WPfe87s552384AcyvsC+n7k+ntf5wE5kt8YArrREoCo2vjjvs4D/cABiKMtgFCqHdWvBhyAOEYE4PuJH9WvDhwAAAAAAAAAAAAAAAAK/AU49nSsA7oYfgAAAABJRU5ErkJggg==";
+
+const HERO_SPRITES = [
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAYCAYAAAD6S912AAAAvElEQVR4nGNgGHGAEZvg/xMB/4k2wGIDihlMlLoIHdDHQEaLDYwfGQIYPjIEMIj6nGOAsdH56N5lYMARhgwMDAwfTiwgGI4CFgkY+llgjIqKihMwdkdHhwUhw3CBwR8pLNgEYeHns0EDp8YtATfg6pDDcvB7mT5hKGCRwOgW1fOfi+EIAwMDA8OuZSXwMHKL6vnPwMDAEDYJVZxmLhz8BsLDkJLshgwwAlVDwwajULhx4wgjsfKDPwypbiAAfNg3r52eDtUAAAAASUVORK5CYII=",
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAYCAYAAAD6S912AAAAuElEQVR4nGNgGHGAEZtgxYn//4k1oMOCEcUMJkpdhA6obiBWLzMwMDB8OLHgPwMDA4OKTx3DnS1NcHFkvoBFAoZ+ggbiA9gMZIExKioqTsDYHR0dFoQMwwUGf6SwYBOEhZ/PBg2cGrcE3ICrQw7Lwe9l+oShgEUCo1tUz38uhiMMDAwMDLuWlcDDyC2q5z8DAwND2CRUcZq5cPAbCA9DSrIbMsAIVA0NG4xC4caNI4zEyg/+MKS6gQAf5zS1LohltgAAAABJRU5ErkJggg==",
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAYCAYAAAD6S912AAAAt0lEQVR4nGNgGHGAEZvg/4ot/4k2oMMHxQwmSl2EDqhuIFYvMzAwMHw4seA/AwMDg4pPHcOdLU1wcWS+gEUChn6CBuID2AxkgTEqKipOwNgdHR0WhAzDBQZ/pLBgE4SFn88GDZwatwTcgKtDDsvB72X6hKGARQKjW1TPfy6GIwwMDAwMu5aVwMPILarnPwMDA0PYJFRxmrlw8BsID0NKshsywAhUDQ0bjELhxo0jjMTKD/4wpLqBABx3NLXKAu/8AAAAAElFTkSuQmCC",
+];
+
 const demoPlayers = [
   {
     id: "p1",
@@ -404,8 +413,13 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       filter: drop-shadow(0 4px 6px rgba(0,0,0,0.6));
     }
     .boss-boss {
-      font: 18px/1 "Press Start 2P", "VT323", monospace;
-      transform: scale(1.4);
+      width: 180px;
+      height: 120px;
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      image-rendering: pixelated;
+      transform: scale(1.3);
     }
     .boss-party {
       display: grid;
@@ -415,10 +429,14 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
     }
     .boss-party .row { display: flex; gap: 6px; }
     .boss-party .tiny {
-      width: 18px;
-      height: 18px;
-      background: #ffcf51;
-      border: 2px solid #24314f;
+      width: 20px;
+      height: 24px;
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      image-rendering: pixelated;
+      border: 1px solid rgba(12, 16, 32, 0.5);
+      box-shadow: 0 0 4px rgba(0,0,0,0.35);
     }
     .boss-hud {
       position: absolute;
@@ -564,6 +582,13 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
   const bossFlash = bossScene.querySelector(".boss-flash");
   const bossNameEl = bossScene.querySelector(".boss-name");
   const partyLineEl = bossScene.querySelector(".party-line");
+  const bossSpriteEl = bossScene.querySelector(".boss-boss");
+  const heroSpriteEls = Array.from(bossScene.querySelectorAll(".boss-party .tiny"));
+
+  bossSpriteEl.style.backgroundImage = `url(${BOSS_SPRITE})`;
+  heroSpriteEls.forEach((el, idx) => {
+    el.style.backgroundImage = `url(${HERO_SPRITES[idx % HERO_SPRITES.length]})`;
+  });
 
   const toggle = document.createElement("button");
   toggle.className = "combat-demo-toggle";
