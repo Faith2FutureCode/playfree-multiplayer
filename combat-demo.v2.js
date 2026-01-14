@@ -250,11 +250,14 @@ function pity() {
 }
 
 function reset(mode = "4s") {
+  stopAtbLoop();
   state = createDemoState(mode, selectedBossId);
   now = performance.now();
   phase = "combat";
   snapshotInfo = { partySize: state.players.length, boss: state.boss.name, mode };
   resultsInfo = null;
+  heroAtb = Object.fromEntries(state.players.map((p) => [p.id, 0]));
+  startAtbLoop();
   return state;
 }
 
@@ -262,13 +265,16 @@ function startRun() {
   const party = roster.filter((r) => r.ready).map(cloneParticipant);
   if (party.length === 0) return { started: false, reason: "no_ready_players" };
   stopAuto();
+  stopAtbLoop();
   state = createDemoState(selectedMode, selectedBossId, party);
   now = performance.now();
   phase = "transition";
   snapshotInfo = { partySize: party.length, boss: state.boss.name, mode: selectedMode };
   resultsInfo = null;
+  heroAtb = Object.fromEntries(party.map((p) => [p.id, 0]));
   startBossSceneTransition(() => {
     phase = "combat";
+    startAtbLoop();
     render();
   });
   return { started: true };
@@ -505,6 +511,37 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
     .party-row .party-name { color: #ffd54f; }
     .party-row .party-hp { color: #e7f1ff; font-size: 11px; }
     .party-row.ko { opacity: 0.55; }
+    .cmd-row { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+    .cmd-atb {
+      flex: 1;
+      height: 7px;
+      background: #0a1020;
+      border: 1px solid #2746a8;
+      overflow: hidden;
+      box-shadow: inset 0 0 4px rgba(0,0,0,0.5);
+      position: relative;
+    }
+    .cmd-atb .fill {
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 0;
+      background: linear-gradient(90deg, #5ff3c5, #2ad1ff);
+    }
+    .cmd-buttons { display: flex; gap: 4px; }
+    .cmd-buttons button {
+      background: #182342;
+      color: #e6f0ff;
+      border: 1px solid rgba(255,255,255,0.25);
+      padding: 4px 6px;
+      font: 11px/1.2 "Press Start 2P", "VT323", monospace;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .cmd-buttons button:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
     @keyframes stripes {
       from { background-position-y: 0px; }
       to { background-position-y: -64px; }
@@ -543,6 +580,7 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       animation: floatUp 900ms ease-out forwards;
     }
     .dmg-float.crit { color: #ffea6b; }
+    .dmg-float.heal { color: #6bff9d; }
     .hit-spark {
       position: absolute;
       width: 12px;
@@ -750,6 +788,8 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
 
   let transitionTimer = null;
   let lastLogIndex = 0;
+  let heroAtb = {};
+  let atbTimer = null;
 
   function hideBossScene() {
     bossScene.classList.remove("visible", "start", "active");
@@ -773,6 +813,26 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       bossFlash.classList.remove("flash");
       if (onDone) onDone();
     }, 1200);
+  }
+
+  function startAtbLoop() {
+    stopAtbLoop();
+    atbTimer = setInterval(() => {
+      if (phase !== "combat") return;
+      tick(300);
+      state.players.forEach((p) => {
+        const rate = Math.max(3, (p.stats.speed || 100) / 35);
+        heroAtb[p.id] = Math.min(100, (heroAtb[p.id] ?? 0) + rate);
+      });
+      renderBossHud();
+    }, 320);
+  }
+
+  function stopAtbLoop() {
+    if (atbTimer) {
+      clearInterval(atbTimer);
+      atbTimer = null;
+    }
   }
 
   function findTargetEl(targetId) {
@@ -803,13 +863,14 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
     addEffectEl(spark);
   }
 
-  function showDamageFloat(targetId, amount, crit = false) {
+  function showDamageFloat(targetId, amount, crit = false, heal = false) {
     const elRef = findTargetEl(targetId);
     if (!elRef) return;
     const rect = elRef.getBoundingClientRect();
     const float = document.createElement("div");
-    float.className = crit ? "dmg-float crit" : "dmg-float";
-    float.textContent = Math.round(amount);
+    float.className = crit ? "dmg-float crit" : heal ? "dmg-float heal" : "dmg-float";
+    const val = Math.round(Math.abs(amount));
+    float.textContent = heal ? `+${val}` : `${val}`;
     const x = rect.left + rect.width * 0.5 + (Math.random() * 10 - 5);
     const y = rect.top + rect.height * 0.1;
     float.style.left = `${x}px`;
@@ -829,15 +890,62 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
         const pct = Math.max(0, Math.min(1, p.stats.hp / p.stats.maxHp));
         const ko = p.dead || p.kicked;
         const suffix = ko ? " (out)" : "";
+        const atb = heroAtb[p.id] ?? 0;
+        const ready = atb >= 100 && !ko;
         return `
           <div class="party-row${ko ? " ko" : ""}">
             <span class="party-name">${p.name}</span>
             <span class="party-hp">${p.stats.hp}/${p.stats.maxHp}${suffix}</span>
           </div>
           <div class="hud-bar"><div class="fill" style="width:${(pct * 100).toFixed(1)}%;"></div></div>
+          <div class="cmd-row">
+            <div class="cmd-atb"><div class="fill" style="width:${Math.min(100, atb).toFixed(1)}%;"></div></div>
+            <div class="cmd-buttons">
+              <button class="cmd-btn" data-hero="${p.id}" data-cmd="attack" ${ready ? "" : "disabled"}>Fight</button>
+              <button class="cmd-btn" data-hero="${p.id}" data-cmd="abilities" ${ready ? "" : "disabled"}>Abilities</button>
+              <button class="cmd-btn" data-hero="${p.id}" data-cmd="items" ${ready ? "" : "disabled"}>Items</button>
+            </div>
+          </div>
         `;
       })
       .join("");
+    partyRowsEl.querySelectorAll(".cmd-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const heroId = btn.dataset.hero;
+        const cmd = btn.dataset.cmd;
+        if (!heroId || !cmd) return;
+        issueCommand(heroId, cmd);
+      });
+    });
+  }
+
+  function issueCommand(heroId, cmd) {
+    if (phase !== "combat") return;
+    const atb = heroAtb[heroId] ?? 0;
+    if (atb < 100) return;
+    const hero = state.players.find((p) => p.id === heroId);
+    if (!hero || hero.dead || hero.kicked) return;
+    const finish = () => {
+      heroAtb[heroId] = 0;
+      render();
+    };
+    if (cmd === "items") {
+      // simple heal to lowest HP ally
+      const target = [...state.players].filter((p) => !p.dead && !p.kicked).sort((a, b) => a.stats.hp - b.stats.hp)[0];
+      if (target) {
+        const heal = Math.max(10, Math.round(target.stats.maxHp * 0.15));
+        target.stats.hp = Math.min(target.stats.maxHp, target.stats.hp + heal);
+        state.log.push({ type: "damage", sourceId: heroId, targetId: target.id, amount: -heal, heal: true });
+        showDamageFloat(target.id, -heal, false, true);
+      }
+      finish();
+      return;
+    }
+    const abilityId = cmd === "abilities" ? "blast" : "slash";
+    intent(heroId, abilityId, [state.boss.id]);
+    resolveNextSlotWave(state);
+    checkOutcome();
+    finish();
   }
 
   function checkOutcome() {
@@ -884,10 +992,12 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       row.append(label, btn);
       rosterList.appendChild(row);
     });
-    const readyCount = roster.filter((p) => p.ready).length;
-    const majority = readyCount >= Math.ceil(roster.length / 2);
-    startBtn.disabled = !majority || phase !== "lobby";
-    startBtn.textContent = majority ? "Start (majority)" : `Need ${Math.ceil(roster.length / 2) - readyCount} more`;
+    const readyCount = roster.reduce((acc, p) => acc + (p.ready ? 1 : 0), 0);
+    const minReady = Math.max(1, Math.ceil(roster.length / 2));
+    const needed = Math.max(0, minReady - readyCount);
+    const majority = needed === 0;
+    startBtn.disabled = needed > 0 || phase !== "lobby";
+    startBtn.textContent = majority ? "Start (majority)" : `Need ${needed} more`;
     bossSel.disabled = phase !== "lobby";
     modeSel.disabled = phase !== "lobby";
     stepBtn.disabled = phase !== "combat";
@@ -931,7 +1041,8 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       newLogs.forEach((l) => {
         if (l.type === "damage") {
           showHitSpark(l.targetId);
-          showDamageFloat(l.targetId, l.amount, l.crit);
+          const isHeal = l.amount < 0 || l.heal;
+          showDamageFloat(l.targetId, l.amount, l.crit, isHeal);
         }
       });
       lastLogIndex = s.log.length;
@@ -1011,6 +1122,7 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
   closeBtn.addEventListener("click", () => panel.classList.remove("visible"));
   returnBtn.addEventListener("click", () => {
     stopAuto();
+    stopAtbLoop();
     phase = "lobby";
     resultsInfo = null;
     snapshotInfo = null;
