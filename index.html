@@ -4639,6 +4639,11 @@
     fade: null, // { start, duration, outgoing, incoming, targetBiome }
   };
 
+  function pauseAudio(audio) {
+    if (!audio) return;
+    try { audio.pause(); } catch (err) { /* ignore */ }
+  }
+
   function unlockAudio() {
     audioUnlocked = true;
     document.removeEventListener("pointerdown", unlockAudio);
@@ -4648,8 +4653,10 @@
   document.addEventListener("keydown", unlockAudio);
 
   function stopBgm(immediate = false) {
-    if (immediate && bgmState.audio) {
-      try { bgmState.audio.pause(); } catch (err) { /* ignore */ }
+    if (immediate && bgmState.audio) pauseAudio(bgmState.audio);
+    if (bgmState.fade) {
+      pauseAudio(bgmState.fade.incoming);
+      pauseAudio(bgmState.fade.outgoing);
     }
     bgmState.audio = null;
     bgmState.biomeId = null;
@@ -4665,6 +4672,15 @@
   }
 
   function startCrossfade(nextSrc, nextBiomeId) {
+    if (bgmState.fade) {
+      const carry = bgmState.audio || bgmState.fade.incoming || bgmState.fade.outgoing || null;
+      const carryBiome = bgmState.fade.targetBiome ?? bgmState.biomeId;
+      if (bgmState.fade.incoming && bgmState.fade.incoming !== carry) pauseAudio(bgmState.fade.incoming);
+      if (bgmState.fade.outgoing && bgmState.fade.outgoing !== carry) pauseAudio(bgmState.fade.outgoing);
+      bgmState.audio = carry;
+      bgmState.biomeId = carryBiome;
+      bgmState.fade = null;
+    }
     const outgoing = bgmState.audio || null;
     const incoming = nextSrc ? startBgm(nextSrc, 0) : null;
     const start = performance.now();
@@ -4692,13 +4708,14 @@
   function ensureBgmForBiome(biomeId) {
     if (!audioUnlocked) return;
     const src = biomeId ? BGM_TRACKS[biomeId] : null;
-    const currentBiome = bgmState.fade?.targetBiome ?? bgmState.biomeId;
-    if (src && currentBiome === biomeId && bgmState.audio) {
+    const currentTarget = bgmState.fade?.targetBiome ?? bgmState.biomeId;
+    if (bgmState.fade && bgmState.fade.targetBiome === biomeId) return;
+    if (src && currentTarget === biomeId && bgmState.audio) {
       if (bgmState.audio.paused) bgmState.audio.play().catch(() => {});
       return;
     }
     if (!src) {
-      if (bgmState.audio) startCrossfade(null, null);
+      if (bgmState.audio || bgmState.fade) startCrossfade(null, null);
       return;
     }
     startCrossfade(src, biomeId);
@@ -7205,7 +7222,7 @@
 
 })();
 </script>
-<script type="module" src="combat-demo.v2.js"></script>
+<script type="module" src="combat-demo.v2.js?v=2"></script>
 </body>
 </html>
 
