@@ -327,8 +327,8 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       font-weight: 700;
       letter-spacing: 0.5px;
     }
-    .combat-demo-body { padding: 8px 10px; gap: 6px; display: flex; flex-direction: column; }
-    .combat-demo-row { display: flex; align-items: center; gap: 6px; }
+    .combat-demo-body { padding: 8px 10px; gap: 6px; display: flex; flex-direction: column; max-height: 360px; overflow-y: auto; }
+    .combat-demo-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .combat-demo-row button, .combat-demo-row select {
       background: #182342;
       color: #e6f0ff;
