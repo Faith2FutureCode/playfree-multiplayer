@@ -407,25 +407,29 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       display: flex;
       align-items: flex-end;
       justify-content: space-between;
-      padding: 10% 6%;
+      padding: 10% 8% 12% 8%;
       color: #fefefe;
       text-shadow: 1px 1px 0 #000, -1px -1px 0 #000;
       filter: drop-shadow(0 4px 6px rgba(0,0,0,0.6));
+      gap: 16px;
     }
     .boss-boss {
-      width: 180px;
-      height: 120px;
+      width: 220px;
+      height: 140px;
       background-size: contain;
       background-repeat: no-repeat;
       background-position: center;
       image-rendering: pixelated;
-      transform: scale(1.3);
+      transform: scale(1.35);
+      align-self: flex-end;
+      animation: bossBob 3s ease-in-out infinite;
     }
     .boss-party {
       display: grid;
-      gap: 8px;
+      gap: 10px;
       justify-items: end;
       font: 14px/1 "Press Start 2P", "VT323", monospace;
+      align-self: flex-end;
     }
     .boss-party .row { display: flex; gap: 6px; }
     .boss-party .tiny {
@@ -437,45 +441,52 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       image-rendering: pixelated;
       border: 1px solid rgba(12, 16, 32, 0.5);
       box-shadow: 0 0 4px rgba(0,0,0,0.35);
+      animation: heroBob 2.6s ease-in-out infinite;
     }
     .boss-hud {
       position: absolute;
-      left: 12px;
-      right: 12px;
-      bottom: 12px;
-      padding: 8px 10px;
-      background: #0c1e73;
-      border: 2px solid #153187;
-      color: #e6f0ff;
+      left: 8px;
+      right: 8px;
+      bottom: 10px;
+      padding: 10px 12px;
+      background: linear-gradient(180deg, #0b1f7a, #0a1a63);
+      border: 2px solid #3e5ff6;
+      color: #e7f1ff;
       font: 12px/1.4 "Press Start 2P", "VT323", monospace;
-      box-shadow: 0 0 12px rgba(0,0,0,0.6);
+      box-shadow: 0 0 14px rgba(0,0,0,0.65);
       display: grid;
       grid-template-columns: 1.2fr 1fr;
-      gap: 10px;
+      gap: 12px;
       opacity: 0;
       transform: translateY(8px);
       transition: opacity 400ms ease, transform 400ms ease;
     }
     .boss-scene.active .boss-hud { opacity: 1; transform: translateY(0); }
-    .boss-hud .title { font-weight: 700; color: #ffd54f; }
-    .boss-hud .row { display: flex; align-items: center; gap: 8px; }
-    .boss-bar {
-      flex: 1;
-      height: 6px;
-      background: #0a1020;
-      border: 1px solid #1c2f6a;
+    .boss-hud .hud-title { font-weight: 700; color: #ffd54f; margin-bottom: 4px; }
+    .boss-hud .hud-name { font-size: 13px; color: #f5fbff; text-shadow: 1px 1px 0 #0a0f2c; }
+    .boss-hud .hud-meta { font-size: 11px; color: #c6d7ff; margin-top: 2px; }
+    .hud-bar {
       position: relative;
+      height: 7px;
+      background: #0a1020;
+      border: 1px solid #2746a8;
       overflow: hidden;
+      box-shadow: inset 0 0 4px rgba(0,0,0,0.5);
     }
-    .boss-bar::after {
-      content: "";
+    .hud-bar .fill {
       position: absolute;
       left: 0;
       top: 0;
       bottom: 0;
       width: 0;
-      background: linear-gradient(90deg, #3de1ff, #0ad1ff);
+      background: linear-gradient(90deg, #4fe1ff, #0ad1ff);
     }
+    .hud-section { display: flex; flex-direction: column; gap: 6px; }
+    .party-rows { display: flex; flex-direction: column; gap: 4px; }
+    .party-row { display: flex; justify-content: space-between; align-items: center; color: #f8fbff; }
+    .party-row .party-name { color: #ffd54f; }
+    .party-row .party-hp { color: #e7f1ff; font-size: 11px; }
+    .party-row.ko { opacity: 0.55; }
     @keyframes stripes {
       from { background-position-y: 0px; }
       to { background-position-y: -64px; }
@@ -492,6 +503,44 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       0% { opacity: 0; }
       10% { opacity: 0.7; }
       100% { opacity: 0; }
+    }
+    @keyframes bossBob {
+      0%,100% { transform: scale(1.35) translateY(0); }
+      50% { transform: scale(1.35) translateY(-4px); }
+    }
+    @keyframes heroBob {
+      0%,100% { transform: translateY(0); }
+      50% { transform: translateY(-3px); }
+    }
+    .boss-effects {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .dmg-float {
+      position: absolute;
+      color: #f7f7ff;
+      font: 12px/1.1 "Press Start 2P", "VT323", monospace;
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000;
+      animation: floatUp 900ms ease-out forwards;
+    }
+    .dmg-float.crit { color: #ffea6b; }
+    .hit-spark {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      background: radial-gradient(circle, #fff, rgba(255,255,255,0));
+      animation: spark 300ms ease-out forwards;
+      opacity: 0.9;
+    }
+    @keyframes floatUp {
+      0% { transform: translateY(0) scale(1); opacity: 1; }
+      100% { transform: translateY(-28px) scale(1.05); opacity: 0; }
+    }
+    @keyframes spark {
+      0% { transform: scale(0.6); opacity: 0.9; }
+      100% { transform: scale(1.6); opacity: 0; }
     }
     .combat-demo-stats { font-family: "VT323", monospace; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
     .combat-demo-stats div { white-space: pre-line; }
@@ -564,15 +613,17 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
         </div>
       </div>
     </div>
+    <div class="boss-effects"></div>
     <div class="boss-hud">
-      <div class="col">
-        <div class="title">Boss</div>
-        <div class="row"><span class="boss-name">???</span></div>
-        <div class="row"><div class="boss-bar boss-hp"></div></div>
+      <div class="hud-section">
+        <div class="hud-title">Boss</div>
+        <div class="hud-name boss-name">???</div>
+        <div class="hud-meta boss-hp-text">HP --/--</div>
+        <div class="hud-bar boss-bar"><div class="fill boss-hp-fill"></div></div>
       </div>
-      <div class="col">
-        <div class="title">Party</div>
-        <div class="row party-line"></div>
+      <div class="hud-section">
+        <div class="hud-title">Party</div>
+        <div class="party-rows"></div>
       </div>
     </div>
     <div class="boss-scan"></div>
@@ -581,9 +632,12 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
   document.body.appendChild(bossScene);
   const bossFlash = bossScene.querySelector(".boss-flash");
   const bossNameEl = bossScene.querySelector(".boss-name");
-  const partyLineEl = bossScene.querySelector(".party-line");
+  const bossHpTextEl = bossScene.querySelector(".boss-hp-text");
+  const bossHpFillEl = bossScene.querySelector(".boss-hp-fill");
+  const partyRowsEl = bossScene.querySelector(".party-rows");
   const bossSpriteEl = bossScene.querySelector(".boss-boss");
   const heroSpriteEls = Array.from(bossScene.querySelectorAll(".boss-party .tiny"));
+  const effectsLayer = bossScene.querySelector(".boss-effects");
 
   bossSpriteEl.style.backgroundImage = `url(${BOSS_SPRITE})`;
   heroSpriteEls.forEach((el, idx) => {
@@ -675,6 +729,7 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
   document.body.append(toggle, panel);
 
   let transitionTimer = null;
+  let lastLogIndex = 0;
 
   function hideBossScene() {
     bossScene.classList.remove("visible", "start", "active");
@@ -695,16 +750,69 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
     }, 1200);
   }
 
+  function findTargetEl(targetId) {
+    if (!targetId) return null;
+    if (state?.boss?.id === targetId) return bossSpriteEl;
+    const idx = state?.players?.findIndex((p) => p.id === targetId) ?? -1;
+    if (idx >= 0 && heroSpriteEls[idx]) return heroSpriteEls[idx];
+    return null;
+  }
+
+  function addEffectEl(el) {
+    effectsLayer.appendChild(el);
+    setTimeout(() => {
+      el.remove();
+    }, 1200);
+  }
+
+  function showHitSpark(targetId) {
+    const elRef = findTargetEl(targetId);
+    if (!elRef) return;
+    const rect = elRef.getBoundingClientRect();
+    const spark = document.createElement("div");
+    spark.className = "hit-spark";
+    const x = rect.left + rect.width * (0.3 + Math.random() * 0.4);
+    const y = rect.top + rect.height * (0.25 + Math.random() * 0.5);
+    spark.style.left = `${x}px`;
+    spark.style.top = `${y}px`;
+    addEffectEl(spark);
+  }
+
+  function showDamageFloat(targetId, amount, crit = false) {
+    const elRef = findTargetEl(targetId);
+    if (!elRef) return;
+    const rect = elRef.getBoundingClientRect();
+    const float = document.createElement("div");
+    float.className = crit ? "dmg-float crit" : "dmg-float";
+    float.textContent = Math.round(amount);
+    const x = rect.left + rect.width * 0.5 + (Math.random() * 10 - 5);
+    const y = rect.top + rect.height * 0.1;
+    float.style.left = `${x}px`;
+    float.style.top = `${y}px`;
+    addEffectEl(float);
+  }
+
   function renderBossHud() {
     bossNameEl.textContent = state.boss?.name || "Boss";
-    const hpPct = state.boss ? Math.max(0, Math.min(1, state.boss.stats.hp / state.boss.stats.maxHp)) : 0;
-    const hpBar = bossScene.querySelector(".boss-bar.boss-hp");
-    hpBar.innerHTML = `<div style="position:absolute;left:0;top:0;bottom:0;width:${(hpPct * 100).toFixed(
-      1
-    )}%;background:linear-gradient(90deg,#3de1ff,#0ad1ff);"></div>`;
-    partyLineEl.innerHTML = state.players
-      .map((p) => `<span style="color:#ffd54f;">${p.name}</span> ${p.stats.hp}/${p.stats.maxHp}`)
-      .join(" · ");
+    const bossHp = state.boss?.stats.hp ?? 0;
+    const bossMax = state.boss?.stats.maxHp || 1;
+    const hpPct = Math.max(0, Math.min(1, bossHp / bossMax));
+    bossHpTextEl.textContent = `HP ${bossHp}/${bossMax}`;
+    bossHpFillEl.style.width = `${(hpPct * 100).toFixed(1)}%`;
+    partyRowsEl.innerHTML = state.players
+      .map((p) => {
+        const pct = Math.max(0, Math.min(1, p.stats.hp / p.stats.maxHp));
+        const ko = p.dead || p.kicked;
+        const suffix = ko ? " (out)" : "";
+        return `
+          <div class="party-row${ko ? " ko" : ""}">
+            <span class="party-name">${p.name}</span>
+            <span class="party-hp">${p.stats.hp}/${p.stats.maxHp}${suffix}</span>
+          </div>
+          <div class="hud-bar"><div class="fill" style="width:${(pct * 100).toFixed(1)}%;"></div></div>
+        `;
+      })
+      .join("");
   }
 
   function checkOutcome() {
@@ -793,6 +901,19 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       recent = ["Click Start when majority ready to enter boss."];
     }
     logBox.textContent = recent.join("\n");
+    if (phase === "combat") {
+      const newLogs = [...s.log].slice(lastLogIndex);
+      newLogs.forEach((l) => {
+        if (l.type === "damage") {
+          showHitSpark(l.targetId);
+          showDamageFloat(l.targetId, l.amount, l.crit);
+        }
+      });
+      lastLogIndex = s.log.length;
+    } else {
+      lastLogIndex = s.log.length;
+    }
+    renderBossHud();
   }
 
   function autoIntentAndWave(deltaMs = 500) {
