@@ -250,14 +250,14 @@ function pity() {
 }
 
 function reset(mode = "4s") {
-  stopAtbLoop();
+  window.__combatDemoStopAtb?.();
   state = createDemoState(mode, selectedBossId);
   now = performance.now();
   phase = "combat";
   snapshotInfo = { partySize: state.players.length, boss: state.boss.name, mode };
   resultsInfo = null;
   heroAtb = Object.fromEntries(state.players.map((p) => [p.id, 0]));
-  startAtbLoop();
+  window.__combatDemoStartAtb?.();
   return state;
 }
 
@@ -265,7 +265,7 @@ function startRun() {
   const party = roster.filter((r) => r.status !== "declined").map(cloneParticipant);
   if (party.length === 0) return { started: false, reason: "no_ready_players" };
   stopAuto();
-  stopAtbLoop();
+  window.__combatDemoStopAtb?.();
   state = createDemoState(selectedMode, selectedBossId, party);
   now = performance.now();
   phase = "transition";
@@ -274,14 +274,14 @@ function startRun() {
   heroAtb = Object.fromEntries(party.map((p) => [p.id, 0]));
   startBossSceneTransition(() => {
     phase = "combat";
-    startAtbLoop();
+    window.__combatDemoStartAtb?.();
     render();
   });
   // failsafe: ensure combat starts even if transition callback is interrupted
   setTimeout(() => {
     if (phase === "transition") {
       phase = "combat";
-      startAtbLoop();
+      window.__combatDemoStartAtb?.();
       render();
     }
   }, 2000);
@@ -865,6 +865,9 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       atbTimer = null;
     }
   }
+
+  window.__combatDemoStartAtb = startAtbLoop;
+  window.__combatDemoStopAtb = stopAtbLoop;
 
   function findTargetEl(targetId) {
     if (!targetId) return null;
