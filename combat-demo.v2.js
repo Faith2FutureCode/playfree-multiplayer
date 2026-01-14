@@ -262,7 +262,7 @@ function reset(mode = "4s") {
 }
 
 function startRun() {
-  const party = roster.filter((r) => r.status === "ready").map(cloneParticipant);
+  const party = roster.filter((r) => r.status !== "declined").map(cloneParticipant);
   if (party.length === 0) return { started: false, reason: "no_ready_players" };
   stopAuto();
   stopAtbLoop();
@@ -368,6 +368,15 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
     .ready-dot.ready { background: #2dd36f; }
     .ready-dot.pending { background: #e8c94f; }
     .ready-dot.declined { background: #d33232; }
+    .decline-btn {
+      background: none;
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #d98b8b;
+      cursor: pointer;
+      padding: 2px 6px;
+      font: 11px/1.1 "Press Start 2P", "VT323", monospace;
+      margin-left: 4px;
+    }
     .boss-scene {
       position: fixed;
       inset: 0;
@@ -497,7 +506,7 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       transform: translateY(8px);
       transition: opacity 400ms ease, transform 400ms ease;
     }
-    .boss-scene.active .boss-hud { opacity: 1; transform: translateY(0); }
+    .boss-scene.hud-live .boss-hud { opacity: 1; transform: translateY(0); }
     .boss-hud .hud-title { font-weight: 700; color: #ffd54f; margin-bottom: 4px; }
     .boss-hud .hud-name { font-size: 13px; color: #f5fbff; text-shadow: 1px 1px 0 #0a0f2c; }
     .boss-hud .hud-meta { font-size: 11px; color: #c6d7ff; margin-top: 2px; }
@@ -812,6 +821,7 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
   function startBossSceneTransition(onDone) {
     bossScene.classList.remove("active");
     bossScene.classList.add("visible", "start");
+    bossScene.classList.remove("hud-live");
     bossFlash.classList.add("flash");
     if (spiralEl) {
       spiralEl.classList.remove("animate");
@@ -823,6 +833,7 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       bossScene.classList.remove("start");
       bossScene.classList.add("active");
       bossFlash.classList.remove("flash");
+      bossScene.classList.add("hud-live");
       if (onDone) onDone();
     }, 1200);
   }
@@ -984,6 +995,7 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
     snapshotLabel.textContent = snapshotInfo
       ? `Snapshot: ${snapshotInfo.partySize}p · ${snapshotInfo.boss} · ${snapshotInfo.mode}`
       : "";
+    bossScene.classList.toggle("hud-live", phase === "combat");
 
     rosterList.innerHTML = "";
     roster.forEach((p) => {
@@ -997,20 +1009,34 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       labelText.textContent = `${p.name} (${p.slot})`;
       label.append(dot, labelText);
       const btn = document.createElement("button");
-      btn.textContent = p.status === "ready" ? "Ready" : p.status === "declined" ? "Declined" : "Not Ready";
+      const actionLabel = p.status === "ready" ? "Not Ready" : "Ready";
+      btn.textContent = actionLabel;
       btn.style.opacity = p.status === "ready" ? "1" : p.status === "declined" ? "0.5" : "0.8";
       btn.disabled = phase !== "lobby";
       btn.addEventListener("click", () => {
         if (phase !== "lobby") return;
-        p.status = p.status === "pending" ? "ready" : p.status === "ready" ? "declined" : "pending";
+        if (p.status === "ready") {
+          p.status = "pending";
+        } else {
+          p.status = "ready";
+        }
         render();
       });
-      row.append(label, btn);
+      const declineBtn = document.createElement("button");
+      declineBtn.className = "decline-btn";
+      declineBtn.textContent = "×";
+      declineBtn.title = "Decline";
+      declineBtn.disabled = phase !== "lobby";
+      declineBtn.addEventListener("click", () => {
+        if (phase !== "lobby") return;
+        p.status = "declined";
+        render();
+      });
+      row.append(label, btn, declineBtn);
       rosterList.appendChild(row);
     });
-    const readyCount = roster.reduce((acc, p) => acc + (p.status === "ready" ? 1 : 0), 0);
     startBtn.disabled = phase !== "lobby";
-    startBtn.textContent = readyCount > 0 ? "Start" : "Start (set ready first)";
+    startBtn.textContent = "Start";
     bossSel.disabled = phase !== "lobby";
     modeSel.disabled = phase !== "lobby";
     stepBtn.disabled = phase !== "combat";
