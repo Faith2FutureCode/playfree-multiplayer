@@ -255,9 +255,13 @@ function startRun() {
   stopAuto();
   state = createDemoState(selectedMode, selectedBossId, party);
   now = performance.now();
-  phase = "combat";
+  phase = "transition";
   snapshotInfo = { partySize: party.length, boss: state.boss.name, mode: selectedMode };
   resultsInfo = null;
+  startBossSceneTransition(() => {
+    phase = "combat";
+    render();
+  });
   return { started: true };
 }
 
@@ -337,6 +341,140 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       font: 12px/1.2 "VT323", monospace;
       cursor: pointer;
     }
+    .boss-scene {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 250ms ease;
+      z-index: 1000;
+      overflow: hidden;
+      mix-blend-mode: normal;
+    }
+    .boss-scene.visible { opacity: 1; }
+    .boss-bg {
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(0deg, #0a0d16 0px, #0a0d16 4px, #0f1626 4px, #0f1626 8px);
+      animation: stripes 4s linear infinite;
+      filter: contrast(1.2) brightness(0.9);
+    }
+    .boss-parallax {
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(90deg, rgba(255,255,255,0.06) 0 32px, transparent 32px 64px);
+      mix-blend-mode: screen;
+      opacity: 0.35;
+      animation: parallax 6s linear infinite;
+    }
+    .boss-floor {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 18%;
+      height: 4px;
+      background: linear-gradient(90deg, rgba(255,255,255,0.35), rgba(255,255,255,0.1), rgba(255,255,255,0.35));
+      box-shadow: 0 0 18px rgba(90,120,255,0.3);
+    }
+    .boss-scan {
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(0deg, rgba(255,255,255,0.04) 0 1px, transparent 1px 3px);
+      mix-blend-mode: overlay;
+      opacity: 0.6;
+      animation: scan 6s linear infinite;
+    }
+    .boss-flash {
+      position: absolute;
+      inset: 0;
+      background: white;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .boss-flash.flash { animation: flash 320ms ease; }
+    .boss-actors {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding: 10% 6%;
+      color: #fefefe;
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000;
+      filter: drop-shadow(0 4px 6px rgba(0,0,0,0.6));
+    }
+    .boss-boss {
+      font: 18px/1 "Press Start 2P", "VT323", monospace;
+      transform: scale(1.4);
+    }
+    .boss-party {
+      display: grid;
+      gap: 8px;
+      justify-items: end;
+      font: 14px/1 "Press Start 2P", "VT323", monospace;
+    }
+    .boss-party .row { display: flex; gap: 6px; }
+    .boss-party .tiny {
+      width: 18px;
+      height: 18px;
+      background: #ffcf51;
+      border: 2px solid #24314f;
+    }
+    .boss-hud {
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      padding: 8px 10px;
+      background: #0c1e73;
+      border: 2px solid #153187;
+      color: #e6f0ff;
+      font: 12px/1.4 "Press Start 2P", "VT323", monospace;
+      box-shadow: 0 0 12px rgba(0,0,0,0.6);
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 10px;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 400ms ease, transform 400ms ease;
+    }
+    .boss-scene.active .boss-hud { opacity: 1; transform: translateY(0); }
+    .boss-hud .title { font-weight: 700; color: #ffd54f; }
+    .boss-hud .row { display: flex; align-items: center; gap: 8px; }
+    .boss-bar {
+      flex: 1;
+      height: 6px;
+      background: #0a1020;
+      border: 1px solid #1c2f6a;
+      position: relative;
+      overflow: hidden;
+    }
+    .boss-bar::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 0;
+      background: linear-gradient(90deg, #3de1ff, #0ad1ff);
+    }
+    @keyframes stripes {
+      from { background-position-y: 0px; }
+      to { background-position-y: -64px; }
+    }
+    @keyframes parallax {
+      from { background-position-x: 0; }
+      to { background-position-x: -256px; }
+    }
+    @keyframes scan {
+      from { transform: translateY(0); }
+      to { transform: translateY(-6px); }
+    }
+    @keyframes flash {
+      0% { opacity: 0; }
+      10% { opacity: 0.7; }
+      100% { opacity: 0; }
+    }
     .combat-demo-stats { font-family: "VT323", monospace; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
     .combat-demo-stats div { white-space: pre-line; }
     .combat-demo-log {
@@ -390,6 +528,42 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
     }
   `;
   document.head.appendChild(style);
+
+  const bossScene = document.createElement("div");
+  bossScene.className = "boss-scene";
+  bossScene.innerHTML = `
+    <div class="boss-bg"></div>
+    <div class="boss-parallax"></div>
+    <div class="boss-floor"></div>
+    <div class="boss-actors">
+      <div class="boss-boss">BOSS</div>
+      <div class="boss-party">
+        <div class="row">
+          <div class="tiny"></div><div class="tiny"></div>
+        </div>
+        <div class="row">
+          <div class="tiny"></div><div class="tiny"></div>
+        </div>
+      </div>
+    </div>
+    <div class="boss-hud">
+      <div class="col">
+        <div class="title">Boss</div>
+        <div class="row"><span class="boss-name">???</span></div>
+        <div class="row"><div class="boss-bar boss-hp"></div></div>
+      </div>
+      <div class="col">
+        <div class="title">Party</div>
+        <div class="row party-line"></div>
+      </div>
+    </div>
+    <div class="boss-scan"></div>
+    <div class="boss-flash"></div>
+  `;
+  document.body.appendChild(bossScene);
+  const bossFlash = bossScene.querySelector(".boss-flash");
+  const bossNameEl = bossScene.querySelector(".boss-name");
+  const partyLineEl = bossScene.querySelector(".party-line");
 
   const toggle = document.createElement("button");
   toggle.className = "combat-demo-toggle";
@@ -474,6 +648,39 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
   body.append(stageRow, lobbySection, controlRow, stats, logBox, returnBtn);
   panel.append(header, body);
   document.body.append(toggle, panel);
+
+  let transitionTimer = null;
+
+  function hideBossScene() {
+    bossScene.classList.remove("visible", "start", "active");
+    bossFlash.classList.remove("flash");
+    clearTimeout(transitionTimer);
+  }
+
+  function startBossSceneTransition(onDone) {
+    bossScene.classList.remove("active");
+    bossScene.classList.add("visible", "start");
+    bossFlash.classList.add("flash");
+    clearTimeout(transitionTimer);
+    transitionTimer = setTimeout(() => {
+      bossScene.classList.remove("start");
+      bossScene.classList.add("active");
+      bossFlash.classList.remove("flash");
+      if (onDone) onDone();
+    }, 1200);
+  }
+
+  function renderBossHud() {
+    bossNameEl.textContent = state.boss?.name || "Boss";
+    const hpPct = state.boss ? Math.max(0, Math.min(1, state.boss.stats.hp / state.boss.stats.maxHp)) : 0;
+    const hpBar = bossScene.querySelector(".boss-bar.boss-hp");
+    hpBar.innerHTML = `<div style="position:absolute;left:0;top:0;bottom:0;width:${(hpPct * 100).toFixed(
+      1
+    )}%;background:linear-gradient(90deg,#3de1ff,#0ad1ff);"></div>`;
+    partyLineEl.innerHTML = state.players
+      .map((p) => `<span style="color:#ffd54f;">${p.name}</span> ${p.stats.hp}/${p.stats.maxHp}`)
+      .join(" · ");
+  }
 
   function checkOutcome() {
     if (phase !== "combat") return false;
