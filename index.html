@@ -1862,6 +1862,7 @@
     "arid-dry": "assets/music/arid-dry/bgm-arid-dry-loop.mp3",
   });
   const SESSION_START_MS = performance.now();
+  const BGM_FADE_MS = 1000;
   let undergroundStartPx = Infinity;
   let undergroundStartTy = Infinity;
   const DUNGEON_CHUNK_W = 48;
@@ -4635,6 +4636,7 @@
   const bgmState = {
     audio: null,
     biomeId: null,
+    fade: null, // { start, duration, outgoing, incoming, targetBiome }
   };
 
   function unlockAudio() {
@@ -4645,32 +4647,61 @@
   document.addEventListener("pointerdown", unlockAudio);
   document.addEventListener("keydown", unlockAudio);
 
-  function stopBgm() {
-    if (bgmState.audio) {
+  function stopBgm(immediate = false) {
+    if (immediate && bgmState.audio) {
       try { bgmState.audio.pause(); } catch (err) { /* ignore */ }
     }
     bgmState.audio = null;
     bgmState.biomeId = null;
+    bgmState.fade = null;
+  }
+
+  function startBgm(src, startVolume = 0) {
+    const audio = new Audio(src);
+    audio.loop = true;
+    audio.volume = startVolume;
+    audio.play().catch(() => {});
+    return audio;
+  }
+
+  function startCrossfade(nextSrc, nextBiomeId) {
+    const outgoing = bgmState.audio || null;
+    const incoming = nextSrc ? startBgm(nextSrc, 0) : null;
+    const start = performance.now();
+    bgmState.fade = { start, duration: BGM_FADE_MS, outgoing, incoming, targetBiome: nextBiomeId };
+  }
+
+  function tickBgmFade(now = performance.now()) {
+    const fade = bgmState.fade;
+    if (!fade) return;
+    const t = Math.min(1, (now - fade.start) / fade.duration);
+    const outVol = 1 - t;
+    const inVol = t;
+    if (fade.outgoing) fade.outgoing.volume = Math.max(0, outVol);
+    if (fade.incoming) fade.incoming.volume = Math.min(1, inVol);
+    if (t >= 1) {
+      if (fade.outgoing) {
+        try { fade.outgoing.pause(); } catch (err) { /* ignore */ }
+      }
+      bgmState.audio = fade.incoming;
+      bgmState.biomeId = fade.targetBiome;
+      bgmState.fade = null;
+    }
   }
 
   function ensureBgmForBiome(biomeId) {
     if (!audioUnlocked) return;
     const src = biomeId ? BGM_TRACKS[biomeId] : null;
-    if (!src) {
-      stopBgm();
+    const currentBiome = bgmState.fade?.targetBiome ?? bgmState.biomeId;
+    if (src && currentBiome === biomeId && bgmState.audio) {
+      if (bgmState.audio.paused) bgmState.audio.play().catch(() => {});
       return;
     }
-    if (!bgmState.audio || bgmState.biomeId !== biomeId) {
-      stopBgm();
-      const audio = new Audio(src);
-      audio.loop = true;
-      audio.volume = 0.5;
-      bgmState.audio = audio;
-      bgmState.biomeId = biomeId;
+    if (!src) {
+      if (bgmState.audio) startCrossfade(null, null);
+      return;
     }
-    if (bgmState.audio?.paused) {
-      bgmState.audio.play().catch(() => {});
-    }
+    startCrossfade(src, biomeId);
   }
 
   function playSkidSound() {
@@ -7118,6 +7149,7 @@
     if (chatVisibleTime > 0) chatVisibleTime = Math.max(0, chatVisibleTime - dt);
     decayChatBubbles(dt);
     ensureBgmForBiome(longitudeState.biomeId);
+    tickBgmFade(performance.now());
     render();
     flushDemoCapture();
     requestAnimationFrame(frame);
@@ -7173,6 +7205,7 @@
 
 })();
 </script>
+<script type="module" src="combat-demo.js"></script>
 </body>
 </html>
 
