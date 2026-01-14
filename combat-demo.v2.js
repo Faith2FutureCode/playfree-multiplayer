@@ -250,14 +250,14 @@ function pity() {
 }
 
 function reset(mode = "4s") {
-  stopAtbLoop?.();
+  stopAtbLoop();
   state = createDemoState(mode, selectedBossId);
   now = performance.now();
   phase = "combat";
   snapshotInfo = { partySize: state.players.length, boss: state.boss.name, mode };
   resultsInfo = null;
   heroAtb = Object.fromEntries(state.players.map((p) => [p.id, 0]));
-  startAtbLoop?.();
+  startAtbLoop();
   return state;
 }
 
@@ -265,7 +265,7 @@ function startRun() {
   const party = roster.filter((r) => r.status !== "declined").map(cloneParticipant);
   if (party.length === 0) return { started: false, reason: "no_ready_players" };
   stopAuto();
-  stopAtbLoop?.();
+  stopAtbLoop();
   state = createDemoState(selectedMode, selectedBossId, party);
   now = performance.now();
   phase = "transition";
