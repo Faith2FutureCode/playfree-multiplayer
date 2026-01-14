@@ -973,18 +973,6 @@
     hudEl.style.opacity = "1";
     hudEl.style.display = "flex";
   }
-  const debugUi = new URLSearchParams(location.search).has("debugUi");
-  if (debugUi) {
-    document.body.classList.add("debug-ui");
-    const debugStyle = document.createElement("style");
-    debugStyle.textContent = `
-      body.debug-ui canvas#c { pointer-events: none !important; }
-      body.debug-ui .boss-scene { pointer-events: none !important; }
-      body.debug-ui * { outline: 1px solid rgba(0,255,0,0.08); }
-      body.debug-ui *:hover { outline: 1px solid red !important; }
-    `;
-    document.head.appendChild(debugStyle);
-  }
   const customPaletteClear = document.getElementById("custom-palette-clear");
   const customPaletteSheet = document.getElementById("custom-palette-sheet");
   const customPaletteSheetImage = document.getElementById("custom-palette-sheet-image");
@@ -7239,7 +7227,7 @@
 
 })();
 </script>
-<script type="module" src="combat-demo.v2.js?v=11"></script>
+<script type="module" src="combat-demo.v2.js?v=12"></script>
 </body>
 </html>
 
