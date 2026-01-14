@@ -177,7 +177,7 @@ const bossCatalog = [
   },
 ];
 
-const roster = demoPlayers.map((p, idx) => ({ ...p, ready: idx < 3 }));
+const roster = demoPlayers.map((p, idx) => ({ ...p, status: idx < 3 ? "ready" : "pending" }));
 let selectedBossId = bossCatalog[0].id;
 let selectedMode = "4s";
 let phase = "lobby"; // lobby -> combat -> results
@@ -193,11 +193,11 @@ function stopAuto() {
 }
 
 function cloneParticipant(p) {
-  const { ready, ...rest } = p;
+  const { ready, status, ...rest } = p;
   return { ...rest, stats: { ...rest.stats } };
 }
 
-function createDemoState(mode = "4s", bossId = bossCatalog[0].id, party = roster.filter((r) => r.ready).map(cloneParticipant)) {
+function createDemoState(mode = "4s", bossId = bossCatalog[0].id, party = roster.filter((r) => r.status === "ready").map(cloneParticipant)) {
   const boss = bossCatalog.find((b) => b.id === bossId) || bossCatalog[0];
   return createCombatState({
     speedModeId: mode,
@@ -262,7 +262,7 @@ function reset(mode = "4s") {
 }
 
 function startRun() {
-  const party = roster.filter((r) => r.ready).map(cloneParticipant);
+  const party = roster.filter((r) => r.status === "ready").map(cloneParticipant);
   if (party.length === 0) return { started: false, reason: "no_ready_players" };
   stopAuto();
   stopAtbLoop();
@@ -365,7 +365,8 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       flex-shrink: 0;
     }
     .ready-dot.ready { background: #2dd36f; }
-    .ready-dot.unready { background: #d33232; }
+    .ready-dot.pending { background: #e8c94f; }
+    .ready-dot.declined { background: #d33232; }
     .boss-scene {
       position: fixed;
       inset: 0;
@@ -990,23 +991,23 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       const label = document.createElement("div");
       label.className = "label";
       const dot = document.createElement("div");
-      dot.className = `ready-dot ${p.ready ? "ready" : "unready"}`;
+      dot.className = `ready-dot ${p.status}`;
       const labelText = document.createElement("div");
       labelText.textContent = `${p.name} (${p.slot})`;
       label.append(dot, labelText);
       const btn = document.createElement("button");
-      btn.textContent = p.ready ? "Ready" : "Not Ready";
-      btn.style.opacity = p.ready ? "1" : "0.7";
+      btn.textContent = p.status === "ready" ? "Ready" : p.status === "declined" ? "Declined" : "Not Ready";
+      btn.style.opacity = p.status === "ready" ? "1" : p.status === "declined" ? "0.5" : "0.8";
       btn.disabled = phase !== "lobby";
       btn.addEventListener("click", () => {
         if (phase !== "lobby") return;
-        p.ready = !p.ready;
+        p.status = p.status === "pending" ? "ready" : p.status === "ready" ? "declined" : "pending";
         render();
       });
       row.append(label, btn);
       rosterList.appendChild(row);
     });
-    const readyCount = roster.reduce((acc, p) => acc + (p.ready ? 1 : 0), 0);
+    const readyCount = roster.reduce((acc, p) => acc + (p.status === "ready" ? 1 : 0), 0);
     startBtn.disabled = phase !== "lobby";
     startBtn.textContent = readyCount > 0 ? "Start" : "Start (set ready first)";
     bossSel.disabled = phase !== "lobby";
