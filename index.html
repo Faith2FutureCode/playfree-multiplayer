@@ -968,6 +968,11 @@
   const customPaletteSection = document.getElementById("custom-palette-section");
   const customPaletteTitle = document.getElementById("custom-palette-title");
   const customPaletteGrid = document.getElementById("custom-palette-grid");
+  if (hudEl) {
+    hudEl.style.visibility = "visible";
+    hudEl.style.opacity = "1";
+    hudEl.style.display = "flex";
+  }
   const customPaletteClear = document.getElementById("custom-palette-clear");
   const customPaletteSheet = document.getElementById("custom-palette-sheet");
   const customPaletteSheetImage = document.getElementById("custom-palette-sheet-image");
@@ -7222,7 +7227,7 @@
 
 })();
 </script>
-<script type="module" src="combat-demo.v2.js?v=3"></script>
+<script type="module" src="combat-demo.v2.js?v=4"></script>
 </body>
 </html>
 

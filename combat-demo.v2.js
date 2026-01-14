@@ -277,6 +277,14 @@ function startRun() {
     startAtbLoop();
     render();
   });
+  // failsafe: ensure combat starts even if transition callback is interrupted
+  setTimeout(() => {
+    if (phase === "transition") {
+      phase = "combat";
+      startAtbLoop();
+      render();
+    }
+  }, 2000);
   return { started: true };
 }
 
