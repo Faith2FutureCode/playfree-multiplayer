@@ -456,11 +456,12 @@
     .hud {
       position: absolute;
       bottom: 6px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: var(--canvas-width);
+      left: 0;
+      right: 0;
+      transform: none;
+      width: 100%;
       max-width: 100%;
-      min-height: calc(var(--tile) * 3);
+      height: calc(var(--tile) * 3);
       display: flex;
       align-items: stretch;
       padding: 10px 12px;
@@ -968,6 +969,9 @@
   const customPaletteSection = document.getElementById("custom-palette-section");
   const customPaletteTitle = document.getElementById("custom-palette-title");
   const customPaletteGrid = document.getElementById("custom-palette-grid");
+  if (canvas) {
+    canvas.style.pointerEvents = "auto";
+  }
   if (hudEl) {
     hudEl.style.visibility = "visible";
     hudEl.style.opacity = "1";
