@@ -514,7 +514,8 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       bottom: 6px;
       width: 100%;
       max-width: 100%;
-      height: calc(var(--tile) * 3);
+      height: calc(var(--tile) * 4);
+      min-height: calc(var(--tile) * 4);
       padding: 10px 12px;
       background: linear-gradient(180deg, #0b1f7a, #0a1a63);
       border: 2px solid #3e5ff6;
