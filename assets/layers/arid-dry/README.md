@@ -1,0 +1,11 @@
+Arid / Dry layer filenames (60°–120°)
+- layer-arid-dry-deep-space.png
+- layer-arid-dry-space.png
+- layer-arid-dry-upper-atmosphere.png
+- layer-arid-dry-atmosphere.png
+- layer-arid-dry-high-sky.png
+- layer-arid-dry-above-surface.png
+- layer-arid-dry-surface.png
+- layer-arid-dry-shallow-underground.png
+- layer-arid-dry-underground.png
+- layer-arid-dry-deep-underground.png

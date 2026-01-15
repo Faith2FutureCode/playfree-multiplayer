@@ -1,0 +1,11 @@
+Temperate biome layered background filenames (120-180 deg)
+- layer-temperate-deep-space.png
+- layer-temperate-space.png
+- layer-temperate-upper-atmosphere.png
+- layer-temperate-atmosphere.png
+- layer-temperate-high-sky.png
+- layer-temperate-above-surface.png
+- layer-temperate-surface.png
+- layer-temperate-shallow-underground.png
+- layer-temperate-underground.png
+- layer-temperate-deep-underground.png

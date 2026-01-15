@@ -1,0 +1,11 @@
+Transitional / Coastal biome layered background filenames (300-360 deg)
+- layer-coastal-mix-deep-space.png
+- layer-coastal-mix-space.png
+- layer-coastal-mix-upper-atmosphere.png
+- layer-coastal-mix-atmosphere.png
+- layer-coastal-mix-high-sky.png
+- layer-coastal-mix-above-surface.png
+- layer-coastal-mix-surface.png
+- layer-coastal-mix-shallow-underground.png
+- layer-coastal-mix-underground.png
+- layer-coastal-mix-deep-underground.png

@@ -1,0 +1,11 @@
+Polar-Like / Harsh biome layered background filenames (240-300 deg)
+- layer-polar-harsh-deep-space.png
+- layer-polar-harsh-space.png
+- layer-polar-harsh-upper-atmosphere.png
+- layer-polar-harsh-atmosphere.png
+- layer-polar-harsh-high-sky.png
+- layer-polar-harsh-above-surface.png
+- layer-polar-harsh-surface.png
+- layer-polar-harsh-shallow-underground.png
+- layer-polar-harsh-underground.png
+- layer-polar-harsh-deep-underground.png

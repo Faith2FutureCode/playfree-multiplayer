@@ -1,0 +1,11 @@
+Cold / Alpine biome layered background filenames (180-240 deg)
+- layer-cold-alpine-deep-space.png
+- layer-cold-alpine-space.png
+- layer-cold-alpine-upper-atmosphere.png
+- layer-cold-alpine-atmosphere.png
+- layer-cold-alpine-high-sky.png
+- layer-cold-alpine-above-surface.png
+- layer-cold-alpine-surface.png
+- layer-cold-alpine-shallow-underground.png
+- layer-cold-alpine-underground.png
+- layer-cold-alpine-deep-underground.png
