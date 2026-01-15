@@ -509,9 +509,12 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
     }
     .boss-hud {
       position: absolute;
-      left: 8px;
-      right: 8px;
-      bottom: 10px;
+      left: 0;
+      right: 0;
+      bottom: 6px;
+      width: 100%;
+      max-width: 100%;
+      height: calc(var(--tile) * 3);
       padding: 10px 12px;
       background: linear-gradient(180deg, #0b1f7a, #0a1a63);
       border: 2px solid #3e5ff6;
@@ -524,6 +527,8 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       opacity: 0;
       transform: translateY(8px);
       transition: opacity 400ms ease, transform 400ms ease;
+      box-sizing: border-box;
+      pointer-events: none;
     }
     .boss-scene.hud-live .boss-hud { opacity: 1; transform: translateY(0); }
     .boss-hud .hud-title { font-weight: 700; color: #ffd54f; margin-bottom: 4px; }
