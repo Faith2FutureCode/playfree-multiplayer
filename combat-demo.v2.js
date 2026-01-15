@@ -514,10 +514,10 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       bottom: 6px;
       width: 100%;
       max-width: 100%;
-      height: calc(var(--tile) * 4);
-      min-height: calc(var(--tile) * 4);
-      padding: 10px 12px;
-      background: linear-gradient(180deg, #0b1f7a, #0a1a63);
+      height: calc(var(--tile) * 5);
+      min-height: calc(var(--tile) * 5);
+      padding: 14px 14px;
+      background: linear-gradient(180deg, #0b0f18, #05070f);
       border: 2px solid #3e5ff6;
       color: #e7f1ff;
       font: 12px/1.4 "Press Start 2P", "VT323", monospace;
