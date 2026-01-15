@@ -453,35 +453,6 @@
     }
     .editor-hint { margin-top: 10px; font-size: 10px; color: #9fb3ff; }
     body.editor-open .game-shell canvas { cursor: none; }
-    .hud-grid-overlay {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      background-image:
-        repeating-linear-gradient(
-          to right,
-          rgba(255,255,255,0.12) 0,
-          rgba(255,255,255,0.12) 1px,
-          transparent 1px,
-          transparent var(--tile)
-        ),
-        repeating-linear-gradient(
-          to bottom,
-          rgba(255,255,255,0.18) 0,
-          rgba(255,255,255,0.18) 1px,
-          transparent 1px,
-          transparent var(--tile)
-        ),
-        linear-gradient(
-          to top,
-          rgba(0,128,255,0.18) 0,
-          rgba(0,128,255,0.14) calc(var(--tile) * 4),
-          transparent calc(var(--tile) * 4)
-        );
-      opacity: 0.35;
-      mix-blend-mode: screen;
-      z-index: 250;
-    }
     .hud {
       position: absolute;
       bottom: 0;
@@ -898,7 +869,6 @@
   <div class="game-shell">
     <canvas id="c" width="912" height="816"></canvas>
     <div class="tileset-preview" id="tileset-preview" aria-label="Tileset preview"></div>
-    <div class="hud-grid-overlay" aria-hidden="true"></div>
             <div class="hud" aria-label="HUD">
       <div class="hud-bar">
         <div class="hud-card">
@@ -7287,7 +7257,7 @@
 
 })();
 </script>
-<script type="module" src="combat-demo.v2.js?v=28"></script>
+<script type="module" src="combat-demo.v2.js?v=29"></script>
 </body>
 </html>
 
