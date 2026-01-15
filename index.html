@@ -937,6 +937,7 @@
   const ctx = canvas.getContext("2d", { alpha: true });
   const gameShell = document.querySelector(".game-shell");
   const hudEl = document.querySelector(".hud");
+  const bossHudEl = document.querySelector(".boss-hud");
   const tilesetUploadEl = document.getElementById("tileset-upload");
   const tilesetPreviewPanel = document.getElementById("tileset-preview");
   const tilesetPreviewStage = document.querySelector(".tileset-preview-stage");
@@ -988,6 +989,11 @@
     if (gameShell && !gameShell.contains(hudEl)) {
       gameShell.appendChild(hudEl);
     }
+  }
+  if (bossHudEl) {
+    bossHudEl.style.visibility = "visible";
+    bossHudEl.style.opacity = "1";
+    bossHudEl.style.display = "grid";
   }
   if (hudEl) {
     hudEl.style.visibility = "visible";
@@ -7248,7 +7254,7 @@
 
 })();
 </script>
-<script type="module" src="combat-demo.v2.js?v=18"></script>
+<script type="module" src="combat-demo.v2.js?v=19"></script>
 </body>
 </html>
 
