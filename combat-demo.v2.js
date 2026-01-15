@@ -535,7 +535,7 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
     .boss-hud .hud-title { font-weight: 700; color: #ffd54f; margin-bottom: 4px; }
     .boss-hud .hud-name { font-size: 13px; color: #f5fbff; text-shadow: 1px 1px 0 #0a0f2c; }
     .boss-hud .hud-meta { font-size: 11px; color: #c6d7ff; margin-top: 2px; }
-    .hud-bar {
+    .boss-hud .hud-bar {
       position: relative;
       height: 7px;
       background: #0a1020;
@@ -543,7 +543,7 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       overflow: hidden;
       box-shadow: inset 0 0 4px rgba(0,0,0,0.5);
     }
-    .hud-bar .fill {
+    .boss-hud .hud-bar .fill {
       position: absolute;
       left: 0;
       top: 0;
@@ -551,14 +551,14 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       width: 0;
       background: linear-gradient(90deg, #4fe1ff, #0ad1ff);
     }
-    .hud-section { display: flex; flex-direction: column; gap: 6px; }
-    .party-rows { display: flex; flex-direction: column; gap: 4px; }
-    .party-row { display: flex; justify-content: space-between; align-items: center; color: #f8fbff; }
-    .party-row .party-name { color: #ffd54f; }
-    .party-row .party-hp { color: #e7f1ff; font-size: 11px; }
-    .party-row.ko { opacity: 0.55; }
-    .cmd-row { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
-    .cmd-atb {
+    .boss-hud .hud-section { display: flex; flex-direction: column; gap: 6px; }
+    .boss-hud .party-rows { display: flex; flex-direction: column; gap: 4px; }
+    .boss-hud .party-row { display: flex; justify-content: space-between; align-items: center; color: #f8fbff; }
+    .boss-hud .party-row .party-name { color: #ffd54f; }
+    .boss-hud .party-row .party-hp { color: #e7f1ff; font-size: 11px; }
+    .boss-hud .party-row.ko { opacity: 0.55; }
+    .boss-hud .cmd-row { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+    .boss-hud .cmd-atb {
       flex: 1;
       height: 7px;
       background: #0a1020;
@@ -567,14 +567,14 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       box-shadow: inset 0 0 4px rgba(0,0,0,0.5);
       position: relative;
     }
-    .cmd-atb .fill {
+    .boss-hud .cmd-atb .fill {
       position: absolute;
       left: 0; top: 0; bottom: 0;
       width: 0;
       background: linear-gradient(90deg, #5ff3c5, #2ad1ff);
     }
-    .cmd-buttons { display: flex; gap: 4px; }
-    .cmd-buttons button {
+    .boss-hud .cmd-buttons { display: flex; gap: 4px; }
+    .boss-hud .cmd-buttons button {
       background: #182342;
       color: #e6f0ff;
       border: 1px solid rgba(255,255,255,0.25);
@@ -584,7 +584,7 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
-    .cmd-buttons button:disabled {
+    .boss-hud .cmd-buttons button:disabled {
       opacity: 0.35;
       cursor: default;
     }
