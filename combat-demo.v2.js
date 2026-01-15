@@ -507,86 +507,12 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       box-shadow: 0 0 4px rgba(0,0,0,0.35);
       animation: heroBob 2.6s ease-in-out infinite;
     }
-    .boss-hud {
+    .boss-hud { display: none; }
+    .boss-hud-canvas {
       position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 6px;
-      width: 100%;
-      max-width: 100%;
-      height: calc(var(--tile) * 5);
-      min-height: calc(var(--tile) * 5);
-      padding: 14px 14px;
-      background: linear-gradient(180deg, #0b0f18, #05070f);
-      border: 2px solid #3e5ff6;
-      color: #e7f1ff;
-      font: 12px/1.4 "Press Start 2P", "VT323", monospace;
-      box-shadow: 0 0 14px rgba(0,0,0,0.65);
-      display: grid;
-      grid-template-columns: 1.2fr 1fr;
-      gap: 12px;
-      opacity: 0;
-      transform: translateY(8px);
-      transition: opacity 400ms ease, transform 400ms ease;
-      box-sizing: border-box;
-      pointer-events: none;
-    }
-    .boss-scene.hud-live .boss-hud { opacity: 1; transform: translateY(0); }
-    .boss-hud .hud-title { font-weight: 700; color: #ffd54f; margin-bottom: 4px; }
-    .boss-hud .hud-name { font-size: 13px; color: #f5fbff; text-shadow: 1px 1px 0 #0a0f2c; }
-    .boss-hud .hud-meta { font-size: 11px; color: #c6d7ff; margin-top: 2px; }
-    .boss-hud .hud-bar {
-      position: relative;
-      height: 7px;
-      background: #0a1020;
-      border: 1px solid #2746a8;
-      overflow: hidden;
-      box-shadow: inset 0 0 4px rgba(0,0,0,0.5);
-    }
-    .boss-hud .hud-bar .fill {
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 0;
-      background: linear-gradient(90deg, #4fe1ff, #0ad1ff);
-    }
-    .boss-hud .hud-section { display: flex; flex-direction: column; gap: 6px; }
-    .boss-hud .party-rows { display: flex; flex-direction: column; gap: 4px; }
-    .boss-hud .party-row { display: flex; justify-content: space-between; align-items: center; color: #f8fbff; }
-    .boss-hud .party-row .party-name { color: #ffd54f; }
-    .boss-hud .party-row .party-hp { color: #e7f1ff; font-size: 11px; }
-    .boss-hud .party-row.ko { opacity: 0.55; }
-    .boss-hud .cmd-row { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
-    .boss-hud .cmd-atb {
-      flex: 1;
-      height: 7px;
-      background: #0a1020;
-      border: 1px solid #2746a8;
-      overflow: hidden;
-      box-shadow: inset 0 0 4px rgba(0,0,0,0.5);
-      position: relative;
-    }
-    .boss-hud .cmd-atb .fill {
-      position: absolute;
-      left: 0; top: 0; bottom: 0;
-      width: 0;
-      background: linear-gradient(90deg, #5ff3c5, #2ad1ff);
-    }
-    .boss-hud .cmd-buttons { display: flex; gap: 4px; }
-    .boss-hud .cmd-buttons button {
-      background: #182342;
-      color: #e6f0ff;
-      border: 1px solid rgba(255,255,255,0.25);
-      padding: 4px 6px;
-      font: 11px/1.2 "Press Start 2P", "VT323", monospace;
-      cursor: pointer;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .boss-hud .cmd-buttons button:disabled {
-      opacity: 0.35;
-      cursor: default;
+      inset: 0;
+      pointer-events: auto;
+      z-index: 15;
     }
     @keyframes stripes {
       from { background-position-y: 0px; }
@@ -732,6 +658,22 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
     <div class="boss-scan"></div>
     <div class="boss-flash"></div>
   `;
+  const HUD_TILE = 16;
+  const bossHudCanvas = document.createElement("canvas");
+  bossHudCanvas.className = "boss-hud-canvas";
+  bossScene.appendChild(bossHudCanvas);
+  const bossHudCtx = bossHudCanvas.getContext("2d");
+  let bossHudHits = [];
+  bossHudCanvas.addEventListener("click", (e) => {
+    if (!bossHudHits.length) return;
+    const rect = bossHudCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const hit = bossHudHits.find((h) => x >= h.x1 && x <= h.x2 && y >= h.y1 && y <= h.y2);
+    if (hit && hit.ready) {
+      issueCommand(hit.heroId, hit.cmd);
+    }
+  });
   const gameShellHost = document.querySelector(".game-shell") || document.body;
   const gameCanvas =
     (gameShellHost && gameShellHost.querySelector("#c")) ||
@@ -761,6 +703,23 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
     bossScene.style.maxHeight = `${height}px`;
     bossScene.style.right = "auto";
     bossScene.style.bottom = "auto";
+    resizeBossHudCanvas();
+  }
+  function resizeBossHudCanvas() {
+    if (!bossHudCanvas || !bossHudCtx) return;
+    const rect = bossScene.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const width = Math.max(1, Math.round(rect.width));
+    const height = Math.max(1, Math.round(rect.height));
+    const targetW = Math.round(width * dpr);
+    const targetH = Math.round(height * dpr);
+    if (bossHudCanvas.width !== targetW || bossHudCanvas.height !== targetH) {
+      bossHudCanvas.width = targetW;
+      bossHudCanvas.height = targetH;
+      bossHudCanvas.style.width = `${width}px`;
+      bossHudCanvas.style.height = `${height}px`;
+      bossHudCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
   }
   syncBossSceneToCanvas();
   window.addEventListener("resize", syncBossSceneToCanvas);
@@ -966,42 +925,105 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
   }
 
   function renderBossHud() {
-    bossNameEl.textContent = state.boss?.name || "Boss";
+    drawBossHudCanvas();
+  }
+
+  function drawBossHudCanvas() {
+    resizeBossHudCanvas();
+    if (!bossHudCtx || !bossHudCanvas) return;
+    const rect = bossHudCanvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const w = rect.width;
+    const h = rect.height;
+    bossHudHits = [];
+    bossHudCtx.clearRect(0, 0, w, h);
+    const panelH = Math.min(h, HUD_TILE * 5);
+    const pad = 12;
+    const y0 = h - panelH;
+
+    // panel background
+    bossHudCtx.fillStyle = "rgba(6,10,22,0.9)";
+    bossHudCtx.fillRect(0, y0, w, panelH);
+    bossHudCtx.strokeStyle = "#1a3c9b";
+    bossHudCtx.lineWidth = 2;
+    bossHudCtx.strokeRect(1, y0 + 1, w - 2, panelH - 2);
+
+    const leftW = w * 0.48;
+    const rightX = leftW + pad;
+    const barH = 8;
+    const textY = y0 + pad;
+    bossHudCtx.font = "12px 'Press Start 2P', 'VT323', monospace";
+    bossHudCtx.textBaseline = "top";
+    bossHudCtx.fillStyle = "#ffd54f";
+    bossHudCtx.fillText("Boss", pad, textY);
+
+    const bossName = state.boss?.name || "Boss";
+    bossHudCtx.fillStyle = "#e7f1ff";
+    bossHudCtx.fillText(bossName, pad, textY + 16);
     const bossHp = state.boss?.stats.hp ?? 0;
     const bossMax = state.boss?.stats.maxHp || 1;
     const hpPct = Math.max(0, Math.min(1, bossHp / bossMax));
-    bossHpTextEl.textContent = `HP ${bossHp}/${bossMax}`;
-    bossHpFillEl.style.width = `${(hpPct * 100).toFixed(1)}%`;
-    partyRowsEl.innerHTML = state.players
-      .map((p) => {
-        const pct = Math.max(0, Math.min(1, p.stats.hp / p.stats.maxHp));
-        const ko = p.dead || p.kicked;
-        const suffix = ko ? " (out)" : "";
-        const atb = heroAtb[p.id] ?? 0;
-        const ready = atb >= 100 && !ko;
-        return `
-          <div class="party-row${ko ? " ko" : ""}">
-            <span class="party-name">${p.name}</span>
-            <span class="party-hp">${p.stats.hp}/${p.stats.maxHp}${suffix}</span>
-          </div>
-          <div class="hud-bar"><div class="fill" style="width:${(pct * 100).toFixed(1)}%;"></div></div>
-          <div class="cmd-row">
-            <div class="cmd-atb"><div class="fill" style="width:${Math.min(100, atb).toFixed(1)}%;"></div></div>
-            <div class="cmd-buttons">
-              <button class="cmd-btn" data-hero="${p.id}" data-cmd="attack" ${ready ? "" : "disabled"}>Fight</button>
-              <button class="cmd-btn" data-hero="${p.id}" data-cmd="abilities" ${ready ? "" : "disabled"}>Abilities</button>
-              <button class="cmd-btn" data-hero="${p.id}" data-cmd="items" ${ready ? "" : "disabled"}>Items</button>
-            </div>
-          </div>
-        `;
-      })
-      .join("");
-    partyRowsEl.querySelectorAll(".cmd-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const heroId = btn.dataset.hero;
-        const cmd = btn.dataset.cmd;
-        if (!heroId || !cmd) return;
-        issueCommand(heroId, cmd);
+    bossHudCtx.fillStyle = "#c6d7ff";
+    bossHudCtx.fillText(`HP ${bossHp}/${bossMax}`, pad, textY + 30);
+    const bossBarY = textY + 48;
+    const bossBarW = Math.max(120, leftW - pad * 2);
+    bossHudCtx.fillStyle = "#0a1020";
+    bossHudCtx.fillRect(pad, bossBarY, bossBarW, barH);
+    bossHudCtx.fillStyle = "#3e5ff6";
+    bossHudCtx.fillRect(pad, bossBarY, bossBarW * hpPct, barH);
+    bossHudCtx.strokeStyle = "#2746a8";
+    bossHudCtx.lineWidth = 1;
+    bossHudCtx.strokeRect(pad + 0.5, bossBarY + 0.5, bossBarW - 1, barH - 1);
+
+    // Party side
+    const rows = state.players || [];
+    const rowH = Math.max(24, (panelH - pad * 2) / Math.max(1, rows.length));
+    const btnH = 16;
+    const btnW = 56;
+    rows.forEach((p, idx) => {
+      const y = y0 + pad + idx * rowH;
+      const hpPct = Math.max(0, Math.min(1, p.stats.hp / p.stats.maxHp));
+      const atb = heroAtb[p.id] ?? 0;
+      const ready = atb >= 100 && !(p.dead || p.kicked);
+      const label = `${p.name} ${p.stats.hp}/${p.stats.maxHp}${p.dead || p.kicked ? " (out)" : ""}`;
+      bossHudCtx.fillStyle = p.dead || p.kicked ? "rgba(231,241,255,0.55)" : "#e7f1ff";
+      bossHudCtx.fillText(label, rightX, y);
+      const hpY = y + 16;
+      const hpW = Math.max(160, w - rightX - pad - 20);
+      bossHudCtx.fillStyle = "#0a1020";
+      bossHudCtx.fillRect(rightX, hpY, hpW, barH);
+      bossHudCtx.fillStyle = p.dead || p.kicked ? "#55637f" : "#5ff3c5";
+      bossHudCtx.fillRect(rightX, hpY, hpW * hpPct, barH);
+      bossHudCtx.strokeStyle = "#2746a8";
+      bossHudCtx.strokeRect(rightX + 0.5, hpY + 0.5, hpW - 1, barH - 1);
+
+      const atbY = hpY + barH + 6;
+      bossHudCtx.fillStyle = "#0a1020";
+      bossHudCtx.fillRect(rightX, atbY, hpW, barH);
+      bossHudCtx.fillStyle = ready ? "#5ff3c5" : "#2ad1ff";
+      const atbPct = Math.min(1, atb / 100);
+      bossHudCtx.fillRect(rightX, atbY, hpW * atbPct, barH);
+      bossHudCtx.strokeStyle = "#2746a8";
+      bossHudCtx.strokeRect(rightX + 0.5, atbY + 0.5, hpW - 1, barH - 1);
+
+      // buttons
+      const btnY = atbY + barH + 4;
+      const cmds = [
+        { id: "attack", label: "Fight" },
+        { id: "abilities", label: "Abilities" },
+        { id: "items", label: "Items" },
+      ];
+      cmds.forEach((cmd, idxBtn) => {
+        const x = rightX + idxBtn * (btnW + 6);
+        bossHudCtx.fillStyle = ready ? "#182342" : "rgba(24,35,66,0.6)";
+        bossHudCtx.fillRect(x, btnY, btnW, btnH);
+        bossHudCtx.strokeStyle = ready ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.15)";
+        bossHudCtx.strokeRect(x + 0.5, btnY + 0.5, btnW - 1, btnH - 1);
+        bossHudCtx.fillStyle = ready ? "#e6f0ff" : "rgba(230,240,255,0.6)";
+        bossHudCtx.font = "10px 'Press Start 2P', 'VT323', monospace";
+        bossHudCtx.textBaseline = "middle";
+        bossHudCtx.fillText(cmd.label, x + 6, btnY + btnH / 2);
+        bossHudHits.push({ x1: x, y1: btnY, x2: x + btnW, y2: btnY + btnH, heroId: p.id, cmd: cmd.id, ready });
       });
     });
   }

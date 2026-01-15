@@ -1020,6 +1020,8 @@
     hudEl.style.height = "calc(var(--tile) * 4)";
     hudEl.style.minHeight = "calc(var(--tile) * 4)";
     hudEl.style.zIndex = "6";
+    hudEl.style.pointerEvents = "none";
+    hudEl.style.display = "none"; // rendered on canvas instead
     if (gameShell && !gameShell.contains(hudEl)) {
       gameShell.appendChild(hudEl);
     }
@@ -6831,6 +6833,7 @@
     drawSelectionOverlay();
     drawLabelsOverlay();
     drawEndlessDebugOverlay();
+    drawHudCanvas();
     if (clickDebug && clickDebug.timer > 0) {
       const { sx, sy } = clickDebug;
       g.save();
@@ -7288,7 +7291,7 @@
 
 })();
 </script>
-<script type="module" src="combat-demo.v2.js?v=26"></script>
+<script type="module" src="combat-demo.v2.js?v=27"></script>
 </body>
 </html>
 
