@@ -395,8 +395,10 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       margin-left: 4px;
     }
     .boss-scene {
-      position: fixed;
+      position: absolute;
       inset: 0;
+      width: 100%;
+      height: 100%;
       pointer-events: none;
       opacity: 0;
       transition: opacity 250ms ease;
@@ -724,7 +726,31 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
     <div class="boss-scan"></div>
     <div class="boss-flash"></div>
   `;
-  document.body.appendChild(bossScene);
+  const gameShellHost = document.querySelector(".game-shell") || document.body;
+  const gameCanvas = (gameShellHost && gameShellHost.querySelector("canvas")) || document.querySelector("canvas");
+  if (gameShellHost && !window.__bossSceneHostPositioned) {
+    const computedPos = getComputedStyle(gameShellHost).position;
+    if (computedPos === "static") gameShellHost.style.position = "relative";
+    window.__bossSceneHostPositioned = true;
+  }
+  gameShellHost.appendChild(bossScene);
+  function syncBossSceneToCanvas() {
+    if (!bossScene || !gameShellHost || !gameCanvas) return;
+    const shellRect = gameShellHost.getBoundingClientRect();
+    const canvasRect = gameCanvas.getBoundingClientRect();
+    const width = canvasRect.width;
+    const height = canvasRect.height;
+    const left = canvasRect.left - shellRect.left;
+    const top = canvasRect.top - shellRect.top;
+    bossScene.style.width = `${width}px`;
+    bossScene.style.height = `${height}px`;
+    bossScene.style.left = `${left}px`;
+    bossScene.style.top = `${top}px`;
+    bossScene.style.maxWidth = `${width}px`;
+    bossScene.style.maxHeight = `${height}px`;
+  }
+  syncBossSceneToCanvas();
+  window.addEventListener("resize", syncBossSceneToCanvas);
   const bossFlash = bossScene.querySelector(".boss-flash");
   const bossNameEl = bossScene.querySelector(".boss-name");
   const bossHpTextEl = bossScene.querySelector(".boss-hp-text");
