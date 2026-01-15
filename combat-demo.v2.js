@@ -727,7 +727,11 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
     <div class="boss-flash"></div>
   `;
   const gameShellHost = document.querySelector(".game-shell") || document.body;
-  const gameCanvas = (gameShellHost && gameShellHost.querySelector("canvas")) || document.querySelector("canvas");
+  const gameCanvas =
+    (gameShellHost && gameShellHost.querySelector("#c")) ||
+    (gameShellHost && gameShellHost.querySelector("canvas")) ||
+    document.querySelector("#c") ||
+    document.querySelector("canvas");
   if (gameShellHost && !window.__bossSceneHostPositioned) {
     const computedPos = getComputedStyle(gameShellHost).position;
     if (computedPos === "static") gameShellHost.style.position = "relative";
@@ -735,22 +739,30 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
   }
   gameShellHost.appendChild(bossScene);
   function syncBossSceneToCanvas() {
-    if (!bossScene || !gameShellHost || !gameCanvas) return;
+    if (!bossScene || !gameShellHost) return;
     const shellRect = gameShellHost.getBoundingClientRect();
-    const canvasRect = gameCanvas.getBoundingClientRect();
-    const width = canvasRect.width;
-    const height = canvasRect.height;
-    const left = canvasRect.left - shellRect.left;
-    const top = canvasRect.top - shellRect.top;
+    const canvasRect = gameCanvas?.getBoundingClientRect?.() || shellRect;
+    if (!shellRect.width || !canvasRect.width) return;
+    const width = Math.min(canvasRect.width, shellRect.width);
+    const height = Math.min(canvasRect.height, shellRect.height);
+    const left = Math.max(0, canvasRect.left - shellRect.left);
+    const top = Math.max(0, canvasRect.top - shellRect.top);
     bossScene.style.width = `${width}px`;
     bossScene.style.height = `${height}px`;
     bossScene.style.left = `${left}px`;
     bossScene.style.top = `${top}px`;
     bossScene.style.maxWidth = `${width}px`;
     bossScene.style.maxHeight = `${height}px`;
+    bossScene.style.right = "auto";
+    bossScene.style.bottom = "auto";
   }
   syncBossSceneToCanvas();
   window.addEventListener("resize", syncBossSceneToCanvas);
+  if (typeof ResizeObserver !== "undefined") {
+    const ro = new ResizeObserver(syncBossSceneToCanvas);
+    if (gameCanvas) ro.observe(gameCanvas);
+    if (gameShellHost) ro.observe(gameShellHost);
+  }
   const bossFlash = bossScene.querySelector(".boss-flash");
   const bossNameEl = bossScene.querySelector(".boss-name");
   const bossHpTextEl = bossScene.querySelector(".boss-hp-text");
