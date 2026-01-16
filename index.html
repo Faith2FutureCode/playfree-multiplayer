@@ -451,6 +451,62 @@
       color: #fff;
       box-shadow: inset 0 0 0 2px #f6d341;
     }
+    .level-palette-section { display: block; }
+    .boss-editor-section { display: none; }
+    .editor-panel[data-editor-mode="boss"] .level-palette-section { display: none; }
+    .editor-panel[data-editor-mode="boss"] .boss-editor-section { display: block; }
+    .boss-palette {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .boss-palette-group {
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(12,18,36,0.85);
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+    }
+    .boss-palette-title {
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: #9fb3ff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .boss-palette-tools {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .boss-tool-btn {
+      background: #123;
+      border: 2px solid #000;
+      color: #e6f0ff;
+      padding: 8px 6px;
+      font: 12px "Press Start 2P", "VT323", monospace;
+      cursor: pointer;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
+      text-align: center;
+      line-height: 1.2;
+    }
+    .boss-tool-btn > div {
+      font-size: 12px;
+      letter-spacing: 0.5px;
+    }
+    .boss-tool-btn .label {
+      display: block;
+      font-size: 10px;
+      color: #9fb3ff;
+    }
+    .boss-tool-btn.active {
+      background: #1c2f55;
+      color: #f6d341;
+      box-shadow: inset 0 0 0 2px #f6d341;
+    }
     .editor-hint { margin-top: 10px; font-size: 10px; color: #9fb3ff; }
     body.editor-open .game-shell canvas { cursor: none; }
     .hud {
@@ -774,12 +830,12 @@
       <canvas class="tileset-selection" id="tileset-selection-canvas"></canvas>
     </div>
     </div>
-    <div id="editor-panel" class="editor-panel" aria-label="Level editor palette">
+    <div id="editor-panel" class="editor-panel" aria-label="Level editor palette" data-editor-mode="level">
     <div class="editor-header">
       <span>PALETTE</span>
       <span>Press E</span>
     </div>
-    <div class="editor-section">
+    <div class="editor-section level-palette-section">
       <h4>TERRAIN</h4>
       <div class="editor-grid" id="terrain-grid">
         <div class="editor-tile solid" data-tile="#" title="Ground"><canvas class="tile-preview" width="8" height="8" data-tile="#"></canvas></div>
@@ -787,7 +843,7 @@
         <div class="editor-tile ice" data-tile="I" title="Ice"><canvas class="tile-preview" width="8" height="8" data-tile="I"></canvas></div>
       </div>
     </div>
-    <div class="editor-section">
+    <div class="editor-section level-palette-section">
       <h4>OBJECTS</h4>
       <div class="editor-grid" id="object-grid">
         <div class="editor-tile" data-tile="B" title="Brick"><canvas class="tile-preview" width="8" height="8" data-tile="B"></canvas></div>
@@ -796,17 +852,22 @@
         <div class="editor-tile" data-tile="C" title="Coin"><canvas class="tile-preview" width="8" height="8" data-tile="C"></canvas></div>
       </div>
     </div>
-    <div class="editor-section">
+    <div class="editor-section level-palette-section">
       <h4>ENEMIES</h4>
       <div class="editor-grid" id="enemy-grid">
         <div class="editor-tile" data-tile="E" title="Enemy Spawn"><canvas class="tile-preview" width="8" height="8" data-tile="E"></canvas></div>
       </div>
     </div>
-    <div class="editor-section">
+    <div class="editor-section level-palette-section">
       <h4>SPAWNS</h4>
       <div class="editor-grid" id="spawn-grid">
         <div class="editor-tile" data-tile="P" title="Player Spawn"><canvas class="tile-preview" width="8" height="8" data-tile="P"></canvas></div>
       </div>
+    </div>
+    <div class="editor-section boss-editor-section" id="boss-editor-section">
+      <h4>BOSS EDITOR</h4>
+      <div class="boss-palette" id="boss-palette"></div>
+      <div class="editor-hint">Select a marker then click the grid to place. Right-click a marker to clear.</div>
     </div>
     <div class="editor-section author-only">
       <h4>AUTHOR TOOLS</h4>
@@ -837,7 +898,7 @@
         <button id="level-reset-button" type="button">Reset Level</button>
       </div>
     </div>
-    <div class="editor-section author-only custom-palette-section" id="custom-palette-section">
+    <div class="editor-section author-only custom-palette-section level-palette-section" id="custom-palette-section">
       <h4 id="custom-palette-title">CUSTOM</h4>
       <div class="editor-actions">
         <button id="custom-palette-clear" type="button">Clear Custom Tiles</button>
@@ -1905,16 +1966,22 @@
   const DUNGEON_MIN_ROOM = 8;
   const DUNGEON_MAX_DEPTH = 4;
   const dungeonChunks = new Map(); // key: "cx,cy" -> true
+  const EDITOR_MODES = Object.freeze({ level: "level", boss: "boss" });
+  const BOSS_LAYOUT_KEY = "smb3-boss-layout";
   let SCALE = 3; // integer-only scaling for crisp pixels
   let showGrid = false;
   let showTerrainDebug = false;
   let editorOpen = false;
+  let editorMode = EDITOR_MODES.level;
   let editorTile = "#";
   let selectedCell = null; // {tx, ty}
   let hoverCell = null; // {tx, ty}
   let editorClipboard = null;
   let clickDebug = null; // {sx, sy, tx, ty, timer}
   let stampMode = false;
+  let bossLayout = {};
+  let bossLayoutLoaded = false;
+  let activeBossLabel = null;
   const undoStack = [];
   const redoStack = [];
   const TEXT_FONT = {
@@ -2158,6 +2225,35 @@
     document.body.classList.toggle("editor-open", editorOpen);
     applyLayoutVars();
   }
+
+  function ensureBossLayoutLoaded() {
+    if (bossLayoutLoaded) return;
+    bossLayout = loadBossLayout();
+    bossLayoutLoaded = true;
+  }
+
+  function setEditorMode(next) {
+    const nextMode = next === EDITOR_MODES.boss ? EDITOR_MODES.boss : EDITOR_MODES.level;
+    const changed = editorMode !== nextMode;
+    editorMode = nextMode;
+    if (editorPanel) editorPanel.dataset.editorMode = editorMode;
+    if (bossPaletteSection) bossPaletteSection.setAttribute("aria-hidden", editorMode !== EDITOR_MODES.boss);
+    document.body.classList.toggle("editor-mode-boss", editorMode === EDITOR_MODES.boss);
+    if (!changed) return;
+    if (editorMode === EDITOR_MODES.boss) {
+      ensureBossLayoutLoaded();
+      if (!activeBossLabel) {
+        const firstBtn = bossPaletteContainer?.querySelector(".boss-tool-btn");
+        if (firstBtn) setActiveBossLabel(firstBtn.getAttribute("data-label"));
+      } else {
+        setActiveBossLabel(activeBossLabel);
+      }
+    } else {
+      setActiveBossLabel(null);
+    }
+  }
+  window.__setEditorMode = setEditorMode;
+  window.__getEditorMode = () => editorMode;
 
   function selectEditorTile(tile, el) {
     editorTile = tile;
@@ -2550,16 +2646,16 @@
       return;
     }
     if (handleInventoryKey(e)) return;
-    if (editorOpen && handleEditorClipboard(e)) {
+    if (editorOpen && editorMode === EDITOR_MODES.level && handleEditorClipboard(e)) {
       e.preventDefault();
       return;
     }
-    if (editorOpen && e.ctrlKey && e.code === "KeyZ") {
+    if (editorOpen && editorMode === EDITOR_MODES.level && e.ctrlKey && e.code === "KeyZ") {
       e.preventDefault();
       undoAction();
       return;
     }
-    if (editorOpen && e.ctrlKey && e.code === "KeyY") {
+    if (editorOpen && editorMode === EDITOR_MODES.level && e.ctrlKey && e.code === "KeyY") {
       e.preventDefault();
       redoAction();
       return;
@@ -2623,13 +2719,77 @@
   const objectGrid = document.getElementById("object-grid");
   const enemyGrid = document.getElementById("enemy-grid");
   const spawnGrid = document.getElementById("spawn-grid");
+  const editorPanel = document.getElementById("editor-panel");
+  const bossPaletteSection = document.getElementById("boss-editor-section");
+  const bossPaletteContainer = document.getElementById("boss-palette");
   const labelInput = document.getElementById("editor-label-input");
   const textStampInput = document.getElementById("editor-text-stamp");
   const textStampButton = document.getElementById("editor-stamp-button");
+  const bossLabelMeta = new Map();
+  const bossPaletteSpec = [
+    {
+      title: "Boss",
+      labels: [
+        { id: "bs", name: "Spawn", marker: "bs" },
+        { id: "bf", name: "Forward", marker: "bf" },
+        { id: "bb", name: "Backward", marker: "bb" },
+      ],
+    },
+  ];
+  for (let i = 1; i <= 4; i++) {
+    bossPaletteSpec.push({
+      title: `Hero ${i}`,
+      labels: [
+        { id: `h${i}st`, name: "Spawn", marker: `h${i}st` },
+        { id: `h${i}ft`, name: "Forward", marker: `h${i}ft` },
+        { id: `h${i}bt`, name: "Backward", marker: `h${i}bt` },
+      ],
+    });
+  }
+  bossPaletteSpec.forEach((group) => {
+    group.labels.forEach((label) => bossLabelMeta.set(label.id, label));
+  });
   function updateStampButtonUI() {
     if (!textStampButton) return;
     textStampButton.classList.toggle("active", stampMode);
     textStampButton.textContent = stampMode ? "Stamp Mode ON" : "Stamp Mode OFF";
+  }
+
+  function setActiveBossLabel(labelId) {
+    activeBossLabel = labelId || null;
+    if (!bossPaletteContainer) return;
+    bossPaletteContainer.querySelectorAll(".boss-tool-btn").forEach((btn) => {
+      const btnLabel = btn.getAttribute("data-label");
+      btn.classList.toggle("active", !!labelId && btnLabel === labelId);
+    });
+  }
+
+  function initBossPalette() {
+    if (!bossPaletteContainer) return;
+    bossPaletteContainer.innerHTML = "";
+    bossPaletteSpec.forEach((group) => {
+      const wrap = document.createElement("div");
+      wrap.className = "boss-palette-group";
+      const title = document.createElement("div");
+      title.className = "boss-palette-title";
+      title.textContent = group.title.toUpperCase();
+      const tools = document.createElement("div");
+      tools.className = "boss-palette-tools";
+      group.labels.forEach((label) => {
+        const btn = document.createElement("button");
+        btn.className = "boss-tool-btn";
+        btn.setAttribute("data-label", label.id);
+        btn.innerHTML = `<div>${label.marker}</div><span class="label">${label.name}</span>`;
+        btn.addEventListener("click", () => setActiveBossLabel(label.id));
+        tools.appendChild(btn);
+      });
+      wrap.append(title, tools);
+      bossPaletteContainer.appendChild(wrap);
+    });
+    if (!activeBossLabel) {
+      const first = bossPaletteContainer.querySelector(".boss-tool-btn");
+      if (first) setActiveBossLabel(first.getAttribute("data-label"));
+    }
   }
 
   function updateLabelInput() {
@@ -2661,6 +2821,8 @@
   wirePaletteGrid(objectGrid);
   wirePaletteGrid(enemyGrid);
   wirePaletteGrid(spawnGrid);
+  initBossPalette();
+  setEditorMode(editorMode);
   document.addEventListener("click", () => hideRoleMenu());
   document.addEventListener("keydown", (e) => {
     if (e.code === "Escape") hideRoleMenu();
@@ -2887,7 +3049,7 @@
   }
 
   function applyEditorPaint(screenX, screenY, remove=false) {
-    if (!editorOpen) return;
+    if (!editorOpen || editorMode !== EDITOR_MODES.level) return;
     const cell = screenToCell(screenX, screenY);
     if (!cell) return;
     const prevTile = getTile(cell.tx, cell.ty);
@@ -2906,16 +3068,59 @@
     captureTimelapseFrame();
   }
 
+  function bossLabelsAtCell(tx, ty) {
+    ensureBossLayoutLoaded();
+    return Object.entries(bossLayout || {})
+      .filter(([, pos]) => pos && pos.tx === tx && pos.ty === ty)
+      .map(([id]) => id);
+  }
+
+  function placeBossMarker(labelId, tx, ty) {
+    if (!labelId || !Number.isFinite(tx) || !Number.isFinite(ty)) return;
+    ensureBossLayoutLoaded();
+    bossLayout[labelId] = { tx, ty };
+    saveBossLayout();
+  }
+
+  function clearBossMarker(labelId) {
+    ensureBossLayoutLoaded();
+    if (!labelId || !(labelId in bossLayout)) return false;
+    delete bossLayout[labelId];
+    saveBossLayout();
+    return true;
+  }
+
+  function clearBossMarkerAtCell(tx, ty, preferredLabel = null) {
+    const labels = bossLabelsAtCell(tx, ty);
+    if (!labels.length) return;
+    const target = preferredLabel && labels.includes(preferredLabel) ? preferredLabel : labels[0];
+    clearBossMarker(target);
+  }
+
   let paintingButton = null;
+  let bossPointerButton = null;
   canvas.addEventListener("mousedown", (e) => {
     if (!editorOpen) return;
     const cell = screenToCell(e.clientX, e.clientY);
-    if (cell) setSelection(cell.tx, cell.ty);
+    hoverCell = cell || null;
     if (cell) {
       const sx = Math.floor(cell.tx * TILE - cam.x);
       const sy = Math.floor(cell.ty * TILE - cam.y);
       clickDebug = { sx, sy, tx: cell.tx, ty: cell.ty, timer: 0.5 };
     }
+    if (editorMode === EDITOR_MODES.boss) {
+      bossPointerButton = e.button;
+      if (cell && e.button === 0) {
+        e.preventDefault();
+        if (activeBossLabel) placeBossMarker(activeBossLabel, cell.tx, cell.ty);
+      }
+      if (cell && e.button === 2) {
+        e.preventDefault();
+        clearBossMarkerAtCell(cell.tx, cell.ty, activeBossLabel);
+      }
+      return;
+    }
+    if (cell) setSelection(cell.tx, cell.ty);
     if (stampMode && e.button === 0) {
       e.preventDefault();
       stampText(textStampInput ? textStampInput.value : "");
@@ -2931,12 +3136,27 @@
     if (!editorOpen) return;
     const cell = screenToCell(e.clientX, e.clientY);
     hoverCell = cell || null;
+    if (editorMode === EDITOR_MODES.boss) {
+      if (bossPointerButton !== null && cell) {
+        if (bossPointerButton === 0 && activeBossLabel) {
+          placeBossMarker(activeBossLabel, cell.tx, cell.ty);
+        } else if (bossPointerButton === 2) {
+          clearBossMarkerAtCell(cell.tx, cell.ty, activeBossLabel);
+        }
+      }
+      return;
+    }
     if (paintingButton !== null) {
       applyEditorPaint(e.clientX, e.clientY, paintingButton === 2);
     }
   });
   canvas.addEventListener("mouseup", () => {
     paintingButton = null;
+    bossPointerButton = null;
+  });
+  canvas.addEventListener("contextmenu", (e) => {
+    if (!editorOpen) return;
+    if (editorMode === EDITOR_MODES.boss) e.preventDefault();
   });
   canvas.addEventListener("mouseleave", () => {
     paintingButton = null;
@@ -3162,41 +3382,41 @@
     "Deep Underground": { top: "#1A1412", bottom: "#1A1412" },
   };
   const LAYER_BG_IMAGES = {
-    "Deep Space": "assets/layers/layer-deep-space.png",
-    "Space": "assets/layers/layer-space.png",
-    "Upper Atmosphere": "assets/layers/layer-upper-atmosphere.png",
-    "Atmosphere": "assets/layers/layer-atmosphere.png",
-    "High Altitude / Sky": "assets/layers/layer-high-sky.png",
-    "Above Surface": "assets/layers/layer-above-surface.png",
-    "Surface": "assets/layers/layer-surface.png",
-    "Shallow Underground": "assets/layers/layer-shallow-underground.png",
-    "Underground": "assets/layers/layer-underground.png",
-    "Deep Underground": "assets/layers/layer-deep-underground.png",
+    "Deep Space": "assets/layers/layer-01-deep-space.png",
+    "Space": "assets/layers/layer-02-space.png",
+    "Upper Atmosphere": "assets/layers/layer-03-upper-atmosphere.png",
+    "Atmosphere": "assets/layers/layer-04-atmosphere.png",
+    "High Altitude / Sky": "assets/layers/layer-05-high-sky.png",
+    "Above Surface": "assets/layers/layer-06-above-surface.png",
+    "Surface": "assets/layers/layer-07-surface.png",
+    "Shallow Underground": "assets/layers/layer-08-shallow-underground.png",
+    "Underground": "assets/layers/layer-09-underground.png",
+    "Deep Underground": "assets/layers/layer-10-deep-underground.png",
   };
   const LAYER_BG_IMAGES_BY_BIOME = {
     "tropical-lush": {
-      "Deep Space": "assets/layers/tropical/layer-tropical-deep-space.png",
-      "Space": "assets/layers/tropical/layer-tropical-space.png",
-      "Upper Atmosphere": "assets/layers/tropical/layer-tropical-upper-atmosphere.png",
-      "Atmosphere": "assets/layers/tropical/layer-tropical-atmosphere.png",
-      "High Altitude / Sky": "assets/layers/tropical/layer-tropical-high-sky.png",
-      "Above Surface": "assets/layers/tropical/layer-tropical-above-surface.png",
-      "Surface": "assets/layers/tropical/layer-tropical-surface.png",
-      "Shallow Underground": "assets/layers/tropical/layer-tropical-shallow-underground.png",
-      "Underground": "assets/layers/tropical/layer-tropical-underground.png",
-      "Deep Underground": "assets/layers/tropical/layer-tropical-deep-underground.png",
+      "Deep Space": "assets/layers/tropical/layer-tropical-01-deep-space.png",
+      "Space": "assets/layers/tropical/layer-tropical-02-space.png",
+      "Upper Atmosphere": "assets/layers/tropical/layer-tropical-03-upper-atmosphere.png",
+      "Atmosphere": "assets/layers/tropical/layer-tropical-04-atmosphere.png",
+      "High Altitude / Sky": "assets/layers/tropical/layer-tropical-05-high-sky.png",
+      "Above Surface": "assets/layers/tropical/layer-tropical-06-above-surface.png",
+      "Surface": "assets/layers/tropical/layer-tropical-07-surface.png",
+      "Shallow Underground": "assets/layers/tropical/layer-tropical-08-shallow-underground.png",
+      "Underground": "assets/layers/tropical/layer-tropical-09-underground.png",
+      "Deep Underground": "assets/layers/tropical/layer-tropical-10-deep-underground.png",
     },
     "arid-dry": {
-      "Deep Space": "assets/layers/arid-dry/layer-arid-dry-deep-space.png",
-      "Space": "assets/layers/arid-dry/layer-arid-dry-space.png",
-      "Upper Atmosphere": "assets/layers/arid-dry/layer-arid-dry-upper-atmosphere.png",
-      "Atmosphere": "assets/layers/arid-dry/layer-arid-dry-atmosphere.png",
-      "High Altitude / Sky": "assets/layers/arid-dry/layer-arid-dry-high-sky.png",
-      "Above Surface": "assets/layers/arid-dry/layer-arid-dry-above-surface.png",
-      "Surface": "assets/layers/arid-dry/layer-arid-dry-surface.png",
-      "Shallow Underground": "assets/layers/arid-dry/layer-arid-dry-shallow-underground.png",
-      "Underground": "assets/layers/arid-dry/layer-arid-dry-underground.png",
-      "Deep Underground": "assets/layers/arid-dry/layer-arid-dry-deep-underground.png",
+      "Deep Space": "assets/layers/arid-dry/layer-arid-dry-01-deep-space.png",
+      "Space": "assets/layers/arid-dry/layer-arid-dry-02-space.png",
+      "Upper Atmosphere": "assets/layers/arid-dry/layer-arid-dry-03-upper-atmosphere.png",
+      "Atmosphere": "assets/layers/arid-dry/layer-arid-dry-04-atmosphere.png",
+      "High Altitude / Sky": "assets/layers/arid-dry/layer-arid-dry-05-high-sky.png",
+      "Above Surface": "assets/layers/arid-dry/layer-arid-dry-06-above-surface.png",
+      "Surface": "assets/layers/arid-dry/layer-arid-dry-07-surface.png",
+      "Shallow Underground": "assets/layers/arid-dry/layer-arid-dry-08-shallow-underground.png",
+      "Underground": "assets/layers/arid-dry/layer-arid-dry-09-underground.png",
+      "Deep Underground": "assets/layers/arid-dry/layer-arid-dry-10-deep-underground.png",
     },
   };
   let layerOriginY = 0; // set once player spawn is known
@@ -4673,6 +4893,38 @@
     biomeId: null,
     fade: null, // { start, duration, outgoing, incoming, targetBiome }
   };
+
+  function normalizeBossLayout(raw) {
+    if (!raw || typeof raw !== "object") return {};
+    const next = {};
+    Object.entries(raw).forEach(([key, value]) => {
+      const tx = Number(value?.tx);
+      const ty = Number(value?.ty);
+      if (Number.isFinite(tx) && Number.isFinite(ty)) next[key] = { tx, ty };
+    });
+    return next;
+  }
+
+  function loadBossLayout() {
+    if (typeof localStorage === "undefined") return {};
+    try {
+      const raw = localStorage.getItem(BOSS_LAYOUT_KEY);
+      if (!raw) return {};
+      return normalizeBossLayout(JSON.parse(raw));
+    } catch (err) {
+      return {};
+    }
+  }
+
+  function saveBossLayout() {
+    if (typeof localStorage === "undefined") return false;
+    try {
+      localStorage.setItem(BOSS_LAYOUT_KEY, JSON.stringify(bossLayout));
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
 
   function pauseAudio(audio) {
     if (!audio) return;
@@ -6434,6 +6686,70 @@
     g.restore();
   }
 
+  function drawBossGuides() {
+    if (editorMode !== EDITOR_MODES.boss) return;
+    g.save();
+    g.strokeStyle = "rgba(246, 211, 65, 0.8)";
+    g.lineWidth = 3;
+    const x1 = Math.floor(BASE_W / 3) + 0.5;
+    const x2 = Math.floor((BASE_W * 2) / 3) + 0.5;
+    g.beginPath();
+    g.moveTo(x1, 0);
+    g.lineTo(x1, BASE_H);
+    g.moveTo(x2, 0);
+    g.lineTo(x2, BASE_H);
+    g.stroke();
+    g.restore();
+  }
+
+  function bossMarkerLabel(labelId) {
+    return bossLabelMeta.get(labelId)?.marker || labelId;
+  }
+
+  function drawBossMarkers() {
+    if (editorMode !== EDITOR_MODES.boss || !showTerrainDebug) return;
+    ensureBossLayoutLoaded();
+    const entries = Object.entries(bossLayout || {});
+    if (!entries.length) return;
+    const stacked = new Map();
+    for (const [label, pos] of entries) {
+      if (!pos || !Number.isFinite(pos.tx) || !Number.isFinite(pos.ty)) continue;
+      const key = `${pos.tx},${pos.ty}`;
+      if (!stacked.has(key)) stacked.set(key, []);
+      stacked.get(key).push({ label, pos });
+    }
+    g.save();
+    g.font = "8px 'Press Start 2P', 'VT323', monospace";
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    stacked.forEach((markers, key) => {
+      const [txStr, tyStr] = key.split(",");
+      const tx = parseInt(txStr, 10);
+      const ty = parseInt(tyStr, 10);
+      const baseX = Math.floor(tx * TILE - cam.x + TILE / 2);
+      const baseY = Math.floor(ty * TILE - cam.y + TILE / 2);
+      if (baseX < -TILE || baseX > BASE_W + TILE || baseY < -TILE || baseY > BASE_H + TILE) return;
+      const spacing = 10;
+      const startY = baseY - ((markers.length - 1) * spacing) / 2;
+      markers.forEach((m, idx) => {
+        const cy = startY + idx * spacing;
+        const text = bossMarkerLabel(m.label);
+        const textW = g.measureText(text).width;
+        const boxW = Math.max(18, textW + 6);
+        const boxH = 9;
+        const left = Math.round(baseX - boxW / 2);
+        const top = Math.round(cy - boxH / 2);
+        g.fillStyle = "rgba(0,0,0,0.75)";
+        g.fillRect(left, top, boxW, boxH);
+        g.strokeStyle = "rgba(255,255,255,0.35)";
+        g.strokeRect(left + 0.5, top + 0.5, boxW - 1, boxH - 1);
+        g.fillStyle = "#f6d341";
+        g.fillText(text, baseX, top + boxH / 2 + 0.5);
+      });
+    });
+    g.restore();
+  }
+
   function drawLayerDebugOverlay() {
     if (!showTerrainDebug) return;
     const viewTop = cam.y;
@@ -6500,7 +6816,7 @@
   }
 
   function drawSelectionOverlay() {
-    if (!editorOpen || !selectedCell) return;
+    if (!editorOpen || editorMode !== EDITOR_MODES.level || !selectedCell) return;
     const { tx, ty } = selectedCell;
     const sx = Math.floor(tx * TILE - cam.x);
     const sy = Math.floor(ty * TILE - cam.y);
@@ -6531,7 +6847,7 @@
   }
 
   function drawLabelsOverlay() {
-    if (!editorOpen) return;
+    if (!editorOpen || editorMode !== EDITOR_MODES.level) return;
     g.save();
     g.font = "8px 'Press Start 2P', 'VT323', monospace";
     g.textAlign = "center";
@@ -6795,10 +7111,12 @@
     }
 
     drawGridOverlay();
+    drawBossGuides();
     drawLayerDebugOverlay();
     drawHoverOverlay();
     drawSelectionOverlay();
     drawLabelsOverlay();
+    drawBossMarkers();
     drawEndlessDebugOverlay();
     if (clickDebug && clickDebug.timer > 0) {
       const { sx, sy } = clickDebug;
