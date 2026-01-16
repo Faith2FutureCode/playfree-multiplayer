@@ -1982,6 +1982,7 @@
   let bossLayout = {};
   let bossLayoutLoaded = false;
   let activeBossLabel = null;
+  let bossGridPrev = null;
   const undoStack = [];
   const redoStack = [];
   const TEXT_FONT = {
@@ -2241,6 +2242,8 @@
     document.body.classList.toggle("editor-mode-boss", editorMode === EDITOR_MODES.boss);
     if (!changed) return;
     if (editorMode === EDITOR_MODES.boss) {
+      bossGridPrev = bossGridPrev ?? showGrid;
+      showGrid = true;
       ensureBossLayoutLoaded();
       if (!activeBossLabel) {
         const firstBtn = bossPaletteContainer?.querySelector(".boss-tool-btn");
@@ -2249,6 +2252,10 @@
         setActiveBossLabel(activeBossLabel);
       }
     } else {
+      if (bossGridPrev !== null) {
+        showGrid = bossGridPrev;
+        bossGridPrev = null;
+      }
       setActiveBossLabel(null);
     }
   }
@@ -2743,6 +2750,7 @@
         { id: `h${i}st`, name: "Spawn", marker: `h${i}st` },
         { id: `h${i}ft`, name: "Forward", marker: `h${i}ft` },
         { id: `h${i}bt`, name: "Backward", marker: `h${i}bt` },
+        { id: `h${i}atk`, name: "Attack", marker: `h${i}atk` },
       ],
     });
   }
