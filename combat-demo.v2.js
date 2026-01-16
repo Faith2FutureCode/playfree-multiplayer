@@ -490,15 +490,13 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
     .boss-actors {
       position: absolute;
       inset: 0;
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      padding: 10% 8% 12% 8%;
+      padding: 6% 6% 10% 6%;
       color: #fefefe;
       text-shadow: 1px 1px 0 #000, -1px -1px 0 #000;
       filter: drop-shadow(0 4px 6px rgba(0,0,0,0.6));
-      gap: 16px;
+      pointer-events: none;
     }
+    .boss-layout-layer { position: relative; width: 100%; height: 100%; }
     .boss-boss {
       width: 220px;
       height: 140px;
@@ -507,18 +505,10 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       background-position: center;
       image-rendering: pixelated;
       transform: scale(1.35);
-      align-self: flex-end;
+      position: absolute;
       animation: bossBob 3s ease-in-out infinite;
     }
-    .boss-party {
-      display: grid;
-      gap: 10px;
-      justify-items: end;
-      font: 14px/1 "Press Start 2P", "VT323", monospace;
-      align-self: flex-end;
-    }
-    .boss-party .row { display: flex; gap: 6px; }
-    .boss-party .tiny {
+    .boss-party .tiny, .boss-actors .tiny {
       width: 20px;
       height: 24px;
       background-size: contain;
@@ -527,6 +517,7 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       image-rendering: pixelated;
       border: 1px solid rgba(12, 16, 32, 0.5);
       box-shadow: 0 0 4px rgba(0,0,0,0.35);
+      position: absolute;
       animation: heroBob 2.6s ease-in-out infinite;
     }
     .boss-hud {
@@ -800,11 +791,68 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
   const heroSpriteEls = Array.from(bossScene.querySelectorAll(".boss-party .tiny"));
   const effectsLayer = bossScene.querySelector(".boss-effects");
   const spiralEl = bossScene.querySelector(".context-spiral");
+  const actorsRoot = bossScene.querySelector(".boss-actors");
+  const layoutLayer = document.createElement("div");
+  layoutLayer.className = "boss-layout-layer";
+  if (actorsRoot) {
+    actorsRoot.innerHTML = "";
+    layoutLayer.appendChild(bossSpriteEl);
+    heroSpriteEls.forEach((el) => layoutLayer.appendChild(el));
+    actorsRoot.appendChild(layoutLayer);
+  }
 
   bossSpriteEl.style.backgroundImage = `url(${BOSS_SPRITE})`;
+  const heroPlaceholder = [...HERO_SPRITES];
+  const heroSpriteForIndex = (idx) => {
+    if (idx === 0 && typeof window.__getPlayerSpriteDataUrl === "function") {
+      const data = window.__getPlayerSpriteDataUrl();
+      if (data) return data;
+    }
+    return heroPlaceholder[idx % heroPlaceholder.length];
+  };
   heroSpriteEls.forEach((el, idx) => {
-    el.style.backgroundImage = `url(${HERO_SPRITES[idx % HERO_SPRITES.length]})`;
+    el.style.backgroundImage = `url(${heroSpriteForIndex(idx)})`;
+    el.style.transformOrigin = "50% 100%";
   });
+  bossSpriteEl.style.transformOrigin = "50% 100%";
+
+  const TILE_SIZE = window.TILE || 16;
+  const currentBossLayout = () => {
+    try {
+      return (typeof window.__getBossLayout === "function" && window.__getBossLayout()) || {};
+    } catch (err) {
+      return {};
+    }
+  };
+
+  function applyBossLayoutPositions() {
+    if (!layoutLayer) return;
+    const layout = currentBossLayout();
+    const rect = bossScene.getBoundingClientRect();
+    const baseW = window.BASE_W || rect.width || 1;
+    const baseH = window.BASE_H || rect.height || 1;
+    const scaleX = rect.width / baseW;
+    const scaleY = rect.height / baseH;
+    const place = (el, pos) => {
+      if (!el || !pos) return;
+      const x = pos.tx * TILE_SIZE * scaleX;
+      const y = pos.ty * TILE_SIZE * scaleY;
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      el.style.transform = "translate(-50%, -100%)";
+    };
+    const bossPos = layout.bs || layout.bf || layout.bb;
+    place(bossSpriteEl, bossPos);
+    for (let i = 0; i < heroSpriteEls.length; i++) {
+      const idx = i + 1;
+      const pos =
+        layout[`h${idx}st`] ||
+        layout[`h${idx}ft`] ||
+        layout[`h${idx}bt`] ||
+        layout[`h${idx}atk`];
+      place(heroSpriteEls[i], pos);
+    }
+  }
 
   const toggle = document.createElement("button");
   toggle.className = "combat-demo-toggle";
@@ -1026,6 +1074,7 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
         issueCommand(heroId, cmd);
       });
     });
+    applyBossLayoutPositions();
   }
 
   function issueCommand(heroId, cmd) {

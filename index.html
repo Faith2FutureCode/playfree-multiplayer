@@ -2291,6 +2291,7 @@
   }
   window.__setEditorMode = setEditorMode;
   window.__getEditorMode = () => editorMode;
+  window.__getBossLayout = () => bossLayout;
   window.__setBossEditorBoss = (id, room = "global") => {
     const nextId = id || "boss";
     const nextRoom = room || "global";
@@ -5767,6 +5768,44 @@
         return { shirt: "#e23b2e", pants: "#2a49ff" };
     }
   }
+
+  let playerPreviewCache = { form: null, big: null, data: null };
+  function renderPlayerPreviewSprite() {
+    const form = player.form;
+    const big = player.big;
+    if (playerPreviewCache.data && playerPreviewCache.form === form && playerPreviewCache.big === big) {
+      return playerPreviewCache.data;
+    }
+    const palette = formPalette(form);
+    const w = 20;
+    const h = big ? 24 : 18;
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d", { alpha: true });
+    ctx.imageSmoothingEnabled = false;
+    const shirtH = Math.min(8, h);
+    ctx.fillStyle = palette.shirt;
+    ctx.fillRect(4, h - shirtH - (big ? 6 : 4), 12, shirtH);
+    const pantsH = Math.max(4, h - shirtH - 4);
+    ctx.fillStyle = palette.pants;
+    ctx.fillRect(4, h - pantsH, 12, pantsH);
+    ctx.fillStyle = "#f2c7a7";
+    ctx.fillRect(7, h - shirtH - 6, 6, 5);
+    ctx.fillStyle = "#000";
+    ctx.fillRect(9, h - shirtH - 4, 2, 2);
+    if (big) {
+      ctx.fillStyle = "#0002";
+      ctx.fillRect(4, h - shirtH - 6, 12, shirtH + pantsH + 2);
+    }
+    playerPreviewCache = {
+      form,
+      big,
+      data: canvas.toDataURL("image/png"),
+    };
+    return playerPreviewCache.data;
+  }
+  window.__getPlayerSpriteDataUrl = renderPlayerPreviewSprite;
 
   function setPlayerForm(form, options = {}) {
     const { skipSave = false } = options;
