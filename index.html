@@ -1978,6 +1978,7 @@
   const dungeonChunks = new Map(); // key: "cx,cy" -> true
   const EDITOR_MODES = Object.freeze({ level: "level", boss: "boss" });
   const BOSS_LAYOUT_KEY = "smb3-boss-layout";
+  const BOSS_LAYOUT_ENDPOINT = "/api/boss-layout";
   let SCALE = 3; // integer-only scaling for crisp pixels
   let showGrid = false;
   let showTerrainDebug = false;
@@ -1991,6 +1992,9 @@
   let stampMode = false;
   let bossLayout = {};
   let bossLayoutLoaded = false;
+  let bossLayoutBossId = "boss";
+  let bossLayoutRoom = "global";
+  let bossLayoutSaveTimer = null;
   let activeBossLabel = null;
   let bossGridPrev = null;
   const undoStack = [];
@@ -2241,6 +2245,22 @@
     if (bossLayoutLoaded) return;
     bossLayout = loadBossLayout();
     bossLayoutLoaded = true;
+    fetchBossLayoutRemote().then((remote) => {
+      if (remote) {
+        bossLayout = remote;
+        saveBossLayout(); // sync local cache
+        render();
+      }
+    });
+  }
+
+  function scheduleBossLayoutSave() {
+    if (bossLayoutSaveTimer) clearTimeout(bossLayoutSaveTimer);
+    bossLayoutSaveTimer = setTimeout(() => {
+      bossLayoutSaveTimer = null;
+      saveBossLayout();
+      saveBossLayoutRemote();
+    }, 350);
   }
 
   function setEditorMode(next) {
@@ -2271,6 +2291,18 @@
   }
   window.__setEditorMode = setEditorMode;
   window.__getEditorMode = () => editorMode;
+  window.__setBossEditorBoss = (id, room = "global") => {
+    const nextId = id || "boss";
+    const nextRoom = room || "global";
+    const changed = nextId !== bossLayoutBossId || nextRoom !== bossLayoutRoom;
+    bossLayoutBossId = nextId;
+    bossLayoutRoom = nextRoom;
+    if (changed) {
+      bossLayoutLoaded = false;
+      ensureBossLayoutLoaded();
+      render();
+    }
+  };
 
   function selectEditorTile(tile, el) {
     editorTile = tile;
@@ -3097,14 +3129,14 @@
     if (!labelId || !Number.isFinite(tx) || !Number.isFinite(ty)) return;
     ensureBossLayoutLoaded();
     bossLayout[labelId] = { tx, ty };
-    saveBossLayout();
+    scheduleBossLayoutSave();
   }
 
   function clearBossMarker(labelId) {
     ensureBossLayoutLoaded();
     if (!labelId || !(labelId in bossLayout)) return false;
     delete bossLayout[labelId];
-    saveBossLayout();
+    scheduleBossLayoutSave();
     return true;
   }
 
@@ -4941,6 +4973,31 @@
       return true;
     } catch (err) {
       return false;
+    }
+  }
+
+  async function fetchBossLayoutRemote() {
+    try {
+      const params = new URLSearchParams({ bossId: bossLayoutBossId, room: bossLayoutRoom });
+      const res = await fetch(`${BOSS_LAYOUT_ENDPOINT}?${params.toString()}`, { method: "GET", credentials: "include" });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return normalizeBossLayout(data?.layout);
+    } catch (err) {
+      return null;
+    }
+  }
+
+  async function saveBossLayoutRemote() {
+    try {
+      await fetch(BOSS_LAYOUT_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ bossId: bossLayoutBossId, room: bossLayoutRoom, layout: bossLayout }),
+      });
+    } catch (err) {
+      // ignore network errors for now
     }
   }
 

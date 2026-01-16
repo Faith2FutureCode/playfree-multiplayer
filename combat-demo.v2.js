@@ -187,6 +187,26 @@ let autoTimer = null;
 let heroAtb = {};
 let atbTimer = null;
 let __startTransition = null;
+let renderDemoUi = () => {};
+const setBossEditorBoss = (id, room = "global") => {
+  try {
+    if (typeof window.__setBossEditorBoss === "function") {
+      window.__setBossEditorBoss(id, room);
+    }
+  } catch (err) {
+    // ignore
+  }
+};
+const setBossEditorMode = (mode) => {
+  try {
+    if (typeof window.__setEditorMode === "function") {
+      window.__setEditorMode(mode);
+    }
+  } catch (err) {
+    // ignore editor mode failures
+  }
+};
+setBossEditorMode("level");
 
 function stopAuto() {
   if (autoTimer) {
@@ -275,6 +295,8 @@ function startRun() {
   snapshotInfo = { partySize: party.length, boss: state.boss.name, mode: selectedMode };
   resultsInfo = null;
   heroAtb = Object.fromEntries(party.map((p) => [p.id, 0]));
+  setBossEditorBoss(selectedBossId);
+  setBossEditorMode("boss");
   const doTransition =
     window.__combatDemoStartTransition ||
     __startTransition ||
@@ -284,14 +306,14 @@ function startRun() {
   doTransition(() => {
     phase = "combat";
     window.__combatDemoStartAtb?.();
-    render();
+    renderDemoUi();
   });
   // failsafe: ensure combat starts even if transition callback is interrupted
   setTimeout(() => {
     if (phase === "transition") {
       phase = "combat";
       window.__combatDemoStartAtb?.();
-      render();
+      renderDemoUi();
     }
   }, 2000);
   return { started: true };
@@ -1230,8 +1252,11 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
     resultsInfo = null;
     snapshotInfo = null;
     state = createDemoState(selectedMode, selectedBossId);
+    setBossEditorMode("level");
+    setBossEditorBoss(selectedBossId);
     render();
   });
 
+  renderDemoUi = render;
   render();
 })();
