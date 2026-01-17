@@ -1206,6 +1206,7 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     run: null,
     runAnimBtn: null,
     runAnimFile: null,
+    runFile: null,
   };
   const setAuthorClass = (enabled) => {
     const wasAuthor = document.body.classList.contains("author");
@@ -2446,6 +2447,19 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     runSelect.addEventListener("change", () => {
       playerModelLayer.actionMap.run = runSelect.value || null;
     });
+    const runFileLabel = document.createElement("span");
+    runFileLabel.textContent = "Run file";
+    const runFileSelect = document.createElement("select");
+    runFileSelect.style.minWidth = "200px";
+    runFileSelect.style.font = '12px "Press Start 2P", "VT323", monospace';
+    runFileSelect.style.background = "#0f182a";
+    runFileSelect.style.color = "#dfe7ff";
+    runFileSelect.style.border = "2px solid #000";
+    runFileSelect.style.padding = "4px 6px";
+    runFileSelect.addEventListener("change", () => {
+      const name = runFileSelect.value;
+      if (name) loadRunAnimationFromFolder(name);
+    });
     const runAnimBtn = document.createElement("button");
     runAnimBtn.type = "button";
     runAnimBtn.textContent = "Load run anim";
@@ -2482,7 +2496,7 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
       updatePlayerModelScale();
     });
 
-    bar.append(loadBtn, toggleBtn, scaleLabel, scaleInput, runLabel, runSelect, runAnimBtn, status, fileInput, runAnimInput);
+    bar.append(loadBtn, toggleBtn, scaleLabel, scaleInput, runLabel, runSelect, runFileLabel, runFileSelect, runAnimBtn, status, fileInput, runAnimInput);
     document.body.appendChild(bar);
     playerModelUi.bar = bar;
     playerModelUi.status = status;
@@ -2493,6 +2507,7 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     playerModelUi.run = runSelect;
     playerModelUi.runAnimBtn = runAnimBtn;
     playerModelUi.runAnimFile = runAnimInput;
+    playerModelUi.runFile = runFileSelect;
   }
 
   function initPlayerModelLayer() {
@@ -2628,6 +2643,37 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     });
   }
 
+  async function populateRunFilesFromFolder() {
+    if (!playerModelUi.runFile) return;
+    try {
+      const res = await fetch("/assets/models/player/run/manifest.json", { cache: "no-cache" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const files = Array.isArray(data) ? data : [];
+      playerModelUi.runFile.innerHTML = "";
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "(choose run .glb)";
+      playerModelUi.runFile.appendChild(placeholder);
+      files.forEach((name) => {
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = name;
+        playerModelUi.runFile.appendChild(opt);
+      });
+      setModelStatus(files.length ? "Run folder loaded" : "Run folder empty");
+    } catch (err) {
+      setModelStatus("Run folder manifest missing");
+      console.warn("Run manifest load failed", err);
+    }
+  }
+
+  function loadRunAnimationFromFolder(fileName) {
+    if (!fileName) return;
+    const url = `/assets/models/player/run/${encodeURIComponent(fileName)}`;
+    loadAnimationsFromUrl(url, "run");
+  }
+
   function rebuildRunSelectOptions() {
     if (!playerModelUi.run) return;
     playerModelUi.run.innerHTML = "";
@@ -2696,6 +2742,20 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     });
   }
 
+  function loadAnimationsFromUrl(url, preferredSlot = null) {
+    if (!playerModelLayer.loader) return;
+    playerModelLayer.loader.load(url, (gltf) => {
+      if (gltf?.animations?.length) {
+        addClipsToMixer(gltf.animations, preferredSlot);
+      } else {
+        setModelStatus("No animations in file");
+      }
+    }, undefined, (err) => {
+      setModelStatus("Failed to load animations");
+      console.error("Animation load failed", err);
+    });
+  }
+
   function loadPlayerModelFromFile(file) {
     if (!playerModelLayer.loader) return;
     const url = URL.createObjectURL(file);
@@ -2738,6 +2798,7 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
 
   if (hasThree) {
     initPlayerModelLayer();
+    populateRunFilesFromFolder();
   }
 
   let prevGridOn = showGrid;
