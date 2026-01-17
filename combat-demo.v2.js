@@ -495,8 +495,9 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       text-shadow: 1px 1px 0 #000, -1px -1px 0 #000;
       filter: drop-shadow(0 4px 6px rgba(0,0,0,0.6));
       pointer-events: none;
+      z-index: 3;
     }
-    .boss-layout-layer { position: relative; width: 100%; height: 100%; }
+    .boss-layout-layer { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
     .boss-boss {
       width: 220px;
       height: 140px;
@@ -507,6 +508,7 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       transform: scale(1.35);
       position: absolute;
       animation: bossBob 3s ease-in-out infinite;
+      z-index: 3;
     }
     .boss-party .tiny, .boss-actors .tiny {
       width: 20px;
@@ -519,6 +521,7 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
       box-shadow: 0 0 4px rgba(0,0,0,0.35);
       position: absolute;
       animation: heroBob 2.6s ease-in-out infinite;
+      z-index: 3;
     }
     .boss-hud {
       position: absolute;
