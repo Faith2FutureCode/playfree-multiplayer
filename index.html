@@ -2382,7 +2382,10 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
 
   function resizePlayerModelRenderer(displayW, displayH) {
     if (!playerModelLayer.renderer) return;
-    playerModelLayer.renderer.setSize(BASE_W, BASE_H, false);
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const targetW = displayW * dpr;
+    const targetH = displayH * dpr;
+    playerModelLayer.renderer.setSize(targetW, targetH, false);
     const dom = playerModelLayer.renderer.domElement;
     if (dom) {
       dom.style.width = `${displayW}px`;
@@ -2463,7 +2466,6 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.05;
-    renderer.setPixelRatio(Math.max(1, window.devicePixelRatio || 1));
     renderer.setSize(BASE_W, BASE_H, false);
     renderer.setClearAlpha(0);
     renderer.domElement.style.position = "absolute";
