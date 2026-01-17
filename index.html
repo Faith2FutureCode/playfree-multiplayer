@@ -1131,51 +1131,6 @@
   };
   // Default to non-author until verified by server
   setAuthorClass(false);
-  loadHeroSpriteData();
-  const heroSpriteKeyFor = (index) => HERO_SPRITE_KEYS[index] || null;
-  function loadHeroSpriteData() {
-    if (typeof localStorage === "undefined") return;
-    HERO_SPRITE_KEYS.forEach((key, index) => {
-      try {
-        const val = localStorage.getItem(key);
-        if (val) heroSpriteDataUrls[index] = val;
-      } catch (err) {
-        /* ignore */
-      }
-    });
-  }
-  function setHeroSpriteData(index, dataUrl) {
-    if (index < 0 || index >= heroSpriteDataUrls.length) return;
-    heroSpriteDataUrls[index] = dataUrl || null;
-    if (typeof localStorage === "undefined") return;
-    const key = heroSpriteKeyFor(index);
-    try {
-      if (dataUrl) {
-        localStorage.setItem(key, dataUrl);
-      } else {
-        localStorage.removeItem(key);
-      }
-    } catch (err) {
-      /* ignore storage errors */
-    }
-  }
-  function handleHeroSpriteUpload(index, file) {
-    if (!file) return;
-    if (!isAuthor()) {
-      pushSystemChat("Author only. Use /author to login.");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setHeroSpriteData(index, reader.result);
-      pushSystemChat(`Hero ${index + 1} sprite updated.`);
-      if (typeof render === "function") render();
-    };
-    reader.onerror = () => {
-      pushSystemChat(`Failed to load Hero ${index + 1} sprite.`);
-    };
-    reader.readAsDataURL(file);
-  }
   const isAuthor = () => document.body.classList.contains("author");
   if (hintToggle && hintPanel) {
     hintToggle.addEventListener("click", () => {
@@ -2077,6 +2032,51 @@
   let activeBossLabel = null;
   let bossGridPrev = null;
   const heroSpriteDataUrls = new Array(HERO_SPRITE_KEYS.length).fill(null);
+  const heroSpriteKeyFor = (index) => HERO_SPRITE_KEYS[index] || null;
+  function loadHeroSpriteData() {
+    if (typeof localStorage === "undefined") return;
+    HERO_SPRITE_KEYS.forEach((key, index) => {
+      try {
+        const val = localStorage.getItem(key);
+        if (val) heroSpriteDataUrls[index] = val;
+      } catch (err) {
+        /* ignore */
+      }
+    });
+  }
+  function setHeroSpriteData(index, dataUrl) {
+    if (index < 0 || index >= heroSpriteDataUrls.length) return;
+    heroSpriteDataUrls[index] = dataUrl || null;
+    if (typeof localStorage === "undefined") return;
+    const key = heroSpriteKeyFor(index);
+    try {
+      if (dataUrl) {
+        localStorage.setItem(key, dataUrl);
+      } else {
+        localStorage.removeItem(key);
+      }
+    } catch (err) {
+      /* ignore storage errors */
+    }
+  }
+  function handleHeroSpriteUpload(index, file) {
+    if (!file) return;
+    if (!isAuthor()) {
+      pushSystemChat("Author only. Use /author to login.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setHeroSpriteData(index, reader.result);
+      pushSystemChat(`Hero ${index + 1} sprite updated.`);
+      if (typeof render === "function") render();
+    };
+    reader.onerror = () => {
+      pushSystemChat(`Failed to load Hero ${index + 1} sprite.`);
+    };
+    reader.readAsDataURL(file);
+  }
+  loadHeroSpriteData();
   const undoStack = [];
   const redoStack = [];
   const TEXT_FONT = {
