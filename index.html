@@ -13,10 +13,10 @@
       position: relative;
     }
     :root {
-      --frame-width: 912px;
-      --frame-height: 816px;
-      --canvas-width: 912px;
-      --canvas-height: 816px;
+      --frame-width: 288px;
+      --frame-height: 512px;
+      --canvas-width: 288px;
+      --canvas-height: 512px;
       --editor-width: 0px;
       --editor-scale: 1;
       --tile: 16px;
@@ -1005,7 +1005,7 @@
     <div class="editor-hint">Left click paint · Right click erase · E to toggle</div>
   </div>
   <div class="game-shell">
-    <canvas id="c" width="912" height="816"></canvas>
+    <canvas id="c" width="288" height="512"></canvas>
     <div class="tileset-preview" id="tileset-preview" aria-label="Tileset preview"></div>
             <div class="hud" aria-label="HUD">
       <div class="hud-bar">
@@ -2061,11 +2061,11 @@ import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 
   const TILE = 16;
   // Pixel-art vibe: render at low-res then scale up
-  const BASE_W = 304; // 19 tiles wide
-  const BASE_H = 288; // 18 tiles tall (14 play + 4 HUD)
+  const BASE_W = 288; // 18 tiles wide
+  const BASE_H = 512; // 32 tiles tall (28 play + 4 HUD)
   const HUD_TILES = 4;
   const HUD_PX = HUD_TILES * TILE;
-  const PLAYFIELD_TILES = BASE_H / TILE - HUD_TILES; // 14 rows of play area
+  const PLAYFIELD_TILES = BASE_H / TILE - HUD_TILES; // 28 rows of play area
   const PLAYFIELD_H = PLAYFIELD_TILES * TILE;
   const CAMERA_SEGMENT_PX = PLAYFIELD_H; // snap camera in full-screen chunks
   const MIN_LEVEL_ROWS = PLAYFIELD_TILES * 2 + HUD_TILES; // enough height for two screens + HUD
@@ -2376,7 +2376,7 @@ import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
   const applyScale = () => {
     // Scale smoothly to fit viewport while preserving aspect ratio (no integer step jumps)
     const { vw, vh } = getViewportSize();
-    const frameBaseW = BASE_H * (16 / 9);
+    const frameBaseW = BASE_H * (9 / 16);
     const frameBaseH = BASE_H;
     const scale = Math.min(vw / frameBaseW, vh / frameBaseH);
     SCALE = scale;
