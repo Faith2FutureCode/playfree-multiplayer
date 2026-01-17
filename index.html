@@ -2862,18 +2862,25 @@ import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
     if (!playerModelLayer.mixer) {
       playerModelLayer.mixer = new THREE.AnimationMixer(playerModelLayer.model);
     }
+    let firstClipName = null;
     for (const clip of clips || []) {
       const action = playerModelLayer.mixer.clipAction(clip);
       playerModelLayer.actions.push(action);
       const name = clip.name || "clip";
+      if (!firstClipName) firstClipName = name;
       applyActionNameHeuristics(name);
       if (preferredSlot === "run" && !playerModelLayer.actionMap.run) {
         playerModelLayer.actionMap.run = name;
       }
     }
+    if (preferredSlot && firstClipName) {
+      playerModelLayer.actionMap[preferredSlot] = firstClipName;
+    }
     rebuildClipList();
     setModelStatus("Animations added");
-    if (!playerModelLayer.activeAction && playerModelLayer.actions.length > 0) {
+    if (preferredSlot && firstClipName) {
+      applyPlayerModelState(preferredSlot, { force: true });
+    } else if (!playerModelLayer.activeAction && playerModelLayer.actions.length > 0) {
       applyPlayerModelState(preferredSlot === "run" ? "run" : "idle", { force: true });
     }
   }
