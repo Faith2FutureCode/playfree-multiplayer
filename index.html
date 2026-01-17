@@ -1205,7 +1205,8 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     load: null,
     scale: null,
     file: null,
-    stateSelects: {},
+    clipList: null,
+    stateBadges: null,
     runAnimBtn: null,
     runAnimFile: null,
     runFile: null,
@@ -2437,31 +2438,19 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     const status = document.createElement("span");
     status.className = "status";
     status.textContent = "3D disabled";
-    const makeStateSelect = (label, key) => {
-      const wrap = document.createElement("div");
-      wrap.style.display = "grid";
-      wrap.style.gap = "4px";
-      const lbl = document.createElement("span");
-      lbl.textContent = label;
-      lbl.style.fontSize = "11px";
-      lbl.style.color = "#9fb3ff";
-      const sel = document.createElement("select");
-      sel.style.minWidth = "150px";
-      sel.style.font = '12px "Press Start 2P", "VT323", monospace';
-      sel.style.background = "#0f182a";
-      sel.style.color = "#dfe7ff";
-      sel.style.border = "2px solid #000";
-      sel.style.padding = "4px 6px";
-      sel.addEventListener("change", () => {
-        playerModelLayer.actionMap[key] = sel.value || null;
-      });
-      wrap.append(lbl, sel);
-      return { wrap, sel };
-    };
-    const idleSelectWrap = makeStateSelect("Idle clip", "idle");
-    const walkSelectWrap = makeStateSelect("Walk clip", "walk");
-    const runSelectWrap = makeStateSelect("Run clip", "run");
-    const jumpSelectWrap = makeStateSelect("Jump clip", "jump");
+    const stateBadges = document.createElement("div");
+    stateBadges.style.display = "flex";
+    stateBadges.style.flexWrap = "wrap";
+    stateBadges.style.gap = "6px";
+    const clipList = document.createElement("div");
+    clipList.style.display = "grid";
+    clipList.style.gap = "6px";
+    clipList.style.maxHeight = "180px";
+    clipList.style.overflowY = "auto";
+    clipList.style.padding = "6px";
+    clipList.style.background = "rgba(10,16,32,0.6)";
+    clipList.style.border = "1px solid rgba(255,255,255,0.08)";
+    clipList.style.borderRadius = "8px";
     const runFileLabel = document.createElement("span");
     runFileLabel.textContent = "Run file";
     const runFileSelect = document.createElement("select");
@@ -2513,9 +2502,12 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
 
     const stateBlock = document.createElement("div");
     stateBlock.style.display = "grid";
-    stateBlock.style.gridTemplateColumns = "repeat(auto-fit, minmax(160px, 1fr))";
-    stateBlock.style.gap = "8px";
-    stateBlock.append(idleSelectWrap.wrap, walkSelectWrap.wrap, runSelectWrap.wrap, jumpSelectWrap.wrap);
+    stateBlock.style.gap = "6px";
+    const clipHeader = document.createElement("div");
+    clipHeader.textContent = "Clips (click to assign)";
+    clipHeader.style.fontSize = "11px";
+    clipHeader.style.color = "#9fb3ff";
+    stateBlock.append(stateBadges, clipHeader, clipList);
 
     bar.append(loadBtn, toggleBtn, scaleLabel, scaleInput, stateBlock, runFileLabel, runFileSelect, runAnimBtn, status, fileInput, runAnimInput);
     document.body.appendChild(bar);
@@ -2525,12 +2517,8 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     playerModelUi.load = loadBtn;
     playerModelUi.scale = scaleInput;
     playerModelUi.file = fileInput;
-    playerModelUi.stateSelects = {
-      idle: idleSelectWrap.sel,
-      walk: walkSelectWrap.sel,
-      run: runSelectWrap.sel,
-      jump: jumpSelectWrap.sel,
-    };
+    playerModelUi.clipList = clipList;
+    playerModelUi.stateBadges = stateBadges;
     playerModelUi.runAnimBtn = runAnimBtn;
     playerModelUi.runAnimFile = runAnimInput;
     playerModelUi.runFile = runFileSelect;
@@ -2695,12 +2683,10 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     playerModelLayer.actions = playerModelLayer.mixer ? gltf.animations.map((clip) => playerModelLayer.mixer.clipAction(clip)) : [];
     playerModelLayer.activeAction = null;
     playerModelLayer.actionMap = { idle: null, walk: null, run: null, jump: null };
-    if (playerModelUi.stateSelects && Object.keys(playerModelUi.stateSelects).length) {
-      for (const action of playerModelLayer.actions) {
-        applyActionNameHeuristics(action.getClip().name || "clip");
-      }
-      rebuildStateSelectOptions();
+    for (const action of playerModelLayer.actions) {
+      applyActionNameHeuristics(action.getClip().name || "clip");
     }
+    rebuildClipList();
     if (playerModelLayer.actions.length > 0) {
       applyPlayerModelState("idle", { force: true, speedFactor: 1 });
     }
@@ -2753,31 +2739,90 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     loadAnimationsFromUrl(url, "run");
   }
 
-  function rebuildStateSelectOptions() {
-    const selects = playerModelUi.stateSelects || {};
-    const seen = new Set();
-    const options = (sel, selectedName) => {
-      if (!sel) return;
-      sel.innerHTML = "";
-      const ph = document.createElement("option");
-      ph.value = "";
-      ph.textContent = "(auto)";
-      sel.appendChild(ph);
-      for (const action of playerModelLayer.actions) {
-        const name = action.getClip().name || "clip";
-        if (seen.has(`${sel}_${name}`)) continue;
-        seen.add(`${sel}_${name}`);
-        const opt = document.createElement("option");
-        opt.value = name;
-        opt.textContent = name;
-        if (selectedName === name) opt.selected = true;
-        sel.appendChild(opt);
+  function renderStateBadges() {
+    if (!playerModelUi.stateBadges) return;
+    const bag = playerModelUi.stateBadges;
+    bag.innerHTML = "";
+    const entries = [
+      { key: "idle", label: "Idle" },
+      { key: "walk", label: "Walk" },
+      { key: "run", label: "Run" },
+      { key: "jump", label: "Jump" },
+    ];
+    for (const entry of entries) {
+      const pill = document.createElement("span");
+      pill.textContent = `${entry.label}: ${playerModelLayer.actionMap[entry.key] || "(auto)"}`;
+      pill.style.padding = "4px 8px";
+      pill.style.borderRadius = "12px";
+      pill.style.background = "rgba(255,255,255,0.08)";
+      pill.style.border = "1px solid rgba(255,255,255,0.15)";
+      pill.style.fontSize = "11px";
+      bag.appendChild(pill);
+    }
+  }
+
+  function rebuildClipList() {
+    if (!playerModelUi.clipList) return;
+    playerModelUi.clipList.innerHTML = "";
+    if (!playerModelLayer.actions.length) {
+      const empty = document.createElement("div");
+      empty.textContent = "No clips loaded";
+      empty.style.color = "#9fb3ff";
+      empty.style.fontSize = "11px";
+      playerModelUi.clipList.appendChild(empty);
+      renderStateBadges();
+      return;
+    }
+    const states = ["idle", "walk", "run", "jump"];
+    for (const action of playerModelLayer.actions) {
+      const name = action.getClip().name || "clip";
+      const row = document.createElement("div");
+      row.style.display = "grid";
+      row.style.gridTemplateColumns = "1fr repeat(4, auto)";
+      row.style.gap = "6px";
+      row.style.alignItems = "center";
+      const label = document.createElement("span");
+      label.textContent = name;
+      label.style.fontSize = "12px";
+      label.style.color = "#e6ebff";
+      row.appendChild(label);
+      for (const state of states) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = state;
+        btn.style.background = "#123";
+        btn.style.border = "1px solid #000";
+        btn.style.color = "#f6d341";
+        btn.style.padding = "4px 6px";
+        btn.style.font = '11px "Press Start 2P", "VT323", monospace';
+        btn.addEventListener("click", () => {
+          playerModelLayer.actionMap[state] = name;
+          renderStateBadges();
+          applyPlayerModelState(state, { force: true });
+        });
+        row.appendChild(btn);
       }
-    };
-    options(selects.idle, playerModelLayer.actionMap.idle);
-    options(selects.walk, playerModelLayer.actionMap.walk);
-    options(selects.run, playerModelLayer.actionMap.run);
-    options(selects.jump, playerModelLayer.actionMap.jump);
+      const play = document.createElement("button");
+      play.type = "button";
+      play.textContent = "Play";
+      play.style.background = "#1a2640";
+      play.style.border = "1px solid #000";
+      play.style.color = "#9fb3ff";
+      play.style.padding = "4px 6px";
+      play.style.font = '11px "Press Start 2P", "VT323", monospace';
+      play.addEventListener("click", () => {
+        applyPlayerModelState(null, { force: true });
+        if (playerModelLayer.activeAction) playerModelLayer.activeAction.stop();
+        action.reset();
+        action.enabled = true;
+        action.setLoop(THREE.LoopRepeat, Infinity);
+        action.play();
+        playerModelLayer.activeAction = action;
+      });
+      row.appendChild(play);
+      playerModelUi.clipList.appendChild(row);
+    }
+    renderStateBadges();
   }
 
   function applyActionNameHeuristics(name) {
@@ -2813,7 +2858,7 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
         playerModelLayer.actionMap.run = name;
       }
     }
-    rebuildStateSelectOptions();
+    rebuildClipList();
     setModelStatus("Animations added");
     if (!playerModelLayer.activeAction && playerModelLayer.actions.length > 0) {
       applyPlayerModelState(preferredSlot === "run" ? "run" : "idle", { force: true });
