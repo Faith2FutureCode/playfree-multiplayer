@@ -2269,6 +2269,10 @@
 
   function setEditorMode(next) {
     const nextMode = next === EDITOR_MODES.boss ? EDITOR_MODES.boss : EDITOR_MODES.level;
+    if (nextMode === EDITOR_MODES.boss && !isAuthor()) {
+      pushSystemChat("Boss editor is author-only. Use /author to login.");
+      return;
+    }
     const changed = editorMode !== nextMode;
     editorMode = nextMode;
     if (editorPanel) editorPanel.dataset.editorMode = editorMode;
