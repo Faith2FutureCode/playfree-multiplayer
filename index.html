@@ -1194,7 +1194,7 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     modelScaleBias: 1,
     targetHeight: null,
     dom: null,
-    actionMap: { run: null },
+    actionMap: { run: null, walk: null },
   };
   const playerModelUi = {
     bar: null,
@@ -2531,6 +2531,9 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     if (normalized === "run" && playerModelLayer.actionMap.run) {
       next = playerModelLayer.actions.find((a) => (a.getClip().name || "") === playerModelLayer.actionMap.run);
     }
+    if (!next && normalized === "walk" && playerModelLayer.actionMap.walk) {
+      next = playerModelLayer.actions.find((a) => (a.getClip().name || "") === playerModelLayer.actionMap.walk);
+    }
     if (!next) {
       next = playerModelLayer.actions.find((a) => (a.getClip().name || "").toLowerCase().includes(normalized)) || playerModelLayer.actions[0];
     }
@@ -2576,6 +2579,7 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     playerModelLayer.mixer = gltf.animations?.length ? new THREE.AnimationMixer(model) : null;
     playerModelLayer.actions = playerModelLayer.mixer ? gltf.animations.map((clip) => playerModelLayer.mixer.clipAction(clip)) : [];
     playerModelLayer.activeAction = null;
+    playerModelLayer.actionMap = { run: null, walk: null };
     if (playerModelUi.run) {
       playerModelUi.run.innerHTML = "";
       const placeholder = document.createElement("option");
@@ -2588,9 +2592,20 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
         opt.value = name;
         opt.textContent = name;
         playerModelUi.run.appendChild(opt);
-        if (!playerModelLayer.actionMap.run && name.toLowerCase().includes("run")) {
+        const lower = name.toLowerCase();
+        if (!playerModelLayer.actionMap.run && lower.includes("run")) {
           playerModelLayer.actionMap.run = name;
           opt.selected = true;
+        }
+        if (!playerModelLayer.actionMap.walk && lower.includes("walk")) {
+          playerModelLayer.actionMap.walk = name;
+        }
+        if (!playerModelLayer.actionMap.run && lower.includes("fast")) {
+          playerModelLayer.actionMap.run = name;
+          opt.selected = true;
+        }
+        if (!playerModelLayer.actionMap.walk && lower.includes("slow")) {
+          playerModelLayer.actionMap.walk = name;
         }
       }
     }
