@@ -1207,6 +1207,7 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     file: null,
     clipList: null,
     stateBadges: null,
+    debug: null,
     runAnimBtn: null,
     runAnimFile: null,
     runFile: null,
@@ -2438,6 +2439,10 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     const status = document.createElement("span");
     status.className = "status";
     status.textContent = "3D disabled";
+    const debugLine = document.createElement("div");
+    debugLine.style.fontSize = "11px";
+    debugLine.style.color = "#9fb3ff";
+    debugLine.textContent = "Clips: 0 | State: idle | Active: none";
     const stateBadges = document.createElement("div");
     stateBadges.style.display = "flex";
     stateBadges.style.flexWrap = "wrap";
@@ -2509,7 +2514,7 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     clipHeader.style.color = "#9fb3ff";
     stateBlock.append(stateBadges, clipHeader, clipList);
 
-    bar.append(loadBtn, toggleBtn, scaleLabel, scaleInput, stateBlock, runFileLabel, runFileSelect, runAnimBtn, status, fileInput, runAnimInput);
+    bar.append(loadBtn, toggleBtn, scaleLabel, scaleInput, stateBlock, runFileLabel, runFileSelect, runAnimBtn, status, debugLine, fileInput, runAnimInput);
     document.body.appendChild(bar);
     playerModelUi.bar = bar;
     playerModelUi.status = status;
@@ -2519,6 +2524,7 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     playerModelUi.file = fileInput;
     playerModelUi.clipList = clipList;
     playerModelUi.stateBadges = stateBadges;
+    playerModelUi.debug = debugLine;
     playerModelUi.runAnimBtn = runAnimBtn;
     playerModelUi.runAnimFile = runAnimInput;
     playerModelUi.runFile = runFileSelect;
@@ -2758,6 +2764,11 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
       pill.style.border = "1px solid rgba(255,255,255,0.15)";
       pill.style.fontSize = "11px";
       bag.appendChild(pill);
+    }
+    if (playerModelUi.debug) {
+      const clipCount = playerModelLayer.actions.length;
+      const active = playerModelLayer.activeAction ? (playerModelLayer.activeAction.getClip().name || "clip") : "none";
+      playerModelUi.debug.textContent = `Clips: ${clipCount} | State: ${playerModelLayer.currentState || "idle"} | Active: ${active}`;
     }
   }
 
