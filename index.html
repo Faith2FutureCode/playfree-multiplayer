@@ -2625,6 +2625,9 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
       }
       rebuildRunSelectOptions();
     }
+    if (playerModelLayer.actions.length > 0) {
+      setPlayerModelAction("idle");
+    }
     updatePlayerModelScale();
     setModelVisibility(true);
     setModelStatus(playerModelLayer.actions.length ? "Animations loaded" : "Loaded (no clips)");
@@ -2723,6 +2726,9 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     }
     rebuildRunSelectOptions();
     setModelStatus("Animations added");
+    if (!playerModelLayer.activeAction && playerModelLayer.actions.length > 0) {
+      setPlayerModelAction(preferredSlot === "run" ? "run" : "idle");
+    }
   }
 
   function loadAnimationsFromFile(file, preferredSlot = null) {
