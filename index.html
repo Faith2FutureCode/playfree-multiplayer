@@ -465,6 +465,7 @@
     .boss-editor-section { display: none; }
     .editor-panel[data-editor-mode="boss"] .level-palette-section { display: none; }
     .editor-panel[data-editor-mode="boss"] .boss-editor-section { display: block; }
+    .editor-panel:not([data-editor-mode="boss"]) .boss-editor-section { display: none !important; }
     .boss-palette {
       display: flex;
       flex-direction: column;
@@ -1105,8 +1106,14 @@
   let customPaletteSheetCols = null;
   let customPaletteSheetRows = null;
   const setAuthorClass = (enabled) => {
+    const wasAuthor = document.body.classList.contains("author");
     document.body.classList.toggle("author", enabled);
+    if (wasAuthor && !enabled && editorMode === EDITOR_MODES.boss) {
+      setEditorMode(EDITOR_MODES.level);
+    }
   };
+  // Default to non-author until verified by server
+  setAuthorClass(false);
   const isAuthor = () => document.body.classList.contains("author");
   if (hintToggle && hintPanel) {
     hintToggle.addEventListener("click", () => {
