@@ -2780,10 +2780,18 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     playerModelLayer.model.position.set(posX, posY, 0);
     playerModelLayer.model.rotation.y = player.facing >= 0 ? Math.PI : 0;
     const speed = Math.abs(player.vx);
-    if (!player.onGround) setPlayerModelAction("jump");
-    else if (speed > 140) setPlayerModelAction("run");
-    else if (speed > 20) setPlayerModelAction("walk");
-    else setPlayerModelAction("idle");
+    if (!player.onGround) {
+      setPlayerModelAction("jump");
+    } else if (runHeld && speed > 20) {
+      // run key accelerates: play run as soon as the key is held and player is moving
+      setPlayerModelAction("run");
+    } else if (speed > 140) {
+      setPlayerModelAction("run");
+    } else if (speed > 20) {
+      setPlayerModelAction("walk");
+    } else {
+      setPlayerModelAction("idle");
+    }
     playerModelLayer.renderer.render(playerModelLayer.scene, playerModelLayer.camera);
   }
 
