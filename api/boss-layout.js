@@ -1,40 +1,56 @@
 import { readFile, writeFile, mkdir } from "fs/promises";
-import { join } from "path";
+import { dirname, join } from "path";
+import { tmpdir } from "os";
 import {
   getAuthorFromRequest,
   readJson,
   setNoCache,
 } from "./author-utils.js";
 
-const DATA_DIR = join(process.cwd(), "data");
-const STORE_PATH = join(DATA_DIR, "boss-layouts.json");
+const STORE_PATHS = [
+  join(process.cwd(), "data", "boss-layouts.json"),
+  join(tmpdir(), "boss-layouts.json"),
+];
+const DEFAULT_ROOM = "global";
 
 async function readStore() {
-  try {
-    const raw = await readFile(STORE_PATH, "utf8");
-    return JSON.parse(raw);
-  } catch (err) {
-    return {};
+  for (const path of STORE_PATHS) {
+    try {
+      const raw = await readFile(path, "utf8");
+      return { data: JSON.parse(raw), path };
+    } catch (err) {
+      // try next candidate
+    }
   }
+  return { data: {}, path: STORE_PATHS[0] };
 }
 
 async function writeStore(next) {
-  await mkdir(DATA_DIR, { recursive: true });
-  await writeFile(STORE_PATH, JSON.stringify(next, null, 2), "utf8");
+  let lastErr = null;
+  for (const path of STORE_PATHS) {
+    try {
+      await mkdir(dirname(path), { recursive: true });
+      await writeFile(path, JSON.stringify(next, null, 2), "utf8");
+      return path;
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr || new Error("failed_to_write_store");
 }
 
 function keyFor(bossId, room) {
   const safeBoss = bossId || "boss";
-  const safeRoom = room || "global";
+  const safeRoom = DEFAULT_ROOM;
   return `${safeRoom}::${safeBoss}`;
 }
 
 export default async function handler(req, res) {
   setNoCache(res);
   if (req.method === "GET") {
-    const { bossId = "boss", room = "global" } = req.query || {};
-    const store = await readStore();
-    const key = keyFor(bossId, room);
+    const { bossId = "boss" } = req.query || {};
+    const { data: store } = await readStore();
+    const key = keyFor(bossId, DEFAULT_ROOM);
     const layout = store[key] || {};
     res.statusCode = 200;
     res.setHeader("Content-Type", "application/json");
@@ -52,7 +68,7 @@ export default async function handler(req, res) {
     }
     const body = await readJson(req);
     const bossId = body?.bossId || "boss";
-    const room = body?.room || "global";
+    const room = DEFAULT_ROOM;
     const layout = body?.layout;
     if (!layout || typeof layout !== "object") {
       res.statusCode = 400;
@@ -60,14 +76,21 @@ export default async function handler(req, res) {
       res.end(JSON.stringify({ error: "invalid_layout" }));
       return;
     }
-    const store = await readStore();
-    const key = keyFor(bossId, room);
-    store[key] = layout;
-    await writeStore(store);
-    res.statusCode = 200;
-    res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify({ ok: true }));
-    return;
+    try {
+      const { data: store } = await readStore();
+      const key = keyFor(bossId, room);
+      store[key] = layout;
+      await writeStore(store);
+      res.statusCode = 200;
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    } catch (err) {
+      res.statusCode = 500;
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ error: "persist_failed" }));
+      return;
+    }
   }
 
   res.statusCode = 405;

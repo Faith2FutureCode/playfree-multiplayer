@@ -874,7 +874,7 @@
         <div class="editor-tile" data-tile="P" title="Player Spawn"><canvas class="tile-preview" width="8" height="8" data-tile="P"></canvas></div>
       </div>
     </div>
-    <div class="editor-section boss-editor-section" id="boss-editor-section">
+    <div class="editor-section boss-editor-section author-only" id="boss-editor-section">
       <h4>BOSS EDITOR</h4>
       <div class="boss-palette" id="boss-palette"></div>
       <div class="editor-hint">Select a marker then click the grid to place. Right-click a marker to clear.</div>
@@ -1983,6 +1983,7 @@
   const EDITOR_MODES = Object.freeze({ level: "level", boss: "boss" });
   const BOSS_LAYOUT_KEY = "smb3-boss-layout";
   const BOSS_LAYOUT_ENDPOINT = "/api/boss-layout";
+  const BOSS_LAYOUT_ROOM = "global";
   let SCALE = 3; // integer-only scaling for crisp pixels
   let showGrid = false;
   let showTerrainDebug = false;
@@ -1997,7 +1998,6 @@
   let bossLayout = {};
   let bossLayoutLoaded = false;
   let bossLayoutBossId = "boss";
-  let bossLayoutRoom = "global";
   let bossLayoutSaveTimer = null;
   let activeBossLabel = null;
   let bossGridPrev = null;
@@ -2296,12 +2296,10 @@
   window.__setEditorMode = setEditorMode;
   window.__getEditorMode = () => editorMode;
   window.__getBossLayout = () => bossLayout;
-  window.__setBossEditorBoss = (id, room = "global") => {
+  window.__setBossEditorBoss = (id) => {
     const nextId = id || "boss";
-    const nextRoom = room || "global";
-    const changed = nextId !== bossLayoutBossId || nextRoom !== bossLayoutRoom;
+    const changed = nextId !== bossLayoutBossId;
     bossLayoutBossId = nextId;
-    bossLayoutRoom = nextRoom;
     if (changed) {
       bossLayoutLoaded = false;
       ensureBossLayoutLoaded();
@@ -3132,6 +3130,10 @@
   }
 
   function placeBossMarker(labelId, tx, ty) {
+    if (!isAuthor()) {
+      pushSystemChat("Author only. Use /author to login.");
+      return;
+    }
     if (!labelId || !Number.isFinite(tx) || !Number.isFinite(ty)) return;
     ensureBossLayoutLoaded();
     bossLayout[labelId] = { tx, ty };
@@ -3139,6 +3141,10 @@
   }
 
   function clearBossMarker(labelId) {
+    if (!isAuthor()) {
+      pushSystemChat("Author only. Use /author to login.");
+      return false;
+    }
     ensureBossLayoutLoaded();
     if (!labelId || !(labelId in bossLayout)) return false;
     delete bossLayout[labelId];
@@ -4984,7 +4990,7 @@
 
   async function fetchBossLayoutRemote() {
     try {
-      const params = new URLSearchParams({ bossId: bossLayoutBossId, room: bossLayoutRoom });
+      const params = new URLSearchParams({ bossId: bossLayoutBossId, room: BOSS_LAYOUT_ROOM });
       const res = await fetch(`${BOSS_LAYOUT_ENDPOINT}?${params.toString()}`, { method: "GET", credentials: "include" });
       if (!res.ok) return null;
       const data = await res.json();
@@ -5000,7 +5006,7 @@
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ bossId: bossLayoutBossId, room: bossLayoutRoom, layout: bossLayout }),
+        body: JSON.stringify({ bossId: bossLayoutBossId, room: BOSS_LAYOUT_ROOM, layout: bossLayout }),
       });
     } catch (err) {
       // ignore network errors for now
@@ -6056,6 +6062,10 @@
   }
   if (bossSaveButton) {
     bossSaveButton.addEventListener("click", () => {
+      if (!isAuthor()) {
+        pushSystemChat("Author only. Use /author to login.");
+        return;
+      }
       ensureBossLayoutLoaded();
       if (bossLayoutSaveTimer) {
         clearTimeout(bossLayoutSaveTimer);
