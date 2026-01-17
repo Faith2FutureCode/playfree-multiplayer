@@ -1195,6 +1195,8 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     targetHeight: null,
     dom: null,
     actionMap: { run: null, walk: null },
+    currentState: null,
+    lastSpeedFactor: 1,
   };
   const playerModelUi = {
     bar: null,
@@ -2587,6 +2589,56 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     playerModelLayer.activeAction = next;
   }
 
+  function findActionByName(name) {
+    if (!name || !playerModelLayer.actions.length) return null;
+    return playerModelLayer.actions.find((a) => (a.getClip().name || "") === name) || null;
+  }
+
+  function findActionContaining(text) {
+    if (!text || !playerModelLayer.actions.length) return null;
+    const lower = text.toLowerCase();
+    return playerModelLayer.actions.find((a) => (a.getClip().name || "").toLowerCase().includes(lower)) || null;
+  }
+
+  function pickActionForState(state) {
+    if (!playerModelLayer.actions.length) return null;
+    const s = (state || "").toLowerCase();
+    if (s === "run") {
+      return findActionByName(playerModelLayer.actionMap.run) || findActionContaining("run") || findActionContaining("fast");
+    }
+    if (s === "walk") {
+      return findActionByName(playerModelLayer.actionMap.walk) || findActionContaining("walk") || findActionContaining("slow");
+    }
+    if (s === "jump") {
+      return findActionContaining("jump");
+    }
+    return findActionContaining("idle") || playerModelLayer.actions[0] || null;
+  }
+
+  function applyPlayerModelState(state, context = {}) {
+    if (!playerModelLayer.mixer || !playerModelLayer.actions.length) return;
+    const target = pickActionForState(state);
+    if (!target) return;
+    const nextState = state || "idle";
+    const force = !!context.force;
+    const speedFactor = Math.max(0.001, Number.isFinite(context.speedFactor) ? context.speedFactor : 1);
+    if (force || playerModelLayer.currentState !== nextState || playerModelLayer.activeAction !== target) {
+      if (playerModelLayer.activeAction) {
+        playerModelLayer.activeAction.stop();
+      }
+      target.reset();
+      target.enabled = true;
+      target.setLoop(THREE.LoopRepeat, Infinity);
+      target.play();
+      playerModelLayer.activeAction = target;
+      playerModelLayer.currentState = nextState;
+    }
+    playerModelLayer.lastSpeedFactor = speedFactor;
+    if (playerModelLayer.activeAction) {
+      playerModelLayer.activeAction.setEffectiveTimeScale(speedFactor);
+    }
+  }
+
   function useLoadedPlayerModel(gltf) {
     if (!playerModelLayer.ready) return;
     if (playerModelLayer.model) {
@@ -2626,7 +2678,7 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
       rebuildRunSelectOptions();
     }
     if (playerModelLayer.actions.length > 0) {
-      setPlayerModelAction("idle");
+      applyPlayerModelState("idle", { force: true, speedFactor: 1 });
     }
     updatePlayerModelScale();
     setModelVisibility(true);
@@ -2727,7 +2779,7 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     rebuildRunSelectOptions();
     setModelStatus("Animations added");
     if (!playerModelLayer.activeAction && playerModelLayer.actions.length > 0) {
-      setPlayerModelAction(preferredSlot === "run" ? "run" : "idle");
+      applyPlayerModelState(preferredSlot === "run" ? "run" : "idle", { force: true });
     }
   }
 
@@ -2787,18 +2839,18 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     playerModelLayer.model.position.set(posX, posY, 0);
     playerModelLayer.model.rotation.y = player.facing >= 0 ? Math.PI : 0;
     const speed = Math.abs(player.vx);
+    let state = "idle";
     if (!player.onGround) {
-      setPlayerModelAction("jump");
+      state = "jump";
     } else if (runHeldNow && speed > 20) {
-      // run key accelerates: play run as soon as the key is held and player is moving
-      setPlayerModelAction("run");
+      state = "run";
     } else if (speed > 140) {
-      setPlayerModelAction("run");
+      state = "run";
     } else if (speed > 20) {
-      setPlayerModelAction("walk");
-    } else {
-      setPlayerModelAction("idle");
+      state = "walk";
     }
+    const speedFactor = Math.max(0.1, Math.min(3, speed / 120));
+    applyPlayerModelState(state, { speedFactor });
     playerModelLayer.renderer.render(playerModelLayer.scene, playerModelLayer.camera);
   }
 
