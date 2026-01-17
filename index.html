@@ -1069,13 +1069,15 @@
 <script type="importmap">
 {
   "imports": {
-    "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/examples/jsm/utils/SkeletonUtils.js": "https://unpkg.com/three@0.160.0/examples/jsm/utils/SkeletonUtils.js"
   }
 }
 </script>
 <script type="module">
 import * as THREE from "three";
 import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
+import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 
 (() => {
   // -----------------------------
@@ -2893,11 +2895,27 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     });
   }
 
+  function retargetClipsToModel(clips, sourceRoot = null) {
+    if (!clips || !clips.length || !playerModelLayer.model) return [];
+    try {
+      return clips.map((clip) => {
+        const src = sourceRoot || playerModelLayer.model;
+        const retargeted = SkeletonUtils.retargetClip(playerModelLayer.model, src, clip);
+        retargeted.name = clip.name || retargeted.name;
+        return retargeted;
+      });
+    } catch (err) {
+      console.warn("Retarget failed, using raw clips", err);
+      return clips;
+    }
+  }
+
   function loadAnimationsFromUrl(url, preferredSlot = null) {
     if (!playerModelLayer.loader) return;
     playerModelLayer.loader.load(url, (gltf) => {
       if (gltf?.animations?.length) {
-        addClipsToMixer(gltf.animations, preferredSlot);
+        const retargeted = retargetClipsToModel(gltf.animations, gltf.scene || null);
+        addClipsToMixer(retargeted, preferredSlot);
       } else {
         setModelStatus("No animations in file");
       }
