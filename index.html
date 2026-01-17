@@ -878,6 +878,10 @@
       <h4>BOSS EDITOR</h4>
       <div class="boss-palette" id="boss-palette"></div>
       <div class="editor-hint">Select a marker then click the grid to place. Right-click a marker to clear.</div>
+      <div class="editor-actions">
+        <button id="boss-save-button" type="button">Save Boss Layout</button>
+      </div>
+      <div class="editor-hint">Autosaves as you place; use Save to force a sync.</div>
     </div>
     <div class="editor-section author-only">
       <h4>AUTHOR TOOLS</h4>
@@ -2772,6 +2776,7 @@
   const editorPanel = document.getElementById("editor-panel");
   const bossPaletteSection = document.getElementById("boss-editor-section");
   const bossPaletteContainer = document.getElementById("boss-palette");
+  const bossSaveButton = document.getElementById("boss-save-button");
   const labelInput = document.getElementById("editor-label-input");
   const textStampInput = document.getElementById("editor-text-stamp");
   const textStampButton = document.getElementById("editor-stamp-button");
@@ -6047,6 +6052,18 @@
     levelSaveButton.addEventListener("click", () => {
       const ok = saveLevelSnapshot();
       pushSystemChat(ok ? "Level saved." : "Level save failed.");
+    });
+  }
+  if (bossSaveButton) {
+    bossSaveButton.addEventListener("click", () => {
+      ensureBossLayoutLoaded();
+      if (bossLayoutSaveTimer) {
+        clearTimeout(bossLayoutSaveTimer);
+        bossLayoutSaveTimer = null;
+      }
+      const ok = saveBossLayout();
+      saveBossLayoutRemote();
+      pushSystemChat(ok ? "Boss layout saved." : "Boss layout save failed.");
     });
   }
   if (levelResetButton) {
