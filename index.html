@@ -883,6 +883,23 @@
         <button id="boss-save-button" type="button">Save Boss Layout</button>
       </div>
       <div class="editor-hint">Autosaves as you place; use Save to force a sync.</div>
+      <div class="editor-field">
+        <label for="hero1-sprite-upload">Hero 1 Sprite</label>
+        <input id="hero1-sprite-upload" type="file" accept="image/png, image/jpeg"/>
+      </div>
+      <div class="editor-field">
+        <label for="hero2-sprite-upload">Hero 2 Sprite</label>
+        <input id="hero2-sprite-upload" type="file" accept="image/png, image/jpeg"/>
+      </div>
+      <div class="editor-field">
+        <label for="hero3-sprite-upload">Hero 3 Sprite</label>
+        <input id="hero3-sprite-upload" type="file" accept="image/png, image/jpeg"/>
+      </div>
+      <div class="editor-field">
+        <label for="hero4-sprite-upload">Hero 4 Sprite</label>
+        <input id="hero4-sprite-upload" type="file" accept="image/png, image/jpeg"/>
+      </div>
+      <div class="editor-hint">Uploads override placeholder sprites for the boss demo heroes.</div>
     </div>
     <div class="editor-section author-only">
       <h4>AUTHOR TOOLS</h4>
@@ -1114,6 +1131,51 @@
   };
   // Default to non-author until verified by server
   setAuthorClass(false);
+  loadHeroSpriteData();
+  const heroSpriteKeyFor = (index) => HERO_SPRITE_KEYS[index] || null;
+  function loadHeroSpriteData() {
+    if (typeof localStorage === "undefined") return;
+    HERO_SPRITE_KEYS.forEach((key, index) => {
+      try {
+        const val = localStorage.getItem(key);
+        if (val) heroSpriteDataUrls[index] = val;
+      } catch (err) {
+        /* ignore */
+      }
+    });
+  }
+  function setHeroSpriteData(index, dataUrl) {
+    if (index < 0 || index >= heroSpriteDataUrls.length) return;
+    heroSpriteDataUrls[index] = dataUrl || null;
+    if (typeof localStorage === "undefined") return;
+    const key = heroSpriteKeyFor(index);
+    try {
+      if (dataUrl) {
+        localStorage.setItem(key, dataUrl);
+      } else {
+        localStorage.removeItem(key);
+      }
+    } catch (err) {
+      /* ignore storage errors */
+    }
+  }
+  function handleHeroSpriteUpload(index, file) {
+    if (!file) return;
+    if (!isAuthor()) {
+      pushSystemChat("Author only. Use /author to login.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setHeroSpriteData(index, reader.result);
+      pushSystemChat(`Hero ${index + 1} sprite updated.`);
+      if (typeof render === "function") render();
+    };
+    reader.onerror = () => {
+      pushSystemChat(`Failed to load Hero ${index + 1} sprite.`);
+    };
+    reader.readAsDataURL(file);
+  }
   const isAuthor = () => document.body.classList.contains("author");
   if (hintToggle && hintPanel) {
     hintToggle.addEventListener("click", () => {
@@ -1991,6 +2053,12 @@
   const BOSS_LAYOUT_KEY = "smb3-boss-layout";
   const BOSS_LAYOUT_ENDPOINT = "/api/boss-layout";
   const BOSS_LAYOUT_ROOM = "global";
+  const HERO_SPRITE_KEYS = [
+    "smb3-hero-sprite-1",
+    "smb3-hero-sprite-2",
+    "smb3-hero-sprite-3",
+    "smb3-hero-sprite-4",
+  ];
   let SCALE = 3; // integer-only scaling for crisp pixels
   let showGrid = false;
   let showTerrainDebug = false;
@@ -2008,6 +2076,7 @@
   let bossLayoutSaveTimer = null;
   let activeBossLabel = null;
   let bossGridPrev = null;
+  const heroSpriteDataUrls = new Array(HERO_SPRITE_KEYS.length).fill(null);
   const undoStack = [];
   const redoStack = [];
   const TEXT_FONT = {
@@ -2307,6 +2376,10 @@
   window.__setEditorMode = setEditorMode;
   window.__getEditorMode = () => editorMode;
   window.__getBossLayout = () => bossLayout;
+  window.__getHeroSpriteDataUrl = (heroIndex = 1) => {
+    const idx = Math.max(1, Math.min(HERO_SPRITE_KEYS.length, Number(heroIndex))) - 1;
+    return heroSpriteDataUrls[idx] || null;
+  };
   window.__setBossEditorBoss = (id) => {
     const nextId = id || "boss";
     const changed = nextId !== bossLayoutBossId;
@@ -2786,6 +2859,12 @@
   const bossPaletteSection = document.getElementById("boss-editor-section");
   const bossPaletteContainer = document.getElementById("boss-palette");
   const bossSaveButton = document.getElementById("boss-save-button");
+  const heroSpriteUploadEls = [
+    document.getElementById("hero1-sprite-upload"),
+    document.getElementById("hero2-sprite-upload"),
+    document.getElementById("hero3-sprite-upload"),
+    document.getElementById("hero4-sprite-upload"),
+  ];
   const labelInput = document.getElementById("editor-label-input");
   const textStampInput = document.getElementById("editor-text-stamp");
   const textStampButton = document.getElementById("editor-stamp-button");
@@ -6071,6 +6150,15 @@
       pushSystemChat(ok ? "Level saved." : "Level save failed.");
     });
   }
+  heroSpriteUploadEls.forEach((el, index) => {
+    if (!el) return;
+    el.addEventListener("change", (e) => {
+      const file = e.target?.files?.[0];
+      if (!file) return;
+      handleHeroSpriteUpload(index, file);
+      e.target.value = "";
+    });
+  });
   if (bossSaveButton) {
     bossSaveButton.addEventListener("click", () => {
       if (!isAuthor()) {

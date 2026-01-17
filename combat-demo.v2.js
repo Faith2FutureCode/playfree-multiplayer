@@ -804,6 +804,11 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
   bossSpriteEl.style.backgroundImage = `url(${BOSS_SPRITE})`;
   const heroPlaceholder = [...HERO_SPRITES];
   const heroSpriteForIndex = (idx) => {
+    const custom =
+      typeof window.__getHeroSpriteDataUrl === "function"
+        ? window.__getHeroSpriteDataUrl(idx + 1)
+        : null;
+    if (custom) return custom;
     if (idx === 0 && typeof window.__getPlayerSpriteDataUrl === "function") {
       const data = window.__getPlayerSpriteDataUrl();
       if (data) return data;
@@ -829,10 +834,13 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
     if (!layoutLayer) return;
     const layout = currentBossLayout();
     const rect = bossScene.getBoundingClientRect();
-    const baseW = window.BASE_W || rect.width || 1;
-    const baseH = window.BASE_H || rect.height || 1;
-    const scaleX = rect.width / baseW;
-    const scaleY = rect.height / baseH;
+    const width = rect.width || 0;
+    const height = rect.height || 0;
+    if (!width || !height) return;
+    const baseW = window.BASE_W || 304;
+    const baseH = window.BASE_H || 288;
+    const scaleX = width / baseW;
+    const scaleY = height / baseH;
     const place = (el, pos) => {
       if (!el || !pos) return;
       const x = pos.tx * TILE_SIZE * scaleX;
