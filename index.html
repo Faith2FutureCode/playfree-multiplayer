@@ -1062,9 +1062,10 @@
   </div>
 </div>
 
-<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
-<script src="https://unpkg.com/three@0.160.0/examples/js/loaders/GLTFLoader.js"></script>
-<script>
+<script type="module">
+import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
+
 (() => {
   // -----------------------------
   // Config
@@ -1165,7 +1166,7 @@
   let customPaletteSheetScale = 1;
   let customPaletteSheetCols = null;
   let customPaletteSheetRows = null;
-  const hasThree = typeof THREE !== "undefined" && typeof THREE.WebGLRenderer !== "undefined";
+  const hasThree = !!THREE?.WebGLRenderer;
   const playerModelLayer = {
     ready: false,
     enabled: false,
@@ -2471,7 +2472,7 @@
     playerModelLayer.renderer = renderer;
     playerModelLayer.scene = scene;
     playerModelLayer.camera = camera;
-    playerModelLayer.loader = new THREE.GLTFLoader();
+    playerModelLayer.loader = new GLTFLoader();
     playerModelLayer.clock = new THREE.Clock();
     playerModelLayer.dom = dom;
     playerModelLayer.ready = true;
