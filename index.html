@@ -1203,6 +1203,9 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     load: null,
     scale: null,
     file: null,
+    run: null,
+    runAnimBtn: null,
+    runAnimFile: null,
   };
   const setAuthorClass = (enabled) => {
     const wasAuthor = document.body.classList.contains("author");
@@ -2443,6 +2446,25 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     runSelect.addEventListener("change", () => {
       playerModelLayer.actionMap.run = runSelect.value || null;
     });
+    const runAnimBtn = document.createElement("button");
+    runAnimBtn.type = "button";
+    runAnimBtn.textContent = "Load run anim";
+    const runAnimInput = document.createElement("input");
+    runAnimInput.type = "file";
+    runAnimInput.accept = ".glb";
+    runAnimInput.style.display = "none";
+    runAnimBtn.addEventListener("click", () => {
+      if (!playerModelLayer.model) {
+        setModelStatus("Load a base model first");
+        return;
+      }
+      runAnimInput.click();
+    });
+    runAnimInput.addEventListener("change", (ev) => {
+      const file = ev.target.files?.[0];
+      if (file) loadAnimationsFromFile(file, "run");
+      runAnimInput.value = "";
+    });
     const fileInput = document.createElement("input");
     fileInput.type = "file";
     fileInput.accept = ".glb";
@@ -2460,7 +2482,7 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
       updatePlayerModelScale();
     });
 
-    bar.append(loadBtn, toggleBtn, scaleLabel, scaleInput, runLabel, runSelect, status, fileInput);
+    bar.append(loadBtn, toggleBtn, scaleLabel, scaleInput, runLabel, runSelect, runAnimBtn, status, fileInput, runAnimInput);
     document.body.appendChild(bar);
     playerModelUi.bar = bar;
     playerModelUi.status = status;
@@ -2469,6 +2491,8 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     playerModelUi.scale = scaleInput;
     playerModelUi.file = fileInput;
     playerModelUi.run = runSelect;
+    playerModelUi.runAnimBtn = runAnimBtn;
+    playerModelUi.runAnimFile = runAnimInput;
   }
 
   function initPlayerModelLayer() {
@@ -2581,33 +2605,10 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     playerModelLayer.activeAction = null;
     playerModelLayer.actionMap = { run: null, walk: null };
     if (playerModelUi.run) {
-      playerModelUi.run.innerHTML = "";
-      const placeholder = document.createElement("option");
-      placeholder.value = "";
-      placeholder.textContent = "(auto)";
-      playerModelUi.run.appendChild(placeholder);
       for (const action of playerModelLayer.actions) {
-        const name = action.getClip().name || "clip";
-        const opt = document.createElement("option");
-        opt.value = name;
-        opt.textContent = name;
-        playerModelUi.run.appendChild(opt);
-        const lower = name.toLowerCase();
-        if (!playerModelLayer.actionMap.run && lower.includes("run")) {
-          playerModelLayer.actionMap.run = name;
-          opt.selected = true;
-        }
-        if (!playerModelLayer.actionMap.walk && lower.includes("walk")) {
-          playerModelLayer.actionMap.walk = name;
-        }
-        if (!playerModelLayer.actionMap.run && lower.includes("fast")) {
-          playerModelLayer.actionMap.run = name;
-          opt.selected = true;
-        }
-        if (!playerModelLayer.actionMap.walk && lower.includes("slow")) {
-          playerModelLayer.actionMap.walk = name;
-        }
+        applyActionNameHeuristics(action.getClip().name || "clip");
       }
+      rebuildRunSelectOptions();
     }
     updatePlayerModelScale();
     setModelVisibility(true);
@@ -2624,6 +2625,74 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
       if (cleanup) cleanup();
       setModelStatus("Failed to load .glb");
       console.error("GLB load failed", err);
+    });
+  }
+
+  function rebuildRunSelectOptions() {
+    if (!playerModelUi.run) return;
+    playerModelUi.run.innerHTML = "";
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "(auto)";
+    playerModelUi.run.appendChild(placeholder);
+    const seen = new Set();
+    for (const action of playerModelLayer.actions) {
+      const name = action.getClip().name || "clip";
+      if (seen.has(name)) continue;
+      seen.add(name);
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      if (playerModelLayer.actionMap.run === name) opt.selected = true;
+      playerModelUi.run.appendChild(opt);
+    }
+  }
+
+  function applyActionNameHeuristics(name) {
+    const lower = name.toLowerCase();
+    if (!playerModelLayer.actionMap.run && (lower.includes("run") || lower.includes("fast"))) {
+      playerModelLayer.actionMap.run = name;
+    }
+    if (!playerModelLayer.actionMap.walk && (lower.includes("walk") || lower.includes("slow"))) {
+      playerModelLayer.actionMap.walk = name;
+    }
+  }
+
+  function addClipsToMixer(clips, preferredSlot = null) {
+    if (!playerModelLayer.model) {
+      setModelStatus("Load a base model first");
+      return;
+    }
+    if (!playerModelLayer.mixer) {
+      playerModelLayer.mixer = new THREE.AnimationMixer(playerModelLayer.model);
+    }
+    for (const clip of clips || []) {
+      const action = playerModelLayer.mixer.clipAction(clip);
+      playerModelLayer.actions.push(action);
+      const name = clip.name || "clip";
+      applyActionNameHeuristics(name);
+      if (preferredSlot === "run" && !playerModelLayer.actionMap.run) {
+        playerModelLayer.actionMap.run = name;
+      }
+    }
+    rebuildRunSelectOptions();
+    setModelStatus("Animations added");
+  }
+
+  function loadAnimationsFromFile(file, preferredSlot = null) {
+    if (!playerModelLayer.loader) return;
+    const url = URL.createObjectURL(file);
+    playerModelLayer.loader.load(url, (gltf) => {
+      URL.revokeObjectURL(url);
+      if (gltf?.animations?.length) {
+        addClipsToMixer(gltf.animations, preferredSlot);
+      } else {
+        setModelStatus("No animations in file");
+      }
+    }, undefined, (err) => {
+      URL.revokeObjectURL(url);
+      setModelStatus("Failed to load animations");
+      console.error("Animation load failed", err);
     });
   }
 
