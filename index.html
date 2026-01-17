@@ -1199,6 +1199,7 @@ import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
     actionMap: { idle: null, walk: null, run: null, jump: null },
     currentState: null,
     lastSpeedFactor: 1,
+    animRigRoot: null,
   };
   const playerModelUi = {
     bar: null,
@@ -2684,6 +2685,10 @@ import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
     playerModelLayer.modelBaseHeight = size.y || 1;
     playerModelLayer.scene.add(model);
     playerModelLayer.model = model;
+    // if we have a dedicated animation rig loaded earlier, keep it; otherwise default to this model
+    if (!playerModelLayer.animRigRoot) {
+      playerModelLayer.animRigRoot = model;
+    }
     if (playerModelLayer.mixer) {
       playerModelLayer.mixer.stopAllAction();
     }
@@ -2902,17 +2907,35 @@ import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
     });
   }
 
+  function hasSkinnedMesh(root) {
+    let found = null;
+    root.traverse?.((child) => {
+      if (found) return;
+      if (child.isSkinnedMesh) found = child;
+    });
+    return found;
+  }
+
   function retargetClipsToModel(clips, sourceRoot = null) {
     if (!clips || !clips.length || !playerModelLayer.model) return [];
+    const target = playerModelLayer.model;
+    const hasTargetSkin = hasSkinnedMesh(target);
+    const srcRoot = sourceRoot || playerModelLayer.animRigRoot || target;
+    const hasSrcSkin = hasSkinnedMesh(srcRoot);
+    if (!hasTargetSkin || !hasSrcSkin) {
+      console.warn("Retarget skipped: missing skinned mesh", { hasTargetSkin, hasSrcSkin });
+      setModelStatus("No skinned mesh to retarget; animation may not play.");
+      return clips;
+    }
     try {
       return clips.map((clip) => {
-        const src = sourceRoot || playerModelLayer.model;
-        const retargeted = SkeletonUtils.retargetClip(playerModelLayer.model, src, clip);
+        const retargeted = SkeletonUtils.retargetClip(target, srcRoot, clip);
         retargeted.name = clip.name || retargeted.name;
         return retargeted;
       });
     } catch (err) {
       console.warn("Retarget failed, using raw clips", err);
+      setModelStatus("Retarget failed; playing raw clip");
       return clips;
     }
   }
@@ -2921,6 +2944,9 @@ import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
     if (!playerModelLayer.loader) return;
     playerModelLayer.loader.load(url, (gltf) => {
       if (gltf?.animations?.length) {
+        if (gltf.scene) {
+          playerModelLayer.animRigRoot = gltf.scene;
+        }
         const retargeted = retargetClipsToModel(gltf.animations, gltf.scene || null);
         addClipsToMixer(retargeted, preferredSlot);
       } else {
