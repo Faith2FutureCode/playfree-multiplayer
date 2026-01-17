@@ -1194,6 +1194,7 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     modelScaleBias: 1,
     targetHeight: null,
     dom: null,
+    actionMap: { run: null },
   };
   const playerModelUi = {
     bar: null,
@@ -2430,6 +2431,18 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     const status = document.createElement("span");
     status.className = "status";
     status.textContent = "3D disabled";
+    const runLabel = document.createElement("span");
+    runLabel.textContent = "Run clip";
+    const runSelect = document.createElement("select");
+    runSelect.style.minWidth = "140px";
+    runSelect.style.font = '12px "Press Start 2P", "VT323", monospace';
+    runSelect.style.background = "#0f182a";
+    runSelect.style.color = "#dfe7ff";
+    runSelect.style.border = "2px solid #000";
+    runSelect.style.padding = "4px 6px";
+    runSelect.addEventListener("change", () => {
+      playerModelLayer.actionMap.run = runSelect.value || null;
+    });
     const fileInput = document.createElement("input");
     fileInput.type = "file";
     fileInput.accept = ".glb";
@@ -2447,7 +2460,7 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
       updatePlayerModelScale();
     });
 
-    bar.append(loadBtn, toggleBtn, scaleLabel, scaleInput, status, fileInput);
+    bar.append(loadBtn, toggleBtn, scaleLabel, scaleInput, runLabel, runSelect, status, fileInput);
     document.body.appendChild(bar);
     playerModelUi.bar = bar;
     playerModelUi.status = status;
@@ -2455,6 +2468,7 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     playerModelUi.load = loadBtn;
     playerModelUi.scale = scaleInput;
     playerModelUi.file = fileInput;
+    playerModelUi.run = runSelect;
   }
 
   function initPlayerModelLayer() {
@@ -2513,7 +2527,13 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
   function setPlayerModelAction(label) {
     if (!playerModelLayer.mixer || playerModelLayer.actions.length === 0) return;
     const normalized = (label || "").toLowerCase();
-    const next = playerModelLayer.actions.find((a) => (a.getClip().name || "").toLowerCase().includes(normalized)) || playerModelLayer.actions[0];
+    let next = null;
+    if (normalized === "run" && playerModelLayer.actionMap.run) {
+      next = playerModelLayer.actions.find((a) => (a.getClip().name || "") === playerModelLayer.actionMap.run);
+    }
+    if (!next) {
+      next = playerModelLayer.actions.find((a) => (a.getClip().name || "").toLowerCase().includes(normalized)) || playerModelLayer.actions[0];
+    }
     if (next === playerModelLayer.activeAction) return;
     if (playerModelLayer.activeAction) {
       playerModelLayer.activeAction.fadeOut(0.08);
@@ -2556,6 +2576,24 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     playerModelLayer.mixer = gltf.animations?.length ? new THREE.AnimationMixer(model) : null;
     playerModelLayer.actions = playerModelLayer.mixer ? gltf.animations.map((clip) => playerModelLayer.mixer.clipAction(clip)) : [];
     playerModelLayer.activeAction = null;
+    if (playerModelUi.run) {
+      playerModelUi.run.innerHTML = "";
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "(auto)";
+      playerModelUi.run.appendChild(placeholder);
+      for (const action of playerModelLayer.actions) {
+        const name = action.getClip().name || "clip";
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = name;
+        playerModelUi.run.appendChild(opt);
+        if (!playerModelLayer.actionMap.run && name.toLowerCase().includes("run")) {
+          playerModelLayer.actionMap.run = name;
+          opt.selected = true;
+        }
+      }
+    }
     updatePlayerModelScale();
     setModelVisibility(true);
     setModelStatus(playerModelLayer.actions.length ? "Animations loaded" : "Loaded (no clips)");
