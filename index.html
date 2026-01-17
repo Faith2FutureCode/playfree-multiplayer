@@ -679,6 +679,47 @@
       pointer-events: none;
     }
     .debug-panel div { display:flex; justify-content: space-between; gap: 8px; }
+    #player-model-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 4;
+    }
+    .model-loader {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(11,16,32,0.85);
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: 0 6px 12px rgba(0,0,0,0.35);
+      padding: 6px 8px;
+      border-radius: 10px;
+      color: #dfe7ff;
+      font: 12px "Press Start 2P", "VT323", monospace;
+      z-index: 1002;
+    }
+    .model-loader button {
+      background: #123;
+      border: 2px solid #000;
+      color: #f6d341;
+      padding: 6px 8px;
+      font: 12px "Press Start 2P", "VT323", monospace;
+      cursor: pointer;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08);
+      white-space: nowrap;
+    }
+    .model-loader .status {
+      color: #9fb3ff;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .model-loader input[type="range"] {
+      accent-color: #f6d341;
+      cursor: pointer;
+    }
 
     /* Inventory overlay (SMB3-style) */
     .inventory-overlay {
@@ -1021,6 +1062,8 @@
   </div>
 </div>
 
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.160.0/examples/js/loaders/GLTFLoader.js"></script>
 <script>
 (() => {
   // -----------------------------
@@ -1122,6 +1165,32 @@
   let customPaletteSheetScale = 1;
   let customPaletteSheetCols = null;
   let customPaletteSheetRows = null;
+  const hasThree = typeof THREE !== "undefined" && typeof THREE.WebGLRenderer !== "undefined";
+  const playerModelLayer = {
+    ready: false,
+    enabled: false,
+    renderer: null,
+    scene: null,
+    camera: null,
+    loader: null,
+    mixer: null,
+    actions: [],
+    activeAction: null,
+    model: null,
+    modelSize: null,
+    modelBaseHeight: 1,
+    modelScaleBias: 1,
+    targetHeight: null,
+    dom: null,
+  };
+  const playerModelUi = {
+    bar: null,
+    status: null,
+    toggle: null,
+    load: null,
+    scale: null,
+    file: null,
+  };
   const setAuthorClass = (enabled) => {
     const wasAuthor = document.body.classList.contains("author");
     document.body.classList.toggle("author", enabled);
@@ -2291,12 +2360,229 @@
     canvas.height = BASE_H;
     const displayW = BASE_W * scale;
     const displayH = BASE_H * scale;
+    resizePlayerModelRenderer(displayW, displayH);
     const frameW = frameBaseW * scale;
     const frameH = frameBaseH * scale;
     canvas.style.width = `${displayW}px`;
     canvas.style.height = `${displayH}px`;
     applyLayoutVars(frameW, frameH, displayW, displayH);
   };
+
+  function resizePlayerModelRenderer(displayW, displayH) {
+    if (!playerModelLayer.renderer) return;
+    playerModelLayer.renderer.setSize(BASE_W, BASE_H, false);
+    const dom = playerModelLayer.renderer.domElement;
+    if (dom) {
+      dom.style.width = `${displayW}px`;
+      dom.style.height = `${displayH}px`;
+    }
+  }
+
+  function setModelStatus(text) {
+    if (playerModelUi.status) playerModelUi.status.textContent = text;
+  }
+
+  function setModelVisibility(show) {
+    const next = show && !!playerModelLayer.model;
+    playerModelLayer.enabled = next;
+    if (playerModelLayer.dom) {
+      playerModelLayer.dom.style.display = next ? "block" : "none";
+    }
+    if (playerModelUi.toggle) {
+      playerModelUi.toggle.textContent = next ? "Hide 3D" : "Show 3D";
+    }
+    setModelStatus(next ? "3D player ready" : "3D player hidden");
+  }
+
+  function setupPlayerModelUi() {
+    if (playerModelUi.bar || !document.body || !hasThree) return;
+    const bar = document.createElement("div");
+    bar.className = "model-loader";
+    const loadBtn = document.createElement("button");
+    loadBtn.type = "button";
+    loadBtn.textContent = "Load .glb";
+    const toggleBtn = document.createElement("button");
+    toggleBtn.type = "button";
+    toggleBtn.textContent = "Show 3D";
+    const scaleLabel = document.createElement("span");
+    scaleLabel.textContent = "Scale";
+    const scaleInput = document.createElement("input");
+    scaleInput.type = "range";
+    scaleInput.min = "0.4";
+    scaleInput.max = "2.5";
+    scaleInput.step = "0.05";
+    scaleInput.value = "1";
+    const status = document.createElement("span");
+    status.className = "status";
+    status.textContent = "3D disabled";
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.accept = ".glb";
+    fileInput.style.display = "none";
+
+    loadBtn.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (ev) => {
+      const file = ev.target.files?.[0];
+      if (file) loadPlayerModelFromFile(file);
+      fileInput.value = "";
+    });
+    toggleBtn.addEventListener("click", () => setModelVisibility(!playerModelLayer.enabled));
+    scaleInput.addEventListener("input", () => {
+      playerModelLayer.modelScaleBias = Number.parseFloat(scaleInput.value) || 1;
+      updatePlayerModelScale();
+    });
+
+    bar.append(loadBtn, toggleBtn, scaleLabel, scaleInput, status, fileInput);
+    document.body.appendChild(bar);
+    playerModelUi.bar = bar;
+    playerModelUi.status = status;
+    playerModelUi.toggle = toggleBtn;
+    playerModelUi.load = loadBtn;
+    playerModelUi.scale = scaleInput;
+    playerModelUi.file = fileInput;
+  }
+
+  function initPlayerModelLayer() {
+    if (!hasThree || playerModelLayer.ready || !gameShell) return;
+    const dom = document.createElement("div");
+    dom.id = "player-model-layer";
+    gameShell.appendChild(dom);
+    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(BASE_W, BASE_H, false);
+    renderer.setClearAlpha(0);
+    renderer.domElement.style.position = "absolute";
+    renderer.domElement.style.inset = "0";
+    renderer.domElement.style.pointerEvents = "none";
+    renderer.domElement.style.display = "block";
+    renderer.domElement.style.width = canvas.style.width || `${BASE_W}px`;
+    renderer.domElement.style.height = canvas.style.height || `${BASE_H}px`;
+    dom.appendChild(renderer.domElement);
+    const halfW = BASE_W / 2;
+    const halfH = BASE_H / 2;
+    const camera = new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, 0.1, 2000);
+    camera.position.set(0, 0, 500);
+    camera.lookAt(0, 0, 0);
+    const scene = new THREE.Scene();
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x404040, 1.1));
+    const dir = new THREE.DirectionalLight(0xffffff, 0.75);
+    dir.position.set(1.5, 2.5, 3.5);
+    scene.add(dir);
+    playerModelLayer.renderer = renderer;
+    playerModelLayer.scene = scene;
+    playerModelLayer.camera = camera;
+    playerModelLayer.loader = new THREE.GLTFLoader();
+    playerModelLayer.clock = new THREE.Clock();
+    playerModelLayer.dom = dom;
+    playerModelLayer.ready = true;
+    resizePlayerModelRenderer(canvas.clientWidth || BASE_W, canvas.clientHeight || BASE_H);
+    setupPlayerModelUi();
+    setModelVisibility(false);
+  }
+
+  function updatePlayerModelScale() {
+    if (!playerModelLayer.model) return;
+    const target = player.big ? 22 : 14;
+    const base = playerModelLayer.modelBaseHeight || 1;
+    const scalar = (target / base) * (playerModelLayer.modelScaleBias || 1);
+    playerModelLayer.model.scale.setScalar(scalar);
+    playerModelLayer.targetHeight = target;
+  }
+
+  function setPlayerModelAction(label) {
+    if (!playerModelLayer.mixer || playerModelLayer.actions.length === 0) return;
+    const normalized = (label || "").toLowerCase();
+    const next = playerModelLayer.actions.find((a) => (a.getClip().name || "").toLowerCase().includes(normalized)) || playerModelLayer.actions[0];
+    if (next === playerModelLayer.activeAction) return;
+    if (playerModelLayer.activeAction) {
+      playerModelLayer.activeAction.fadeOut(0.08);
+    }
+    next.reset();
+    next.enabled = true;
+    next.fadeIn(0.08);
+    next.play();
+    playerModelLayer.activeAction = next;
+  }
+
+  function useLoadedPlayerModel(gltf) {
+    if (!playerModelLayer.ready) return;
+    if (playerModelLayer.model) {
+      playerModelLayer.scene.remove(playerModelLayer.model);
+    }
+    const model = gltf.scene || (gltf.scenes && gltf.scenes[0]);
+    if (!model) {
+      setModelStatus("No scene in .glb");
+      return;
+    }
+    const box = new THREE.Box3().setFromObject(model);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    model.position.sub(center);
+    model.position.y -= size.y / 2;
+    model.traverse((child) => {
+      if (child.isMesh) {
+        child.castShadow = false;
+        child.receiveShadow = false;
+      }
+    });
+    playerModelLayer.modelSize = size;
+    playerModelLayer.modelBaseHeight = size.y || 1;
+    playerModelLayer.scene.add(model);
+    playerModelLayer.model = model;
+    if (playerModelLayer.mixer) {
+      playerModelLayer.mixer.stopAllAction();
+    }
+    playerModelLayer.mixer = gltf.animations?.length ? new THREE.AnimationMixer(model) : null;
+    playerModelLayer.actions = playerModelLayer.mixer ? gltf.animations.map((clip) => playerModelLayer.mixer.clipAction(clip)) : [];
+    playerModelLayer.activeAction = null;
+    updatePlayerModelScale();
+    setModelVisibility(true);
+    setModelStatus(playerModelLayer.actions.length ? "Animations loaded" : "Loaded (no clips)");
+  }
+
+  function loadPlayerModelFromUrl(url, cleanup) {
+    if (!playerModelLayer.loader) return;
+    setModelStatus("Loading .glb...");
+    playerModelLayer.loader.load(url, (gltf) => {
+      if (cleanup) cleanup();
+      useLoadedPlayerModel(gltf);
+    }, undefined, (err) => {
+      if (cleanup) cleanup();
+      setModelStatus("Failed to load .glb");
+      console.error("GLB load failed", err);
+    });
+  }
+
+  function loadPlayerModelFromFile(file) {
+    if (!playerModelLayer.loader) return;
+    const url = URL.createObjectURL(file);
+    loadPlayerModelFromUrl(url, () => URL.revokeObjectURL(url));
+  }
+
+  function updatePlayerModelLayer(dt) {
+    if (!playerModelLayer.enabled || !playerModelLayer.model || !playerModelLayer.renderer || !playerModelLayer.camera) return;
+    const desiredHeight = player.big ? 22 : 14;
+    if (playerModelLayer.targetHeight !== desiredHeight) {
+      updatePlayerModelScale();
+    }
+    if (playerModelLayer.mixer) {
+      playerModelLayer.mixer.update(dt);
+    }
+    const halfW = BASE_W / 2;
+    const halfH = BASE_H / 2;
+    const screenX = player.x - cam.x + player.w / 2;
+    const screenY = player.y - cam.y + player.h;
+    const posX = screenX - halfW;
+    const posY = halfH - screenY;
+    playerModelLayer.model.position.set(posX, posY, 0);
+    playerModelLayer.model.rotation.y = player.facing >= 0 ? Math.PI : 0;
+    const speed = Math.abs(player.vx);
+    if (!player.onGround) setPlayerModelAction("jump");
+    else if (speed > 140) setPlayerModelAction("run");
+    else if (speed > 20) setPlayerModelAction("walk");
+    else setPlayerModelAction("idle");
+    playerModelLayer.renderer.render(playerModelLayer.scene, playerModelLayer.camera);
+  }
 
   applyScale();
   window.addEventListener("resize", applyScale);
@@ -2306,6 +2592,10 @@
   }
   ctx.imageSmoothingEnabled = false;
   g.imageSmoothingEnabled = false;
+
+  if (hasThree) {
+    initPlayerModelLayer();
+  }
 
   let prevGridOn = showGrid;
   function setEditorOpen(next) {
@@ -7761,6 +8051,7 @@
     ensureBgmForBiome(longitudeState.biomeId);
     tickBgmFade(performance.now());
     render();
+    updatePlayerModelLayer(dt);
     flushDemoCapture();
     requestAnimationFrame(frame);
   }
