@@ -2764,6 +2764,7 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
 
   function updatePlayerModelLayer(dt) {
     if (!playerModelLayer.enabled || !playerModelLayer.model || !playerModelLayer.renderer || !playerModelLayer.camera) return;
+    const runHeldNow = !!lastRunHeld;
     const desiredHeight = player.big ? 22 : 14;
     if (playerModelLayer.targetHeight !== desiredHeight) {
       updatePlayerModelScale();
@@ -2782,7 +2783,7 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     const speed = Math.abs(player.vx);
     if (!player.onGround) {
       setPlayerModelAction("jump");
-    } else if (runHeld && speed > 20) {
+    } else if (runHeldNow && speed > 20) {
       // run key accelerates: play run as soon as the key is held and player is moving
       setPlayerModelAction("run");
     } else if (speed > 140) {
@@ -6330,6 +6331,7 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     hammerCharge: 0,
     hammerCharging: false,
   };
+  let lastRunHeld = false;
   updateLongitudeState((player.x + player.w / 2));
   let powerFormStats = new Map(); // form -> { maxDistance, enterDistance }
   let currentFormEntryDist = 0;
@@ -6873,6 +6875,7 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
     const moveLeft = player.statueActive ? false : left;
     const moveRight = player.statueActive ? false : right;
     const runHeld = player.statueActive ? false : run;
+    lastRunHeld = runHeld;
     const accelCurve = runHeld ? RUN_ACCEL_CURVE : WALK_ACCEL_CURVE;
     const wantsRun = runHeld && (moveLeft !== moveRight);
     const hasPSpeed = player.pCharge >= 1;
