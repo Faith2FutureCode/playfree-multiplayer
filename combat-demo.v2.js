@@ -815,10 +815,17 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
     }
     return heroPlaceholder[idx % heroPlaceholder.length];
   };
-  heroSpriteEls.forEach((el, idx) => {
-    el.style.backgroundImage = `url(${heroSpriteForIndex(idx)})`;
-    el.style.transformOrigin = "50% 100%";
-  });
+  const updateHeroSpriteImages = () => {
+    heroSpriteEls.forEach((el, idx) => {
+      const src = heroSpriteForIndex(idx);
+      if (src && el.dataset.bg !== src) {
+        el.style.backgroundImage = `url(${src})`;
+        el.dataset.bg = src;
+      }
+      el.style.transformOrigin = "50% 100%";
+    });
+  };
+  updateHeroSpriteImages();
   bossSpriteEl.style.transformOrigin = "50% 100%";
 
   const TILE_SIZE = window.TILE || 16;
@@ -1133,6 +1140,7 @@ console.info("Combat demo ready: window.combatDemo.tick(), .intent(), .wave(), .
   }
 
   function render() {
+    updateHeroSpriteImages();
     const s = state;
     stageLabel.textContent = `Stage: ${phase}`;
     snapshotLabel.textContent = snapshotInfo
